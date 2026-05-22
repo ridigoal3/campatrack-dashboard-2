@@ -1,0 +1,9 @@
+{
+  "name": "campatrack-dashboard",
+  "private": true,
+  "scripts": {
+    "api": "node server/index.js",
+    "build": "node -e \"console.log('CampaTrack: sitio estático, sin paso de build.')\"",
+    "start": "node -e \"console.log('Abre index.html con un servidor estático o despliega en Vercel.')\""
+  }
+}

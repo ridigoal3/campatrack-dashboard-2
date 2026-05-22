@@ -1,0 +1,2370 @@
+�<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampaTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div
+    id="campatrackGithubSetupOverlay"
+    class="campatrack-setup-overlay hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="ghSetupTitle"
+    aria-hidden="true"
+  >
+    <div class="campatrack-setup-card table-card">
+      <div class="campatrack-setup-brand" aria-hidden="true">
+        <img class="campatrack-setup-logo" src="assets/campatrack-logo.png" alt="" width="200" height="72" />
+      </div>
+      <h2 id="ghSetupTitle" class="campatrack-setup-title">Conecta tu almacén GitHub</h2>
+      <p class="campatrack-setup-lead">
+        CampaTrack cargará el núcleo en <strong>data.json</strong> y datasets mensuales en <strong>meta/</strong> y <strong>crm/</strong>. Necesitamos el enlace del repo y un token con permisos de contenido.
+      </p>
+      <form id="campatrackGithubSetupForm" class="campatrack-setup-form" novalidate>
+        <label class="campatrack-setup-field">
+          <span class="campatrack-setup-label">Repositorio (URL o owner/repo)</span>
+          <input id="ghSetupRepo" class="campatrack-setup-input" type="text" required autocomplete="off" placeholder="https://github.com/mi-org/mi-repo" />
+        </label>
+        <label class="campatrack-setup-field">
+          <span class="campatrack-setup-label">Token GitHub (fine-grained o classic con repo scope)</span>
+          <input id="ghSetupToken" class="campatrack-setup-input" type="password" required autocomplete="off" placeholder="ghp_⬦ o github_pat_⬦" />
+        </label>
+        <p id="ghSetupError" class="campatrack-setup-error hidden" role="alert"></p>
+        <button type="submit" class="campatrack-setup-submit btn-toolbar btn-primary">
+          <span>Validar y guardar</span>
+          <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+        </button>
+      </form>
+      <p class="campatrack-setup-footnote">
+        <i class="fa-solid fa-lock" aria-hidden="true"></i> El token se guarda solo en este navegador. Revócalo en GitHub si lo compartes por error.
+      </p>
+    </div>
+  </div>
+
+  <div
+    id="campatrackAppGateLoader"
+    class="campatrack-app-gate-loader hidden"
+    role="status"
+    aria-live="polite"
+    aria-hidden="true"
+  >
+    <div class="campatrack-app-gate-loader-card table-card">
+      <div class="campatrack-app-gate-spinner" aria-hidden="true"></div>
+      <p class="campatrack-app-gate-loader-title">Cargando tu workspace</p>
+      <p id="campatrackAppGateLoaderMsg" class="campatrack-app-gate-loader-msg">Conectando con GitHub y preparando datos⬦</p>
+    </div>
+  </div>
+
+  <div id="loginScreen" class="campatrack-login" role="dialog" aria-modal="true" aria-labelledby="campatrackLoginFormHeading">
+    <div class="campatrack-login-page">
+      <div class="campatrack-login-page-bg" aria-hidden="true"></div>
+      <div class="campatrack-login-frame">
+        <div class="campatrack-login-card campatrack-login-card--elevated">
+          <div class="campatrack-login-split">
+            <aside class="campatrack-login-brand" aria-label="Branding CampaTrack">
+              <div class="campatrack-login-brand-glow" aria-hidden="true"></div>
+              <div class="campatrack-login-brand-inner">
+                <div class="campatrack-login-brand-logo-wrap campatrack-login-reveal campatrack-login-reveal--1">
+                  <img class="campatrack-login-logo" src="assets/campatrack-logo.png" alt="CampaTrack" width="320" height="120" />
+                </div>
+                <h1 class="campatrack-login-headline campatrack-login-reveal campatrack-login-reveal--2">Control total de tus campañas</h1>
+                <p class="campatrack-login-subline campatrack-login-reveal campatrack-login-reveal--3">
+                  Planifica, ejecuta y analiza en un solo lugar. Toma decisiones con datos claros y seguimiento en tiempo real.
+                </p>
+                <div class="campatrack-login-hero campatrack-login-reveal campatrack-login-reveal--4" aria-hidden="true">
+                  <div class="campatrack-login-laptop">
+                    <div class="campatrack-login-laptop-screen">
+                      <div class="campatrack-login-chart campatrack-login-chart--bars"></div>
+                      <div class="campatrack-login-chart campatrack-login-chart--line"></div>
+                      <div class="campatrack-login-chart campatrack-login-chart--donut"></div>
+                    </div>
+                    <div class="campatrack-login-laptop-base"></div>
+                  </div>
+                  <div class="campatrack-login-float-card campatrack-login-float-card--a">
+                    <i class="fa-solid fa-wallet" aria-hidden="true"></i>
+                    <span>Inversión total</span>
+                    <strong>$4,650,915</strong>
+                  </div>
+                  <div class="campatrack-login-float-card campatrack-login-float-card--b">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                    <span>CTR promedio</span>
+                    <strong>0.80%</strong>
+                  </div>
+                  <div class="campatrack-login-float-card campatrack-login-float-card--c">
+                    <i class="fa-solid fa-user-group" aria-hidden="true"></i>
+                    <span>Leads generados</span>
+                    <strong>9,171</strong>
+                  </div>
+                </div>
+              </div>
+            </aside>
+            <section class="campatrack-login-panel" id="campatrackLoginFormCard" aria-label="Iniciar sesión">
+              <div class="campatrack-login-panel-inner campatrack-login-panel-animate">
+                <header class="campatrack-login-panel-header">
+                  <h2 id="campatrackLoginFormHeading" class="campatrack-login-form-heading">Bienvenido de vuelta</h2>
+                  <p class="campatrack-login-form-sub">Inicia sesión para continuar</p>
+                </header>
+                <form id="campatrackLoginForm" class="campatrack-login-form" novalidate>
+                  <div class="campatrack-login-field">
+                    <label class="campatrack-login-label" for="campatrackUser">Usuario</label>
+                    <div class="campatrack-login-input-wrap">
+                      <span class="campatrack-login-input-ico" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+                      <input id="campatrackUser" name="username" type="text" autocomplete="username" required class="campatrack-login-input" placeholder="Ingresa tu usuario" />
+                    </div>
+                  </div>
+                  <div class="campatrack-login-field">
+                    <label class="campatrack-login-label" for="campatrackPass">Contraseña</label>
+                    <div class="campatrack-login-input-wrap">
+                      <span class="campatrack-login-input-ico" aria-hidden="true"><i class="fa-solid fa-lock"></i></span>
+                      <input id="campatrackPass" name="password" type="password" autocomplete="current-password" required class="campatrack-login-input campatrack-login-input--has-toggle" placeholder="Ingresa tu contraseña" />
+                      <button type="button" class="campatrack-login-pass-toggle" id="campatrackPassToggle" aria-label="Mostrar contraseña" aria-pressed="false" tabindex="0">
+                        <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <p id="campatrackLoginError" class="campatrack-login-error hidden" role="alert">Credenciales incorrectas</p>
+                  <button type="submit" class="campatrack-login-submit">
+                    <span>Ingresar</span>
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                  </button>
+                </form>
+              </div>
+            </section>
+          </div>
+        </div>
+        <p class="campatrack-login-security-note">
+          <i class="fa-solid fa-lock" aria-hidden="true"></i>
+          Tu información está protegida con encriptación SSL
+        </p>
+        <footer class="footer-login">© 2026 CampaTrack · Elaborado por Ricardo Gonzales</footer>
+      </div>
+    </div>
+  </div>
+
+  <div id="appDialogOverlay" class="app-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="appDialogMessage">
+    <div class="app-dialog" role="document">
+      <p id="appDialogMessage" class="app-dialog-message"></p>
+      <div class="app-dialog-actions">
+        <button type="button" id="appDialogPrimary" class="app-dialog-btn app-dialog-btn-primary"></button>
+        <button type="button" id="appDialogSecondary" class="app-dialog-btn app-dialog-btn-secondary"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainAppShell" class="hidden campatrack-app-shell campatrack-sidebar-collapsed">
+  <aside class="campatrack-sidebar" aria-label="Navegación principal">
+    <div class="campatrack-sidebar-header">
+      <button type="button" id="campatrackSidebarToggle" class="campatrack-sidebar-toggle" aria-expanded="true" aria-controls="campatrackSidebarNav" title="Colapsar menú">
+        <i class="fa-solid fa-angles-left campatrack-sidebar-toggle-ico campatrack-sidebar-toggle-ico--when-expanded" aria-hidden="true"></i>
+        <i class="fa-solid fa-angles-right campatrack-sidebar-toggle-ico campatrack-sidebar-toggle-ico--when-collapsed" aria-hidden="true"></i>
+      </button>
+      <div class="campatrack-sidebar-brand"><span class="campatrack-sidebar-brand-text">CampaTrack</span></div>
+    </div>
+    <nav id="campatrackSidebarNav" class="campatrack-sidebar-nav" aria-label="Módulos">
+      <button id="tabDashboard" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-chart-pie campatrack-side-ico" aria-hidden="true"></i><span>Dashboard</span></button>
+      <button id="tabPlanning" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-calendar-days campatrack-side-ico" aria-hidden="true"></i><span>Planning</span></button>
+      <button id="tabCentroCostos" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-wallet campatrack-side-ico" aria-hidden="true"></i><span>Centro de costos</span></button>
+      <button id="tabData" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-table campatrack-side-ico" aria-hidden="true"></i><span>Data</span></button>
+      <button id="tabRelaciones" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-diagram-project campatrack-side-ico" aria-hidden="true"></i><span>Relaciones</span></button>
+      <button id="tabMedidas" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-ruler-combined campatrack-side-ico" aria-hidden="true"></i><span>Medidas</span></button>
+      <button id="tabReporteAnuncios" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-bullhorn campatrack-side-ico" aria-hidden="true"></i><span>Reporte de anuncios</span></button>
+      <button id="tabBitacora" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-clipboard-list campatrack-side-ico" aria-hidden="true"></i><span>Bitácora</span></button>
+      <button id="tabAuditoria" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-clipboard-check campatrack-side-ico" aria-hidden="true"></i><span>Auditoría</span></button>
+      <button id="tabConfiguracion" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-gear campatrack-side-ico" aria-hidden="true"></i><span>Configuración</span></button>
+      <button id="tabUsuarios" class="tab campatrack-side-nav-item" type="button"><i class="fa-solid fa-users campatrack-side-ico" aria-hidden="true"></i><span>Usuarios</span></button>
+    </nav>
+    <div class="campatrack-sidebar-spacer" aria-hidden="true"></div>
+    <div class="campatrack-sidebar-footer">
+      <p class="campatrack-sidebar-footer-title">Configuración</p>
+      <div id="campatrackSidebarToolBtns" class="campatrack-sidebar-tool-btns" aria-label="Acciones de configuración"></div>
+    </div>
+  </aside>
+  <div class="campatrack-main-column">
+  <header class="campatrack-top-header" role="banner">
+    <div class="campatrack-top-header-title app-saas-topbar-dashbind" aria-live="polite">
+      <div class="app-saas-topbar-dashbind-inner">
+        <span class="app-saas-topbar-dashbind-ico-wrap" aria-hidden="true">
+          <i id="appTopbarDashIco" class="fa-solid fa-chart-pie app-saas-topbar-dashbind-ico"></i>
+        </span>
+        <span id="appTopbarDashTitle" class="app-saas-topbar-dashbind-title">Dashboard</span>
+      </div>
+      <div id="campatrackDashHeaderSubtabsWrap" class="campatrack-dash-header-subtabs hidden" aria-hidden="true">
+        <div id="dashMainSubtabs" class="dash-dashboard-header-tabs" role="tablist" aria-label="Vista de dashboard">
+          <button
+            id="dashTabPlataforma"
+            class="dash-dashboard-header-tab dash-dashboard-header-tab--plat dash-dashboard-header-tab--active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+          >
+            Plataforma
+          </button>
+          <button id="dashTabComercialCrm" class="dash-dashboard-header-tab dash-dashboard-header-tab--crm" type="button" role="tab" aria-selected="false">
+            Comercial CRM
+          </button>
+        </div>
+      </div>
+    </div>
+    <span id="appTeamHeaderBadge" class="app-team-header-badge hidden" aria-live="polite"></span>
+    <div class="campatrack-top-header-end">
+      <div class="app-draft-toolbar" role="group" aria-label="Borrador y publicación">
+        <button type="button" id="appDraftDiscardBtn" class="app-draft-btn app-draft-btn--ghost" disabled aria-disabled="true">
+          Descartar borradores
+        </button>
+        <button type="button" id="appDraftPublishBtn" class="app-draft-btn app-draft-btn--publish" disabled aria-disabled="true" aria-label="Revisar y publicar (sin cambios)">
+          <span class="app-draft-publish-label">Revisar y publicar</span>
+        </button>
+      </div>
+      <button type="button" id="appThemeToggle" class="app-theme-toggle" aria-pressed="false" aria-label="Activar modo oscuro" title="Modo oscuro">
+        <span class="app-theme-toggle-track">
+          <span class="app-theme-toggle-icons" aria-hidden="true">
+            <span class="app-theme-toggle-icon app-theme-toggle-moon">�xR"</span>
+            <span class="app-theme-toggle-icon app-theme-toggle-sun">�ܬ</span>
+          </span>
+          <span class="app-theme-toggle-knob" aria-hidden="true"></span>
+        </span>
+      </button>
+      <div class="app-profile-wrap" id="appProfileWrap">
+        <div class="app-profile-row">
+          <button type="button" class="app-profile-avatar-btn" id="appProfileAvatarBtn" aria-label="Menú de usuario" aria-expanded="false" aria-controls="appProfileMenu" title="Menú de usuario"></button>
+          <div class="app-profile-meta">
+            <span id="appProfileName" class="app-profile-name">Usuario</span>
+            <span id="appProfileRole" class="app-profile-role"></span>
+          </div>
+        </div>
+        <div id="appProfileMenu" class="app-profile-menu" role="menu" aria-hidden="true">
+          <button type="button" class="app-profile-menu-item" id="appLogoutBtn" role="menuitem">Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <input id="importDataFileInput" class="hidden" type="file" accept="application/json,.json" aria-hidden="true" />
+
+  <section id="planningModule" class="hidden plan-module-saas">
+    <div class="dashboard dashboard-saas">
+
+    <div class="planning-kpi-grid" role="region" aria-label="Indicadores del planning">
+      <article class="planning-kpi-card planning-kpi-card--primary">
+        <span class="planning-kpi-icon" aria-hidden="true"><i class="fa-solid fa-sack-dollar"></i></span>
+        <span class="planning-kpi-label">Inversión total</span>
+        <span class="planning-kpi-value" id="planningKpiInversion">$0</span>
+        <span class="planning-kpi-sub">Presupuesto filtrado</span>
+        <span id="totalInversionValue" class="hidden" aria-hidden="true">$0</span>
+      </article>
+      <article class="planning-kpi-card">
+        <span class="planning-kpi-icon" aria-hidden="true"><i class="fa-solid fa-bolt"></i></span>
+        <span class="planning-kpi-label">Campañas activas</span>
+        <span class="planning-kpi-value" id="planningKpiActivas">0</span>
+        <span class="planning-kpi-sub">En ejecución</span>
+      </article>
+      <article class="planning-kpi-card">
+        <span class="planning-kpi-icon" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
+        <span class="planning-kpi-label">Impresiones estimadas</span>
+        <span class="planning-kpi-value" id="planningKpiImpresiones">0</span>
+        <span class="planning-kpi-sub">Modelo aproximado</span>
+      </article>
+      <article class="planning-kpi-card">
+        <span class="planning-kpi-icon" aria-hidden="true"><i class="fa-solid fa-computer-mouse"></i></span>
+        <span class="planning-kpi-label">Clics estimados</span>
+        <span class="planning-kpi-value" id="planningKpiClics">0</span>
+        <span class="planning-kpi-sub">Basado en metas filtradas</span>
+      </article>
+      <article class="planning-kpi-card">
+        <span class="planning-kpi-icon" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></span>
+        <span class="planning-kpi-label">Leads estimados</span>
+        <span class="planning-kpi-value" id="planningKpiLeadsTotal">0</span>
+        <span class="planning-kpi-sub">Total filas visibles</span>
+      </article>
+      <article class="planning-kpi-card">
+        <span class="planning-kpi-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+        <span class="planning-kpi-label">ROAS proyectado</span>
+        <span class="planning-kpi-value" id="planningKpiRoas">0�</span>
+        <span class="planning-kpi-sub">Valor lead referencia</span>
+      </article>
+    </div>
+
+    <div class="toolbar-row toolbar-row-saas planning-toolbar-saas" aria-label="Resumen, filtros y acciones">
+      <div class="planning-filters-saas">
+        <label class="planning-filter-field">
+          <span class="planning-filter-label">Plataforma</span>
+          <select id="filterPlataformaPlanning" class="planning-filter-control" aria-label="Filtrar por plataforma">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label class="planning-filter-field">
+          <span class="planning-filter-label">Tipo campaña</span>
+          <select id="filterTipo" class="planning-filter-control" aria-label="Filtrar por tipo">
+            <option value="">Todos</option>
+            <option value="MBA">MBA</option>
+            <option value="MA">MA</option>
+            <option value="DO">DO</option>
+            <option value="DI">DI</option>
+            <option value="PE">PE</option>
+            <option value="SE">SE</option>
+            <option value="Charla">Charla</option>
+            <option value="Webinar">Webinar</option>
+            <option value="Alcance">Alcance</option>
+          </select>
+        </label>
+        <label class="planning-filter-field">
+          <span class="planning-filter-label">Estado</span>
+          <select id="filterEstadoPlanning" class="planning-filter-control" aria-label="Filtrar por estado de campaña">
+            <option value="">Todos</option>
+            <option value="Activa">Activa</option>
+            <option value="Programada">Programada</option>
+            <option value="Pausada">Pausada</option>
+            <option value="Borrador">Borrador</option>
+          </select>
+        </label>
+        <label class="planning-filter-field planning-filter-field--search">
+          <span class="planning-filter-label">Buscar</span>
+          <input id="planningToolbarSearch" type="search" class="planning-filter-control planning-search-input" placeholder="Buscar campañas..." autocomplete="off" aria-label="Buscar en planning" />
+        </label>
+        <label class="planning-filter-field planning-filter-field--range">
+          <span class="planning-filter-label">Rango de fechas</span>
+          <input id="planningFechaRango" type="text" readonly class="planning-filter-control planning-range-input" placeholder="Todas las fechas" aria-label="Rango de fechas de campaña" />
+        </label>
+        <button type="button" id="planningFiltrosAvanzadosBtn" class="btn-toolbar planning-adv-trigger" aria-expanded="false" aria-controls="planningAdvFiltersPanel">
+          <i class="fa-solid fa-sliders" aria-hidden="true"></i> Filtros avanzados
+        </button>
+      </div>
+      <div class="toolbar-actions planning-toolbar-actions-saas">
+        <button id="newCampaignBtn" type="button" class="btn-toolbar btn-primary btn-saas-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nueva campaña</button>
+        <button id="planningImportTableBtn" type="button" class="btn-toolbar btn-saas-outline"><i class="fa-solid fa-file-import" aria-hidden="true"></i> Importar</button>
+        <button id="planningExportTableBtn" type="button" class="btn-toolbar btn-saas-outline"><i class="fa-solid fa-file-export" aria-hidden="true"></i> Exportar</button>
+        <button id="planningSanitizeDuplicatesBtn" type="button" class="btn-toolbar btn-saas-outline" title="Elimina duplicados estructurales por merges antiguos o datos legacy">
+          <i class="fa-solid fa-broom" aria-hidden="true"></i> Limpiar duplicados⬦
+        </button>
+        <button id="editRecordBtn" type="button" class="btn-toolbar btn-saas-outline" disabled>Editar</button>
+        <button id="deleteRecordBtn" type="button" class="btn-toolbar btn-danger btn-saas-outline-danger" disabled>Eliminar</button>
+      </div>
+    </div>
+
+    <div id="planningAdvFiltersPanel" class="planning-adv-filters-panel hidden" role="region" aria-hidden="true" aria-labelledby="planningAdvFiltersHeading">
+      <p id="planningAdvFiltersHeading" class="planning-adv-filters-heading">Filtros avanzados</p>
+      <div class="planning-adv-filters-inner">
+        <label class="planning-filter-field planning-filter-field--grow">
+          <span class="planning-filter-label">Programa</span>
+          <input id="filterPrograma" type="text" list="filterProgramaList" placeholder="Buscar o seleccionar" autocomplete="off" aria-label="Filtrar por programa" disabled class="planning-filter-control">
+          <datalist id="filterProgramaList"></datalist>
+        </label>
+        <label class="planning-filter-field">
+          <span class="planning-filter-label">Intake</span>
+          <select id="filterIntake" class="planning-filter-control" aria-label="Filtrar por intake">
+            <option value="">Todos</option>
+            <option value="Intake 1">Intake 1</option>
+            <option value="Intake 2">Intake 2</option>
+            <option value="Intake 3">Intake 3</option>
+            <option value="Intake 4">Intake 4</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <section class="table-card table-card-planning-saas" aria-label="Planificador de marketing">
+      <div class="table-scroll">
+        <table class="planning-table planning-table-saas">
+          <thead>
+            <tr>
+              <th class="sticky-col-tipo group-header" rowspan="2">Tipo</th>
+              <th class="sticky-col-program group-header group-end" rowspan="2">Programa</th>
+              <th class="group-header group-end" colspan="5">METAS PLANNING</th>
+              <th class="group-header group-end" colspan="7">CONFIGURACI�N</th>
+              <th class="group-header group-end" colspan="12">DISTRIBUCI�N INVERSI�N</th>
+              <th class="group-header group-end" colspan="12">DISTRIBUCI�N LEADS</th>
+              <th class="group-header group-end" colspan="12">DISTRIBUCI�N CPL</th>
+            </tr>
+            <tr>
+              <th class="planning-th-meta-plan">Leads</th>
+              <th class="planning-th-meta-plan">Inte.</th>
+              <th class="planning-th-meta-plan">Post</th>
+              <th class="planning-th-meta-plan">Matri</th>
+              <th class="planning-th-meta-plan group-end">CPL</th>
+              <th>Intake</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th>Plataforma</th>
+              <th>Tracking</th>
+              <th>Presupuesto</th>
+              <th class="group-end">Leads</th>
+              <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th><th>May</th><th>Jun</th><th>Jul</th><th>Ago</th><th>Sep</th><th>Oct</th><th>Nov</th><th class="group-end">Dic</th>
+              <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th><th>May</th><th>Jun</th><th>Jul</th><th>Ago</th><th>Sep</th><th>Oct</th><th>Nov</th><th class="group-end">Dic</th>
+              <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th><th>May</th><th>Jun</th><th>Jul</th><th>Ago</th><th>Sep</th><th>Oct</th><th>Nov</th><th class="group-end">Dic</th>
+            </tr>
+          </thead>
+          <tbody id="planningBody">
+          </tbody>
+        </table>
+      </div>
+    </section>
+    </div>
+  </section>
+
+  <section id="costCenterModule" class="hidden cc-module-saas" aria-label="Centro de costos">
+    <div class="cc-saas-inner">
+      <header class="cc-header">
+        <h1>Centro de costos</h1>
+        <p class="cc-subtitle">
+          Bolsa presupuestaria por equipo. Solo se persisten nombre e inversión total; el uso y los desgloses se derivan del Planning en vivo.
+        </p>
+      </header>
+
+      <div class="cc-kpi-grid" role="region" aria-label="Resumen de bolsa">
+        <article class="cc-kpi-card cc-kpi-card--primary">
+          <span class="cc-kpi-icon" aria-hidden="true"><i class="fa-solid fa-sack-dollar"></i></span>
+          <span class="cc-kpi-label">Presupuesto bolsa</span>
+          <span class="cc-kpi-value" id="ccKpiPresupuestoTotal">$0</span>
+          <span class="cc-kpi-sub">Suma de presupuestos base por bolsa</span>
+          <div class="cc-kpi-progress cc-kpi-progress--purple" aria-hidden="true"><span class="cc-kpi-progress-bar" id="ccKpiBarEjecucion" style="width:0%"></span></div>
+        </article>
+        <article class="cc-kpi-card">
+          <span class="cc-kpi-icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></span>
+          <span class="cc-kpi-label">Inversión usada</span>
+          <span class="cc-kpi-value" id="ccKpiInversionUsada">$0</span>
+          <span class="cc-kpi-sub" id="ccKpiInversionUsadaSub">0% del presupuesto</span>
+          <div class="cc-kpi-progress cc-kpi-progress--green" aria-hidden="true"><span class="cc-kpi-progress-bar" id="ccKpiBarUsada" style="width:0%"></span></div>
+        </article>
+        <article class="cc-kpi-card">
+          <span class="cc-kpi-icon" aria-hidden="true"><i class="fa-solid fa-piggy-bank"></i></span>
+          <span class="cc-kpi-label">Saldo</span>
+          <span class="cc-kpi-value" id="ccKpiSaldo">$0</span>
+          <span class="cc-kpi-sub" id="ccKpiSaldoSub">0% disponible</span>
+          <div class="cc-kpi-progress cc-kpi-progress--orange" aria-hidden="true"><span class="cc-kpi-progress-bar" id="ccKpiBarSaldo" style="width:0%"></span></div>
+        </article>
+        <article class="cc-kpi-card">
+          <span class="cc-kpi-icon" aria-hidden="true"><i class="fa-solid fa-chart-pie"></i></span>
+          <span class="cc-kpi-label">Ejecución</span>
+          <span class="cc-kpi-value" id="ccKpiEjecucionPct">0%</span>
+          <span class="cc-kpi-sub">Uso agregado sobre bolsa total</span>
+        </article>
+        <article class="cc-kpi-card cc-kpi-card--risk">
+          <span class="cc-kpi-icon cc-kpi-icon--risk" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
+          <span class="cc-kpi-label cc-kpi-sub--risk">Centros en riesgo</span>
+          <span class="cc-kpi-value" id="ccKpiCentrosRiesgo">0</span>
+          <span class="cc-kpi-sub">Más del 90% de la bolsa usada</span>
+        </article>
+      </div>
+
+      <div class="toolbar-row toolbar-row-saas planning-toolbar-saas" aria-label="Filtros centro de costos">
+        <div class="planning-filters-saas">
+          <label class="planning-filter-field">
+            <span class="planning-filter-label">Centro</span>
+            <select id="ccFilterAgrupador" class="planning-filter-control" aria-label="Filtrar tabla por centro">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="planning-filter-field">
+            <span class="planning-filter-label">Estado</span>
+            <select id="ccFilterEstado" class="planning-filter-control" aria-label="Filtrar por nivel de uso">
+              <option value="">Todos</option>
+              <option value="riesgo">Riesgo (&gt;90%)</option>
+              <option value="ok">OK</option>
+            </select>
+          </label>
+          <label class="planning-filter-field">
+            <span class="planning-filter-label">Desglose desde</span>
+            <input id="ccFilterDesde" type="date" class="planning-filter-control" aria-label="Fecha desde para tablas de Planning" />
+          </label>
+          <label class="planning-filter-field">
+            <span class="planning-filter-label">Desglose hasta</span>
+            <input id="ccFilterHasta" type="date" class="planning-filter-control" aria-label="Fecha hasta para tablas de Planning" />
+          </label>
+          <button type="button" id="ccClearFiltersBtn" class="btn-toolbar btn-saas-outline"><i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i> Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div class="cc-module-actions-bar">
+        <div class="cc-page-actions-saas">
+          <button id="ccAddRowBtn" type="button" class="cc-btn cc-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nuevo centro</button>
+          <button id="ccEditRowBtn" type="button" class="cc-btn cc-btn-outline"><i class="fa-solid fa-pen" aria-hidden="true"></i> Editar nombre</button>
+          <button id="ccDeleteRowBtn" type="button" class="cc-btn cc-btn-outline" disabled aria-disabled="true"><i class="fa-solid fa-trash" aria-hidden="true"></i> Eliminar</button>
+          <button id="ccExportBtn" type="button" class="cc-btn cc-btn-outline"><i class="fa-solid fa-file-export" aria-hidden="true"></i> Exportar CSV</button>
+          <div class="cc-dropdown cc-header-more-dd">
+            <button id="ccMoreActionsBtn" type="button" class="cc-btn cc-btn-outline cc-btn-icon" aria-expanded="false" aria-haspopup="true" title="Más acciones">
+              <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+            </button>
+            <div id="ccMoreActionsPanel" class="cc-dropdown-panel" role="menu" hidden>
+              <button type="button" id="ccResetModuloBtn" class="cc-dropdown-item cc-dropdown-item--danger" role="menuitem">
+                Limpiar módulo desde cero⬦
+              </button>
+              <button type="button" id="ccMoreDeleteBtn" class="cc-dropdown-item cc-dropdown-item--danger" role="menuitem" disabled>Eliminar centro seleccionado</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="cc-bolsa-table-region" aria-label="Tabla principal de bolsas">
+        <div class="cc-card-table">
+          <div class="table-scroll cc-table-scroll cc-table-scroll--saas">
+            <table id="ccMainTable" class="cc-table cc-table--saas">
+              <thead>
+                <tr>
+                  <th scope="col">Nombre</th>
+                  <th scope="col" class="cc-th-total">Inversión total</th>
+                  <th scope="col" class="cc-th-total">Inversión usada</th>
+                  <th scope="col" class="cc-th-total">Saldo</th>
+                  <th scope="col">% usado</th>
+                  <th scope="col">% restante</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col" class="cc-th-actions" aria-label="Acciones"></th>
+                </tr>
+              </thead>
+              <tbody id="ccMainBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="cc-planning-breakdown-region" aria-label="Desglose mensual por tipo, plataforma e intake (Planning)">
+        <div class="cc-planning-breakdown-head">
+          <h2 class="cc-planning-breakdown-title">Desglose desde Planning</h2>
+          <p class="cc-planning-breakdown-sub">Las tres tablas <strong>no</strong> tienen presupuesto propio: agrupan el mismo gasto de las campañas del Planning ligadas a cada bolsa. Los importes se reparten proporcionalmente por días en cada mes (columnas <strong>Ene�Dic</strong>); sin filtro de fechas, el total del desglose concuerda con el consumo reconocido contra la bolsa según esas campañas.</p>
+          <p id="ccAnalyticsScopeHint" class="cc-analytics-scope-hint cc-analytics-scope-hint--tight"></p>
+        </div>
+        <div class="cc-analytics-stack">
+          <article class="cc-analytic-card cc-ps-theme-tipo">
+            <div class="cc-analytic-table-scroll">
+              <table id="ccResumenTipo" class="cc-planning-summary cc-ps-theme-tipo" aria-label="Inversión mensual por tipo"></table>
+            </div>
+          </article>
+          <article class="cc-analytic-card cc-ps-theme-plataforma">
+            <div class="cc-analytic-table-scroll">
+              <table id="ccResumenPlataforma" class="cc-planning-summary cc-ps-theme-plataforma" aria-label="Inversión mensual por plataforma"></table>
+            </div>
+          </article>
+          <article class="cc-analytic-card cc-ps-theme-intake">
+            <div class="cc-analytic-table-scroll">
+              <table id="ccResumenIntake" class="cc-planning-summary cc-ps-theme-intake" aria-label="Inversión mensual por intake"></table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <footer class="cc-module-foot">
+        <p class="cc-module-foot-note">Las columnas calculadas (usada, saldo, porcentajes y tablas de desglose) se recalculan desde el Planning publicado; no se guardan como snapshot.</p>
+        <span id="ccModuleUpdatedAt" class="cc-module-foot-time" aria-live="polite"></span>
+      </footer>
+    </div>
+  </section>
+
+  <section id="bitacoraModule" class="hidden bitacora-saas" aria-label="Módulo Bitácora">
+    <div class="bitacora-saas-wrap">
+      <section class="bitacora-saas-card bitacora-saas-new" aria-labelledby="bitacoraNewHeading">
+        <div class="bitacora-saas-card-head">
+          <h3 id="bitacoraNewHeading" class="bitacora-saas-section-title">Nueva entrada</h3>
+          <span id="bitacoraFormModeLabel" class="bitacora-saas-mode-label hidden">Editando entrada</span>
+        </div>
+        <div class="bitacora-saas-form-grid">
+          <label class="bitacora-saas-field">
+            <span class="bitacora-saas-label">Fecha y hora</span>
+            <input id="bitacoraFormFecha" class="bitacora-saas-input" type="datetime-local" autocomplete="off" />
+          </label>
+          <label class="bitacora-saas-field">
+            <span class="bitacora-saas-label">Programa / campaña</span>
+            <select id="bitacoraFormPrograma" class="bitacora-saas-input bitacora-saas-select" aria-label="Programa o campaña"></select>
+          </label>
+          <label class="bitacora-saas-field">
+            <span class="bitacora-saas-label">Tipo de cambio</span>
+            <select id="bitacoraFormTipo" class="bitacora-saas-input bitacora-saas-select" aria-label="Tipo de cambio"></select>
+          </label>
+          <label class="bitacora-saas-field">
+            <span class="bitacora-saas-label">Impacto esperado <span class="bitacora-saas-optional">(opcional)</span></span>
+            <select id="bitacoraFormImpacto" class="bitacora-saas-input bitacora-saas-select" aria-label="Impacto esperado">
+              <option value="">Sin especificar</option>
+              <option value="alto">Alto</option>
+              <option value="medio">Medio</option>
+              <option value="bajo">Bajo</option>
+            </select>
+          </label>
+          <label class="bitacora-saas-field bitacora-saas-field-span2">
+            <span class="bitacora-saas-label">Cambio / mejora realizada</span>
+            <textarea id="bitacoraFormCambios" class="bitacora-saas-textarea" rows="5" maxlength="1000" placeholder="Describe el cambio, la hipótesis o el resultado esperado⬦"></textarea>
+            <span id="bitacoraFormCharCount" class="bitacora-saas-char-count" aria-live="polite">0 / 1000</span>
+          </label>
+        </div>
+        <div class="bitacora-saas-form-actions">
+          <label class="bitacora-saas-switch">
+            <input type="checkbox" id="bitacoraFormImportante" />
+            <span class="bitacora-saas-switch-track" aria-hidden="true"></span>
+            <span class="bitacora-saas-switch-label"><i class="fa-solid fa-star" aria-hidden="true"></i> Marcar como importante</span>
+          </label>
+          <div class="bitacora-saas-form-actions-btns">
+            <button type="button" id="bitacoraCancelarEdicionBtn" class="bitacora-saas-btn bitacora-saas-btn--ghost hidden">Cancelar edición</button>
+            <button type="button" id="bitacoraGuardarEntradaBtn" class="bitacora-saas-btn bitacora-saas-btn--primary">
+              <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+              <span id="bitacoraGuardarEntradaLabel">Guardar entrada</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="bitacora-saas-card bitacora-saas-filters" aria-label="Filtros">
+        <div class="bitacora-saas-filters-grid">
+          <label class="bitacora-saas-field bitacora-saas-field-programa">
+            <span class="bitacora-saas-label">Programa</span>
+            <input id="bitacoraFiltroPrograma" class="bitacora-saas-input" type="search" placeholder="Filtrar por programa⬦" autocomplete="off" />
+          </label>
+          <label class="bitacora-saas-field bitacora-saas-field-tipo">
+            <span class="bitacora-saas-label">Tipo</span>
+            <select id="bitacoraFiltroTipo" class="bitacora-saas-input bitacora-saas-select" aria-label="Filtrar bitácora por tipo">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <div class="bitacora-saas-field bitacora-saas-field-range">
+            <span class="bitacora-saas-label">Rango de fechas</span>
+            <div class="bitacora-saas-range-row">
+              <input id="bitacoraFechaRango" class="bitacora-saas-input" type="text" aria-label="Rango de fechas bitácora" placeholder="Selecciona rango" />
+            </div>
+          </div>
+          <div class="bitacora-saas-field bitacora-saas-field-actions">
+            <span class="bitacora-saas-label bitacora-saas-label--phantom" aria-hidden="true">Acciones</span>
+            <div class="bitacora-saas-inline-btns">
+              <button type="button" id="bitacoraLimpiarFiltrosBtn" class="bitacora-saas-btn bitacora-saas-btn--ghost bitacora-saas-btn--icon" aria-label="Limpiar filtros" title="Limpiar filtros">
+                <i class="fa-solid fa-filter" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bitacora-saas-history" aria-labelledby="bitacoraHistHeading">
+        <div class="bitacora-saas-history-head">
+          <h3 id="bitacoraHistHeading" class="bitacora-saas-section-title">Historial de entradas</h3>
+          <div class="bitacora-saas-history-actions">
+            <button type="button" id="bitacoraExportBtn" class="bitacora-saas-btn bitacora-saas-btn--secondary">
+              <i class="fa-solid fa-download" aria-hidden="true"></i> Exportar
+            </button>
+            <label class="bitacora-saas-sort">
+              <span class="visually-hidden">Orden</span>
+              <select id="bitacoraOrdenSelect" class="bitacora-saas-input bitacora-saas-select bitacora-saas-select-compact" aria-label="Ordenar entradas">
+                <option value="recientes">Más recientes primero</option>
+                <option value="antiguos">Más antiguos primero</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="bitacoraTimelineList" class="bitacora-timeline" role="feed" aria-label="Lista de entradas de bitácora"></div>
+        <footer class="bitacora-saas-pagination" aria-label="Paginación">
+          <p id="bitacoraPaginationInfo" class="bitacora-saas-pagination-info">Mostrando 0 de 0 entradas</p>
+          <nav id="bitacoraPaginationNav" class="bitacora-saas-pagination-nav" aria-label="Páginas"></nav>
+          <label class="bitacora-saas-page-size">
+            <span>Registros por página</span>
+            <select id="bitacoraPageSizeSelect" class="bitacora-saas-input bitacora-saas-select bitacora-saas-select-compact">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+          </label>
+        </footer>
+      </section>
+    </div>
+  </section>
+
+  <section id="dataModule" class="hidden data-module-saas" aria-label="Módulo DATA">
+    <div class="data-wrap data-wrap-saas">
+      <div class="data-saas-kpi-grid data-kpi-from-general" role="region" aria-label="Resumen de data general">
+        <article class="data-kpi-card data-kpi-card--indigo">
+          <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></div>
+          <div class="data-kpi-copy">
+            <span class="data-kpi-label">Registros cargados</span>
+            <span class="data-kpi-num" id="dataKpiRegistros">0</span>
+            <span class="data-kpi-hint">Total procesados</span>
+          </div>
+        </article>
+        <article class="data-kpi-card data-kpi-card--emerald">
+          <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></div>
+          <div class="data-kpi-copy">
+            <span class="data-kpi-label">Campañas únicas</span>
+            <span class="data-kpi-num" id="dataKpiCampanas">0</span>
+            <span class="data-kpi-hint">Desde data general</span>
+          </div>
+        </article>
+        <article class="data-kpi-card data-kpi-card--violet">
+          <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-wallet"></i></div>
+          <div class="data-kpi-copy">
+            <span class="data-kpi-label">Gasto total</span>
+            <span class="data-kpi-num" id="dataKpiGasto">$0</span>
+            <span class="data-kpi-hint">Inversión acumulada</span>
+          </div>
+        </article>
+        <article class="data-kpi-card data-kpi-card--amber">
+          <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-user-group"></i></div>
+          <div class="data-kpi-copy">
+            <span class="data-kpi-label">Leads generados</span>
+            <span class="data-kpi-num" id="dataKpiLeads">0</span>
+            <span class="data-kpi-hint">Suma en data general</span>
+          </div>
+        </article>
+        <article class="data-kpi-card data-kpi-card--sky">
+          <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-eye"></i></div>
+          <div class="data-kpi-copy">
+            <span class="data-kpi-label">Impresiones</span>
+            <span class="data-kpi-num" id="dataKpiImpresiones">0</span>
+            <span class="data-kpi-hint">Total impresiones</span>
+          </div>
+        </article>
+        <article class="data-kpi-card data-kpi-card--mint">
+          <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-computer-mouse"></i></div>
+          <div class="data-kpi-copy">
+            <span class="data-kpi-label">Clics</span>
+            <span class="data-kpi-num" id="dataKpiClics">0</span>
+            <span class="data-kpi-hint">Total clics</span>
+          </div>
+        </article>
+      </div>
+
+      <div class="data-subtabs data-subtabs-saas" role="tablist" aria-label="Subpestañas DATA">
+        <button id="dataTabGeneral" class="data-subtab data-subtab-active" type="button" role="tab" aria-selected="true">General</button>
+        <button id="dataTabAnuncios" class="data-subtab" type="button" role="tab" aria-selected="false">Anuncios</button>
+        <button id="dataTabCrm" class="data-subtab" type="button" role="tab" aria-selected="false">CRM</button>
+        <button id="dataTabUnique" class="data-subtab" type="button" role="tab" aria-selected="false">Campañas Únicas</button>
+      </div>
+
+      <section id="dataPanelGeneral" class="data-panel data-panel-saas-general" role="tabpanel">
+        <div class="data-actions data-actions-saas">
+          <button id="openDataLoadBtn" type="button" class="btn-toolbar btn-primary data-saas-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i> Cargar Data General</button>
+          <button id="undoLastLoadBtn" type="button" class="btn-toolbar data-saas-btn-secondary">Deshacer última carga</button>
+          <button id="deleteSelectedDataBtn" type="button" class="btn-toolbar btn-danger data-saas-btn-danger-outline">Eliminar seleccionados</button>
+          <button id="clearStorageBtn" type="button" class="btn-toolbar data-saas-btn-muted">Limpiar datos</button>
+          <button id="openDataErrorDetailGeneralBtn" type="button" class="btn-toolbar hidden data-saas-btn-secondary">Ver detalle de carga</button>
+          <span id="dataStatus" class="data-status data-status-saas"></span>
+        </div>
+        <p id="dataGeneralLoadNotice" class="data-load-notice hidden" role="status" aria-live="polite"></p>
+
+        <div class="data-filters-panel data-filters-saas">
+          <label class="data-filter-field data-filter-saas-field">
+            <span class="planning-filter-label">Fecha (mes)</span>
+            <select id="dataFilterFechaMes" class="planning-filter-control" aria-label="Filtrar por mes">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="data-filter-field data-filter-saas-field">
+            <span class="planning-filter-label">Día</span>
+            <select id="dataFilterFechaDia" class="planning-filter-control" aria-label="Filtrar por día">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="data-filter-field data-filter-saas-field data-filter-saas-search">
+            <span class="planning-filter-label">ID campaña</span>
+            <input id="dataFilterIdInput" class="planning-filter-control planning-search-input" type="search" placeholder="Buscar ID..." autocomplete="off" aria-label="Buscar por ID de campaña" />
+          </label>
+          <label class="data-filter-field data-filter-saas-field data-filter-saas-search">
+            <span class="planning-filter-label">Nombre</span>
+            <input id="dataFilterNombreInput" class="planning-filter-control planning-search-input" type="search" placeholder="Buscar nombre..." autocomplete="off" aria-label="Buscar por nombre" />
+          </label>
+          <button type="button" id="dataFiltersAdvancedBtn" class="btn-toolbar data-adv-filters-btn" aria-expanded="false" aria-controls="dataAdvFiltersWrap">
+            <i class="fa-solid fa-sliders" aria-hidden="true"></i> Filtros avanzados
+          </button>
+        </div>
+        <div id="dataAdvFiltersWrap" class="data-adv-filters-wrap hidden" role="region" aria-hidden="true">
+          <p class="data-adv-filters-hint">Opciones adicionales de filtrado se pueden ampliar aquí sin alterar la lógica actual.</p>
+        </div>
+
+        <p class="data-registros-carga hidden" id="dataGeneralRegistrosMeta" aria-hidden="true">Registros cargados: <span id="dataGeneralRegistrosCount">0</span></p>
+        <div class="table-card data-table-card-saas" aria-label="Tabla de resultados DATA">
+          <div class="data-table-wrap data-table-wrap-saas" role="region" aria-label="Tabla DATA con scroll">
+            <table class="data-table data-table-saas-general">
+              <thead>
+                <tr>
+                  <th class="data-th-check"></th>
+                  <th>Fecha</th>
+                  <th>ID Campaña</th>
+                  <th>Nombre</th>
+                  <th>Gasto</th>
+                  <th>Leads</th>
+                  <th>Estado</th>
+                  <th>Impresiones</th>
+                  <th>Clics</th>
+                  <th class="data-th-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="dataTbody"></tbody>
+              <tfoot>
+                <tr class="data-totals-row data-totals-row-saas">
+                  <td colspan="4"><strong>Totales (visibles)</strong></td>
+                  <td id="dataTotalGasto"></td>
+                  <td id="dataTotalLeads"></td>
+                  <td></td>
+                  <td id="dataTotalImpresiones"></td>
+                  <td id="dataTotalClics"></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <footer class="data-pagination-bar" aria-label="Paginación data general">
+            <span id="dataPaginationInfo" class="data-pagination-info"></span>
+            <div class="data-pagination-controls">
+              <label class="data-page-size-field">
+                <span>Filas por página</span>
+                <select id="dataPageSize" aria-label="Filas por página">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </label>
+              <div class="data-page-btns">
+                <button type="button" id="dataPagePrev" class="btn-toolbar data-page-nav" aria-label="Página anterior">&lsaquo;</button>
+                <span id="dataPageIndicator" class="data-page-indicator" aria-live="polite">1</span>
+                <button type="button" id="dataPageNext" class="btn-toolbar data-page-nav" aria-label="Página siguiente">&rsaquo;</button>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </section>
+
+      <section id="dataPanelAnuncios" class="data-panel hidden" role="tabpanel">
+        <div class="data-actions data-actions-saas">
+          <button id="openAnunciosLoadBtn" type="button" class="btn-toolbar btn-primary data-saas-btn-primary">Cargar Data Anuncios</button>
+          <button id="deleteSelectedAnunciosBtn" type="button" class="btn-toolbar btn-danger data-saas-btn-danger-outline">Eliminar seleccionados</button>
+          <button id="openDataErrorDetailAnunciosBtn" type="button" class="btn-toolbar hidden data-saas-btn-secondary">Ver detalle de carga</button>
+          <span id="dataAnunciosStatus" class="data-status data-status-saas">0 filas procesadas | Total acumulado: 0</span>
+        </div>
+        <p class="data-registros-carga" id="dataAnunciosRegistrosMeta">Registros cargados: <span id="dataAnunciosRegistrosCount">0</span></p>
+        <div class="table-card" aria-label="Tabla de data anuncios">
+          <div class="data-table-wrap" role="region" aria-label="Tabla ANUNCIOS con scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Sel</th>
+                  <th>ID Campaña</th>
+                  <th>Nombre Campaña</th>
+                  <th>Nombre Anuncio</th>
+                  <th>Resultados (Leads)</th>
+                  <th>Gastos</th>
+                  <th>Impresiones</th>
+                  <th>Alcance</th>
+                  <th>Clics</th>
+                  <th>Estado</th>
+                  <th>Link Anuncio</th>
+                </tr>
+              </thead>
+              <tbody id="dataAnunciosTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="dataPanelUnique" class="data-panel hidden" role="tabpanel">
+        <div class="unique-header">
+          <label class="unique-search">
+            Buscar
+            <input id="uniqueSearch" type="text" placeholder="Buscar campaña..." autocomplete="off" />
+          </label>
+          <div class="unique-count">Total campañas únicas: <span id="uniqueCount">0</span></div>
+        </div>
+
+        <div class="table-card" aria-label="Tabla de campañas únicas">
+          <div class="data-table-wrap" role="region" aria-label="Tabla campañas únicas con scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID Campaña</th>
+                  <th>Nombre</th>
+                </tr>
+              </thead>
+              <tbody id="uniqueTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="dataPanelCrm" class="data-panel data-panel-saas-general hidden" role="tabpanel" aria-label="CRM">
+        <div class="data-saas-kpi-grid data-kpi-from-crm" role="region" aria-label="Resumen CRM cargado">
+          <article class="data-kpi-card data-kpi-card--indigo">
+            <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-table-list"></i></div>
+            <div class="data-kpi-copy">
+              <span class="data-kpi-label">Registros cargados</span>
+              <span class="data-kpi-num" id="crmDataKpiRegistros">0</span>
+              <span class="data-kpi-hint">Filas válidas en CRM</span>
+            </div>
+          </article>
+          <article class="data-kpi-card data-kpi-card--emerald">
+            <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></div>
+            <div class="data-kpi-copy">
+              <span class="data-kpi-label">Campañas únicas</span>
+              <span class="data-kpi-num" id="crmDataKpiCampanas">0</span>
+              <span class="data-kpi-hint">Flujo + intake + FuenteVF</span>
+            </div>
+          </article>
+          <article class="data-kpi-card data-kpi-card--amber">
+            <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></div>
+            <div class="data-kpi-copy">
+              <span class="data-kpi-label">Leads generados</span>
+              <span class="data-kpi-num" id="crmDataKpiLeads">0</span>
+              <span class="data-kpi-hint">Suma columna Lead</span>
+            </div>
+          </article>
+          <article class="data-kpi-card data-kpi-card--sky">
+            <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-heart"></i></div>
+            <div class="data-kpi-copy">
+              <span class="data-kpi-label">Interesados</span>
+              <span class="data-kpi-num" id="crmDataKpiInteresados">0</span>
+              <span class="data-kpi-hint">Marcados como interesado</span>
+            </div>
+          </article>
+          <article class="data-kpi-card data-kpi-card--violet">
+            <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-file-signature"></i></div>
+            <div class="data-kpi-copy">
+              <span class="data-kpi-label">Postulantes</span>
+              <span class="data-kpi-num" id="crmDataKpiPostulantes">0</span>
+              <span class="data-kpi-hint">Marcados como postulante</span>
+            </div>
+          </article>
+          <article class="data-kpi-card data-kpi-card--mint">
+            <div class="data-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-graduation-cap"></i></div>
+            <div class="data-kpi-copy">
+              <span class="data-kpi-label">Matriculados</span>
+              <span class="data-kpi-num" id="crmDataKpiMatriculados">0</span>
+              <span class="data-kpi-hint">Ganado = matriculado</span>
+            </div>
+          </article>
+        </div>
+        <div class="data-actions data-actions-saas">
+          <label class="data-filter-field data-filter-saas-field data-crm-file-field">
+            <span class="planning-filter-label">Archivo CSV o XLSX</span>
+            <input id="crmImportFile" type="file" accept=".csv,.txt,.xlsx,.xls" class="planning-filter-control" aria-label="Seleccionar archivo CRM" />
+          </label>
+          <label class="data-filter-field data-filter-saas-field">
+            <span class="planning-filter-label">Mes (solo si falta fecha)</span>
+            <select id="crmImportTargetMonth" class="planning-filter-control" aria-label="Mes de respaldo solo cuando una fila no trae fecha de ingreso"></select>
+          </label>
+          <button type="button" id="crmImportBtn" class="btn-toolbar btn-primary data-saas-btn-primary">
+            <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Importar y guardar
+          </button>
+        </div>
+
+        <div class="data-filters-panel data-filters-saas">
+          <label class="data-filter-field data-filter-saas-field">
+            <span class="planning-filter-label">Fecha (mes)</span>
+            <select id="crmDataFilterMes" class="planning-filter-control" aria-label="Filtrar CRM por mes de fecha de ingreso">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="data-filter-field data-filter-saas-field">
+            <span class="planning-filter-label">Día</span>
+            <select id="crmDataFilterFechaDia" class="planning-filter-control" aria-label="Filtrar CRM por día de fecha de ingreso">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="data-filter-field data-filter-saas-field data-filter-saas-search data-crm-prog-autocomplete-field">
+            <span class="planning-filter-label">Programa</span>
+            <div class="crm-prog-autocomplete-wrap" id="crmDataFilterProgramaWrap">
+              <input
+                type="search"
+                id="crmDataFilterProgramaInput"
+                class="planning-filter-control planning-search-input"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Buscar programa (Flujo)"
+                aria-autocomplete="list"
+                aria-controls="crmDataFilterProgramaListbox"
+                aria-expanded="false"
+                placeholder="Buscar programa…"
+              />
+              <button type="button" id="crmDataFilterProgramaClear" class="crm-prog-clear-btn hidden" aria-label="Limpiar búsqueda de programa">
+                ×
+              </button>
+              <ul id="crmDataFilterProgramaListbox" class="crm-prog-autocomplete-list hidden" role="listbox"></ul>
+            </div>
+          </label>
+          <label class="data-filter-field data-filter-saas-field">
+            <span class="planning-filter-label">Fuente</span>
+            <select id="crmDataFilterFuente" class="planning-filter-control" aria-label="Filtrar CRM por FuenteVF">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="data-filter-field data-filter-saas-field">
+            <span class="planning-filter-label">Intake</span>
+            <select id="crmDataFilterIntake" class="planning-filter-control" aria-label="Filtrar CRM por intake">
+              <option value="">Todos</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table-card data-table-card-saas" aria-label="Resumen operativo CRM">
+          <div class="data-table-wrap data-table-wrap-saas" role="region" aria-label="Tabla resumen CRM">
+            <table class="data-table data-table-saas-general">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Programa</th>
+                  <th>Fuente</th>
+                  <th>Intake</th>
+                  <th>Leads</th>
+                </tr>
+              </thead>
+              <tbody id="crmDataResumenTbody">
+                <tr><td colspan="5" class="data-crm-resumen-empty">Sin datos CRM. Importa un archivo CSV o XLSX.</td></tr>
+              </tbody>
+              <tfoot>
+                <tr class="data-totals-row data-totals-row-saas">
+                  <td colspan="4"><strong>Totales (visibles)</strong></td>
+                  <td id="crmDataTotalLeads"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <footer class="data-pagination-bar" aria-label="Paginación resumen CRM">
+            <span id="crmDataPaginationInfo" class="data-pagination-info"></span>
+            <div class="data-pagination-controls">
+              <label class="data-page-size-field">
+                <span>Filas por página</span>
+                <select id="crmDataPageSize" aria-label="Filas por página resumen CRM">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </label>
+              <div class="data-page-btns">
+                <button type="button" id="crmDataPagePrev" class="btn-toolbar data-page-nav" aria-label="Página anterior">&lsaquo;</button>
+                <span id="crmDataPageIndicator" class="data-page-indicator" aria-live="polite">1</span>
+                <button type="button" id="crmDataPageNext" class="btn-toolbar data-page-nav" aria-label="Página siguiente">&rsaquo;</button>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <section id="relacionesModule" class="hidden rel-module-saas" aria-label="Módulo Relaciones">
+    <div class="data-wrap rel-wrap-saas">
+      <div class="rel-kpi-grid" role="region" aria-label="Indicadores de relaciones">
+        <article class="rel-kpi-card rel-kpi-card--emerald">
+          <div class="rel-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-diagram-project"></i></div>
+          <div class="rel-kpi-copy">
+            <div class="rel-kpi-label">Relaciones creadas</div>
+            <div id="relKpiCreadas" class="rel-kpi-num">0</div>
+            <div class="rel-kpi-hint">Campañas vinculadas</div>
+            <div id="relKpiTrendCreadas" class="rel-kpi-trend-line" aria-live="polite"></div>
+          </div>
+        </article>
+        <article class="rel-kpi-card rel-kpi-card--amber">
+          <div class="rel-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="rel-kpi-copy">
+            <div class="rel-kpi-label">Sin relación</div>
+            <div id="relKpiSinRel" class="rel-kpi-num">0</div>
+            <div class="rel-kpi-hint">Campañas pendientes (Planning)</div>
+            <div id="relKpiTrendSinRel" class="rel-kpi-trend-line" aria-live="polite"></div>
+          </div>
+        </article>
+        <article class="rel-kpi-card rel-kpi-card--violet">
+          <div class="rel-kpi-donut rel-kpi-donut--live" aria-hidden="true">
+            <div id="relKpiDonutRing" class="rel-kpi-donut-ring-fill"></div>
+            <div class="rel-kpi-donut-label"><span id="relKpiCoberturaPct" class="rel-kpi-pct-val">0</span><span class="rel-kpi-pct-suffix">%</span></div>
+          </div>
+          <div class="rel-kpi-copy">
+            <div class="rel-kpi-label">Cobertura de relaciones</div>
+            <div id="relKpiCoberturaLead" class="rel-kpi-num rel-kpi-num--soft">0%</div>
+            <div class="rel-kpi-hint">Del total de campañas Planning</div>
+            <div id="relKpiTrendCobertura" class="rel-kpi-trend-line" aria-live="polite"></div>
+          </div>
+        </article>
+        <article class="rel-kpi-card rel-kpi-card--sky">
+          <div class="rel-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></div>
+          <div class="rel-kpi-copy">
+            <div class="rel-kpi-label">Total Planning</div>
+            <div id="relKpiTotalPlanning" class="rel-kpi-num">0</div>
+            <div class="rel-kpi-hint">Campañas registradas</div>
+            <div id="relKpiTrendPlanning" class="rel-kpi-trend-line" aria-live="polite"></div>
+          </div>
+        </article>
+        <article class="rel-kpi-card rel-kpi-card--muted">
+          <div class="rel-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-database"></i></div>
+          <div class="rel-kpi-copy">
+            <div class="rel-kpi-label">Total Data Plataformas</div>
+            <div id="relKpiTotalData" class="rel-kpi-num">0</div>
+            <div class="rel-kpi-hint">Campañas únicas en plataformas</div>
+            <div id="relKpiTrendData" class="rel-kpi-trend-line" aria-live="polite"></div>
+          </div>
+        </article>
+        <article class="rel-kpi-card rel-kpi-card--rose">
+          <div class="rel-kpi-ico-wrap" aria-hidden="true"><i class="fa-solid fa-address-book"></i></div>
+          <div class="rel-kpi-copy">
+            <div class="rel-kpi-label">Total Data CRM</div>
+            <div id="relKpiTotalCrm" class="rel-kpi-num">0</div>
+            <div class="rel-kpi-hint">Campañas únicas CRM</div>
+            <div id="relKpiTrendCrm" class="rel-kpi-trend-line" aria-live="polite"></div>
+          </div>
+        </article>
+      </div>
+
+      <div class="data-subtabs data-subtabs-saas rel-subtabs-saas" role="tablist" aria-label="Tipo de relación">
+        <button id="relTabMeta" class="data-subtab data-subtab-active" type="button" role="tab" aria-selected="true">Meta</button>
+        <button id="relTabCrm" class="data-subtab" type="button" role="tab" aria-selected="false">CRM</button>
+      </div>
+
+      <div id="relPanelMeta" class="rel-subpanel" role="tabpanel">
+      <div class="rel-filters-bar" role="toolbar" aria-label="Filtros de relaciones">
+        <div class="rel-filters-bar-search">
+          <label class="rel-search-field unique-search rel-filter-search">
+            <span class="rel-search-label">Buscar campañas</span>
+            <input id="relacionesSearch" type="search" placeholder="Buscar por clave, ID o nombre..." autocomplete="off" />
+          </label>
+        </div>
+        <div class="rel-filters-bar-selects">
+          <label class="rel-filter-field">
+            <span class="rel-filter-field-label">Plataforma</span>
+            <select id="relFiltroPlataforma" class="rel-filter-select" aria-label="Filtrar por plataforma">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="rel-filter-field">
+            <span class="rel-filter-field-label">Estado de relación</span>
+            <select id="relFiltroEstadoRel" class="rel-filter-select" aria-label="Filtrar por estado de relación">
+              <option value="">Todos</option>
+              <option value="con">Con relación</option>
+              <option value="sin">Sin relación</option>
+            </select>
+          </label>
+          <label class="rel-filter-field">
+            <span class="rel-filter-field-label">Tipo de campaña</span>
+            <select id="relFiltroTipo" class="rel-filter-select" aria-label="Filtrar por tipo de campaña">
+              <option value="">Todos</option>
+            </select>
+          </label>
+        </div>
+        <div class="rel-filters-bar-actions">
+          <button type="button" id="relFiltrosAvanzadosBtn" class="btn-toolbar rel-btn-filter-secondary"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Filtros avanzados</button>
+          <button type="button" id="relLimpiarFiltrosBtn" class="btn-toolbar rel-btn-filter-secondary"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Limpiar</button>
+        </div>
+      </div>
+
+      <div id="relFiltrosAvanzadosPanel" class="rel-advanced-panel hidden" aria-hidden="true">
+        <p class="rel-advanced-panel-title">Detalle por fuente</p>
+        <ul class="rel-advanced-panel-list">
+          <li><strong>Planning:</strong> <span id="relPlanningVinculadas">0</span> con vínculo · <span id="relPlanningSinRelacion">0</span> sin relación</li>
+          <li><strong>Data plataformas:</strong> <span id="relDataVinculadas">0</span> con vínculo · <span id="relDataSinRelacion">0</span> sin relación</li>
+        </ul>
+      </div>
+
+      <div class="relaciones-layout rel-tri-grid">
+        <div class="rel-col-card rel-col-planning">
+          <div class="rel-col-head">
+            <div class="rel-col-head-row">
+              <h3 class="rel-col-title">Campañas Planning</h3>
+              <span id="relPlanningBadgeTotal" class="rel-col-badge">0</span>
+            </div>
+            <p class="rel-col-lead"><span id="relPlanningSelectedCount">0</span> seleccionadas</p>
+          </div>
+          <div class="rel-col-search">
+            <input id="relPlanningSearch" type="search" class="rel-inner-search" placeholder="Buscar en planning..." autocomplete="off" aria-label="Buscar en planning" />
+          </div>
+          <div id="relPlanningList" class="rel-list rel-list-saas" role="listbox" aria-multiselectable="true"></div>
+          <div class="rel-col-footer">
+            <button type="button" id="relSelectAllPlanningBtn" class="btn-toolbar rel-col-footer-btn">Seleccionar todas</button>
+          </div>
+        </div>
+
+        <div class="rel-col-center">
+          <div class="rel-center-bridge">
+            <button
+              type="button"
+              id="relVincularCampaniasBtn"
+              class="rel-vincular-btn"
+              disabled
+              aria-disabled="true"
+            >
+              <i class="fa-solid fa-link" aria-hidden="true"></i>
+              <span>Vincular campañas</span>
+            </button>
+            <p class="rel-center-sub">Selecciona exactamente una campaña en Planning y una en Data para activar.</p>
+          </div>
+        </div>
+
+        <div class="rel-col-card rel-col-data">
+          <div class="rel-col-head">
+            <div class="rel-col-head-row">
+              <h3 class="rel-col-title">Campañas únicas Plataformas</h3>
+              <span id="relDataBadgeTotal" class="rel-col-badge rel-col-badge--data">0</span>
+            </div>
+            <p class="rel-col-lead"><span id="relDataSelectedCount">0</span> seleccionadas</p>
+          </div>
+          <div class="rel-col-search">
+            <input id="relDataSearch" type="search" class="rel-inner-search" placeholder="Buscar en data..." autocomplete="off" aria-label="Buscar en data" />
+          </div>
+          <div id="relDataList" class="rel-list rel-list-saas" role="listbox" aria-multiselectable="true"></div>
+          <div class="rel-col-footer">
+            <button type="button" id="relSelectAllDataBtn" class="btn-toolbar rel-col-footer-btn">Seleccionar todas</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="relSuggestBox" class="table-card rel-suggest-card hidden" aria-label="Sugerencias de relaciones">
+        <div class="table-scroll rel-table-scroll">
+          <table class="data-table rel-table-saas">
+            <thead>
+              <tr>
+                <th>Planning</th>
+                <th>Sugerencias DATA</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="relSuggestTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="table-card rel-main-table-card" aria-label="Relaciones creadas">
+        <h3 class="rel-table-section-title">Relaciones creadas (<span id="relTablaCount">0</span>)</h3>
+        <div class="table-scroll rel-table-scroll rel-table-outer-scroll" role="region" aria-label="Tabla de relaciones con desplazamiento horizontal">
+          <table class="data-table rel-table-saas rel-table-main">
+            <thead>
+              <tr>
+                <th>Planning</th>
+                <th>Data</th>
+                <th>Plataforma</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="relacionesTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      </div>
+
+      <div id="relPanelCrm" class="rel-subpanel hidden" role="tabpanel" aria-label="Relaciones CRM">
+        <div class="relaciones-layout rel-tri-grid">
+          <div class="rel-col-card rel-col-planning">
+            <div class="rel-col-head">
+              <div class="rel-col-head-row">
+                <h3 class="rel-col-title">Campañas Planning</h3>
+                <span id="crmRelPlanningBadgeTotal" class="rel-col-badge">0</span>
+              </div>
+              <p class="rel-col-lead"><span id="crmRelPlanningSelectedCount">0</span> seleccionadas</p>
+            </div>
+            <div class="rel-col-search">
+              <input id="crmRelPlanningSearch" type="search" class="rel-inner-search" placeholder="Buscar en planning..." autocomplete="off" aria-label="Buscar en planning CRM" />
+            </div>
+            <div id="crmRelPlanningList" class="rel-list rel-list-saas" role="listbox" aria-multiselectable="true"></div>
+            <div class="rel-col-footer">
+              <button type="button" id="crmRelSelectAllPlanningBtn" class="btn-toolbar rel-col-footer-btn">Seleccionar todas</button>
+            </div>
+          </div>
+          <div class="rel-col-center">
+            <div class="rel-center-bridge">
+              <button
+                type="button"
+                id="crmRelVincularBtn"
+                class="rel-vincular-btn"
+                disabled
+                aria-disabled="true"
+              >
+                <i class="fa-solid fa-link" aria-hidden="true"></i>
+                <span>Vincular con CRM</span>
+              </button>
+              <p class="rel-center-sub">Selecciona exactamente una campaña en Planning y una en CRM para activar.</p>
+            </div>
+          </div>
+          <div class="rel-col-card rel-col-data">
+            <div class="rel-col-head">
+              <div class="rel-col-head-row">
+                <h3 class="rel-col-title">Campañas únicas CRM</h3>
+                <span id="crmRelCrmBadgeTotal" class="rel-col-badge rel-col-badge--crm">0</span>
+              </div>
+              <p class="rel-col-lead"><span id="crmRelCrmSelectedCount">0</span> seleccionadas</p>
+            </div>
+            <div class="rel-col-search">
+              <input id="crmRelCrmSearch" type="search" class="rel-inner-search" placeholder="Buscar en CRM..." autocomplete="off" aria-label="Buscar en CRM" />
+            </div>
+            <div id="crmRelCrmList" class="rel-list rel-list-saas" role="listbox" aria-multiselectable="true"></div>
+            <div class="rel-col-footer">
+              <button type="button" id="crmRelSelectAllCrmBtn" class="btn-toolbar rel-col-footer-btn">Seleccionar todas</button>
+            </div>
+          </div>
+        </div>
+        <div class="table-card rel-main-table-card" aria-label="Relaciones CRM creadas">
+          <h3 class="rel-table-section-title">Relaciones CRM (<span id="crmRelTablaCount">0</span>)</h3>
+          <div class="table-scroll rel-table-scroll rel-table-outer-scroll">
+            <table class="data-table rel-table-saas rel-table-main">
+              <thead>
+                <tr>
+                  <th>Planning</th>
+                  <th>CRM</th>
+                  <th>Plataforma</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="crmRelacionesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <section id="medidasModule" class="hidden" aria-label="Módulo MEDIDAS">
+    <div class="data-wrap">
+      <h2 class="data-title">MEDIDAS</h2>
+      <p class="data-subtitle">Probar medidas en tiempo real sobre la misma vista unificada (planning + relaciones + data) que usa el dashboard.</p>
+
+      <div class="data-actions">
+        <button id="addMedidaBtn" type="button" class="btn-toolbar btn-primary">+ Crear medida</button>
+      </div>
+
+      <div class="table-card">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Fórmula</th>
+                <th>Descripción</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="medidasTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="data-wrap" style="padding:12px;">
+          <h3 style="margin:0 0 8px;">Probar medida</h3>
+          <div id="fechaActualDataInfo" class="data-subtitle" style="margin-bottom:8px;">�x& Data actualizada hasta: Sin data</div>
+          <div class="data-filters-panel">
+            <label class="data-filter-field">Seleccionar medida
+              <select id="medidaSelect">
+                <option value="cpl">CPL = gasto / leads</option>
+                <option value="cpc">CPC = gasto / clics</option>
+                <option value="ctr">CTR = clics / impresiones</option>
+              </select>
+            </label>
+            <label class="data-filter-field">Tipo
+              <select id="medidaFiltroTipo"><option value="">Todos</option></select>
+            </label>
+            <label class="data-filter-field">Programa
+              <select id="medidaFiltroPrograma"><option value="">Todos</option></select>
+            </label>
+            <label class="data-filter-field">Intake
+              <select id="medidaFiltroIntake"><option value="">Todos</option></select>
+            </label>
+            <label class="data-filter-field">Fecha (mes)
+              <select id="medidaFiltroMes"><option value="">Todos</option></select>
+            </label>
+          </div>
+          <div class="data-actions">
+            <button id="calcMedidaBtn" type="button" class="btn-toolbar btn-primary">Calcular</button>
+          </div>
+          <div class="rel-status-card">
+            <div class="rel-status-line">Resultado</div>
+            <div id="medidaResult" style="font-size:2rem;font-weight:900;">0</div>
+            <div id="medidaError" class="form-error hidden"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="dashboardModule" class="hidden dash-module-saas" aria-label="Módulo DASHBOARD">
+    <div class="dash-layout">
+      <div class="dashboard-kpis dash-dashboard-shared-bar">
+        <div id="dashGastoDiffBanner" class="dash-gasto-diff-banner hidden" aria-live="polite"></div>
+        <div id="dashboardKpis" class="dashboard-kpis-inner"></div>
+        <div id="dashboardKpisCrmHolder" class="dashboard-kpis-inner hidden"></div>
+        <div id="dashPeriodoCard" class="dash-periodo dashboard-card">
+          <span class="dash-periodo-label">MES</span>
+          <select id="dashFiltroMes" class="dash-month-select"></select>
+          <div class="dash-periodo-fechas">
+            <input id="dashFechaInicio" type="date" class="dash-date-input" aria-label="Desde" />
+            <input id="dashFechaFin" type="date" class="dash-date-input" aria-label="Hasta" />
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-toolbar dash-seg-toolbar filters-bar" role="toolbar" aria-label="Segmentadores del dashboard">
+        <div class="dash-toolbar-start-cluster">
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-busca-prog">
+            <span class="dash-toolbar-label dash-toolbar-label-prog segmentador-header">PROGRAMA</span>
+            <input id="dashBusquedaPrograma" type="search" class="dash-busqueda-programa" placeholder="Buscar⬦" autocomplete="off" />
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-tipo">
+            <span class="dash-toolbar-label segmentador-header">Tipo</span>
+            <div id="dashSegTipo" class="dash-seg-btns"></div>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-busca-prog segmentador-intake">
+            <span class="segmentador-header segmentador-intake-header">INTAKE</span>
+            <select id="dashFiltroIntake" class="dash-month-select segmentador-intake-select" aria-label="Filtrar por intake">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-tracking">
+            <span class="dash-toolbar-label segmentador-header">Tracking</span>
+            <div id="dashSegTracking" class="dash-seg-btns"></div>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-plataforma" aria-label="Plataforma">
+            <span class="dash-toolbar-label segmentador-header">Plataforma</span>
+            <div id="dashSegPlataforma" class="dash-seg-btns"></div>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-estado">
+            <span class="dash-toolbar-label segmentador-header">Estado</span>
+            <div id="dashSegEstado" class="dash-seg-btns"></div>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-branding">
+            <label class="dash-branding-label">
+              <input id="dashIncluirBranding" type="checkbox" />
+              Incluir campañas de Branding
+            </label>
+          </div>
+        </div>
+        <div class="dash-toolbar-end-group">
+          <div class="dash-toolbar-item dash-toolbar-actualizado">
+            <div id="fecha-actualizacion" class="fecha-badge fecha-badge--dash-toolbar hidden" aria-live="polite" role="status"></div>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-export">
+            <button type="button" id="dashExportTableBtn" class="dash-export-btn dash-export-btn--toolbar-icon" aria-label="Exportar tabla del dashboard a Excel" title="Exportar Excel"><span class="dash-export-excel-x" aria-hidden="true">X</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div id="dashShellPlataforma" class="dash-shell-plataforma">
+
+      <div class="table-card dash-table-hero dash-table-primary">
+        <div class="dash-table-scroll table-container">
+          <table class="dash-table data-table">
+            <thead>
+              <tr class="dash-thead-row-groups">
+                <th class="dash-estado-col dash-th-sticky-corner" rowspan="2" aria-label="Estado de campaña" title="Estado">Est.</th>
+                <th class="tipo-col dash-th-sticky-corner" rowspan="2">Tipo</th>
+                <th class="dash-int-col dash-th-sticky-corner" rowspan="2" title="Intake">Int</th>
+                <th class="dash-plat-col dash-th-sticky-corner" rowspan="2" title="Plataforma">Plat.</th>
+                <th id="dashProgramaHead" class="programa-col dash-th-sticky-corner dash-col-separador-right" rowspan="2">
+                  <span class="dash-programa-head-label">Programa</span>
+                  <button id="dashExpandMetaGlobal" type="button" class="btn-expand-meta-floating btn-toggle-meta" aria-label="Expandir META GLOBAL" style="display:none;">+</button>
+                </th>
+                <th id="dashMetaGlobalGroupHead" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-th-meta-global" colspan="24">
+                  <button id="dashToggleMetaGlobal" type="button" class="dash-meta-toggle-btn" aria-label="Colapsar META GLOBAL">��</button>
+                  <span id="dashMetaGlobalLabel">META Y AVANCE GENERAL</span>
+                </th>
+                <th id="dashHeaderLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="10">LEADS</th>
+                <th id="dashHeaderGasto" class="dash-grp-h1" colspan="8">GASTO</th>
+              </tr>
+              <tr class="dash-thead-row-columns">
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta dash-grp-col-first">Inicio</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Fin</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Días<br>Pauta</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-grp-col dash-grp-col-meta">Días<br>aun</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta">Meta<br>Gasto<br>Total</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Meta<br>Gasto<br>Hoy</th>
+                <th class="dash-th-sub dash-meta-global-col dash-th-real-metric dash-grp-col dash-grp-col-meta">Gasto<br>Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Avance<br>Ideal<br>Gasto</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Avance<br>Real<br>Gasto</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-th-wide-label dash-grp-col dash-grp-col-meta">Gasto<br>aun</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta">Meta<br>Gasto<br>Diario</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Gasto<br>Diario<br>Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-th-next-days dash-grp-col dash-grp-col-meta">Diario<br>Next<br>Days</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta">$ Meta<br>CPL</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">$ CPL<br>Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-th-plusminus dash-grp-col dash-grp-col-meta">+/-</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-th-wide-label dash-grp-col dash-grp-col-meta">Meta<br>Leads</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Meta<br>Leads<br>Hoy</th>
+                <th class="dash-th-sub dash-meta-global-col dash-th-real-metric dash-grp-col dash-grp-col-meta">Leads<br>Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Avance<br>Ideal<br>Leads</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Avance<br>Real<br>Leads</th>
+                <th class="dash-th-sub dash-meta-global-col dash-th-compact-label dash-grp-col dash-grp-col-meta">Leads<br>aun</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Meta<br>Leads<br>Diario</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-grp-sep-right grupo-separador dash-grp-col dash-grp-col-meta dash-grp-col-last">Leads<br>Diario<br>Real</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-first">Meta<br>Leads</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Meta<br>Leads<br>Hoy</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Meta<br>Leads<br>Diario</th>
+                <th class="dash-th-sub dash-col-separador-right dash-grp-col dash-grp-col-leads">Avance<br>Leads<br>Ideal</th>
+                <th class="dash-th-sub dash-th-real-metric dash-grp-col dash-grp-col-leads">Leads<br>Real</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Leads<br>Diario<br>Real</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Avance<br>Real</th>
+                <th class="dash-th-sub dash-col-separador-right dash-th-compact-label dash-grp-col dash-grp-col-leads">Leads<br>aun</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Meta<br>CPL</th>
+                <th class="dash-th-sub dash-grp-sep-right grupo-separador dash-grp-col dash-grp-col-leads dash-grp-col-last">CPL<br>Real</th>
+                <th class="dash-th-sub dash-col-separador-left dash-grp-col dash-grp-col-gasto dash-grp-col-first">Meta<br>Gasto</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-gasto">Meta<br>Gasto<br>Hoy</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-gasto">Meta<br>Gasto<br>Diario</th>
+                <th class="dash-th-sub dash-col-separador-right dash-grp-col dash-grp-col-gasto">Avance<br>Gasto<br>Ideal</th>
+                <th class="dash-th-sub dash-th-real-metric dash-grp-col dash-grp-col-gasto">Gasto<br>Real</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-gasto">Gasto<br>Diario<br>Real</th>
+                <th class="dash-th-sub dash-grp-col dash-grp-col-gasto">Avance<br>Real</th>
+                <th class="dash-th-sub dash-col-separador-right dash-th-wide-label dash-grp-col dash-grp-col-gasto dash-grp-col-last">Gasto<br>aun</th>
+              </tr>
+            </thead>
+            <tbody id="dashTbody"></tbody>
+            <tfoot id="dashTfoot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="dash-insights-layout">
+        <div class="table-card dash-chart-card chart-card dash-evolucion-card">
+          <div class="dash-evolucion-header">
+            <h3 class="dash-chart-title dash-evolucion-title">Evolución diaria</h3>
+            <span class="dash-evolucion-badge dash-evolucion-badge-leads" title="Serie de barras">
+              <span class="dash-evolucion-badge-dot" aria-hidden="true"></span>
+              Leads
+            </span>
+            <span class="dash-evolucion-badge dash-evolucion-badge-cpl" title="Serie de línea">
+              <span class="dash-evolucion-badge-dot" aria-hidden="true"></span>
+              CPL
+            </span>
+          </div>
+          <div class="dash-evolucion-chart-shell">
+            <div class="full-width-chart dash-evolucion-chart">
+              <svg id="dashboardChart" viewBox="0 0 960 120" width="100%" class="dash-chart" role="img" aria-label="Leads en barras y CPL en línea por fecha"></svg>
+            </div>
+          </div>
+        </div>
+        <div class="dash-side-insights">
+          <div class="table-card dash-side-card chart-card dash-insights-split">
+            <div class="dash-insight-col dash-insight-col--donut">
+              <h3 class="dash-chart-title">Distribución por plataforma</h3>
+              <div class="dash-donut-body">
+                <div class="dash-donut-chart-stage">
+                  <div id="dashGastoPlatDonut" class="dash-donut-chart"></div>
+                </div>
+                <div id="dashGastoPlatLegend" class="dash-donut-legend" role="region" aria-label="Leyenda gasto por plataforma"></div>
+              </div>
+            </div>
+            <div class="dash-insight-col dash-insight-col--topcpl">
+              <h3 class="dash-chart-title">Top 5 CPL</h3>
+              <ul id="dashTopCplList" class="dash-topcpl-list"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <div id="dashShellCrm" class="dash-shell-crm hidden" aria-label="Dashboard comercial CRM">
+        <div class="table-card dash-table-hero dash-table-primary">
+          <div class="dash-table-scroll table-container">
+            <table class="dash-table data-table dash-crm-main-table">
+              <thead>
+                <tr class="dash-thead-row-groups">
+                  <th class="dash-estado-col dash-th-sticky-corner" rowspan="2" title="Estado">Est.</th>
+                  <th class="tipo-col dash-th-sticky-corner" rowspan="2">Tipo</th>
+                  <th class="dash-int-col dash-th-sticky-corner" rowspan="2" title="Intake">Int.</th>
+                  <th class="dash-plat-col dash-th-sticky-corner" rowspan="2" title="Plataforma">Plat.</th>
+                  <th id="dashCrmProgramaHead" class="programa-col dash-th-sticky-corner" rowspan="2">Programa</th>
+                  <th id="dashCrmFuenteHead" class="dash-tracking-col dash-th-sticky-corner dash-col-separador-right dash-grp-sep-right grupo-separador" rowspan="2" title="Fuente / tracking">Fuente</th>
+                  <th id="dashCrmInicioHead" class="dash-th-sub dash-grp-col dash-grp-col-meta dash-grp-col-first" rowspan="2">Inicio</th>
+                  <th id="dashCrmFinHead" class="dash-th-sub dash-grp-col dash-grp-col-meta" rowspan="2">Fin</th>
+                  <th id="dashCrmDiasPautaHead" class="dash-th-sub dash-grp-col dash-grp-col-meta" rowspan="2">Días<br>Pauta</th>
+                  <th id="dashCrmDiasAunHead" class="dash-th-sub dash-grp-col dash-grp-col-meta dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador" rowspan="2">Días<br>aun</th>
+                  <th id="dashCrmHeaderLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="5">Leads</th>
+                  <th id="dashCrmHeaderInt" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="2">Interesados</th>
+                  <th id="dashCrmHeaderPost" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="2">Postulantes</th>
+                  <th id="dashCrmHeaderMat" class="dash-grp-h1" colspan="2">Matriculados</th>
+                </tr>
+                <tr class="dash-thead-row-columns">
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-first">Meta<br>Leads</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Leads<br>Plataforma</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Leads<br>CRM</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads">%<br>Diferencia</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">% Avance<br>Meta</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-first">Meta</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-first">Meta</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-first">Meta</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-last">Real</th>
+                </tr>
+              </thead>
+              <tbody id="dashCrmTbody"></tbody>
+              <tfoot id="dashCrmTfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="dash-crm-bottom-layout">
+          <div class="table-card dash-chart-card dash-crm-dynamic-card">
+            <div class="dash-crm-dynamic-head">
+              <h3 class="dash-chart-title" id="dashCrmDynamicTitle">Vista operativa</h3>
+              <div class="dash-crm-view-toggle" role="group" aria-label="Modo de visualización">
+                <button type="button" id="dashCrmViewPlatVsCrm" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Plataforma vs CRM</button>
+                <button type="button" id="dashCrmViewFuente" class="dash-crm-toggle-btn">Por fuente</button>
+              </div>
+            </div>
+            <div id="dashCrmPanelCompare" class="dash-crm-dynamic-body">
+              <div class="full-width-chart dash-evolucion-chart">
+                <svg id="dashboardChartCrmCompare" viewBox="0 0 960 132" width="100%" class="dash-chart dash-chart-crm-compare" role="img" aria-label="Leads plataforma y CRM por día"></svg>
+              </div>
+            </div>
+            <div id="dashCrmPanelFuente" class="dash-crm-dynamic-body hidden">
+              <div class="dash-table-scroll dash-crm-pivot-scroll">
+                <table class="dash-table data-table dash-crm-pivot-table" id="dashCrmPivotTable">
+                  <thead id="dashCrmPivotThead"></thead>
+                  <tbody id="dashCrmPivotTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="table-card dash-chart-card dash-crm-interval-card" aria-label="Intervalo de gestión">
+            <div class="dash-crm-interval-head">
+              <h3 class="dash-chart-title dash-crm-interval-title">Intervalo de Gestión</h3>
+              <div class="dash-crm-view-toggle dash-crm-interval-scope-toggle" role="group" aria-label="Alcance temporal del intervalo">
+                <button type="button" id="dashCrmScopeTotal" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Total</button>
+                <button type="button" id="dashCrmScopeMes" class="dash-crm-toggle-btn">Mes</button>
+              </div>
+            </div>
+            <div class="dash-crm-interval-body">
+              <table class="dash-crm-interval-table" aria-label="Intervalo de gestión">
+                <tbody id="dashCrmIntervalTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="adsReportModule" class="hidden" aria-label="Módulo Reporte de anuncios">
+    <div class="data-wrap ads-report-wrap">
+      <div class="ads-report-title-row">
+        <h2 class="data-title ads-report-title">REPORTE DE ANUNCIOS</h2>
+        <p class="data-subtitle ads-report-subtitle-inline">Vista tipo Ads Manager. La carga de datos es solo desde DATA �  Anuncios.</p>
+        <div class="ads-report-filters-inline">
+          <label class="ads-report-filter-compact">
+            Tipo
+            <select id="adsReportFilterTipo" aria-label="Filtrar por tipo de anuncio">
+              <option value="">Todos</option>
+              <option value="ppl">ppl</option>
+              <option value="ppv">ppv</option>
+              <option value="carrusel">carrusel</option>
+            </select>
+          </label>
+          <label class="ads-report-filter-compact">
+            Programa
+            <select id="adsReportFilterPrograma" aria-label="Filtrar por programa (planning)">
+              <option value="">Todos</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="table-card" aria-label="Tabla principal de anuncios">
+        <div class="data-table-wrap" role="region" aria-label="Tabla de anuncios con scroll">
+          <table class="data-table ads-report-table">
+            <thead>
+              <tr>
+                <th class="col-anuncio">Anuncio</th>
+                <th>Programa</th>
+                <th><button type="button" id="adsSortGasto" class="ads-sort-btn">Gasto</button></th>
+                <th><button type="button" id="adsSortCpl" class="ads-sort-btn">CPL</button></th>
+                <th><button type="button" id="adsSortLeads" class="ads-sort-btn">Leads</button></th>
+                <th>Impresiones</th>
+                <th>Alcance</th>
+                <th>Clics</th>
+                <th><button type="button" id="adsSortCtr" class="ads-sort-btn">CTR</button></th>
+                <th>Frecuencia</th>
+              </tr>
+            </thead>
+            <tbody id="adsReportTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="auditoriaModule" class="hidden users-module-saas" aria-label="Módulo Auditoría">
+    <div class="users-wrap">
+      <div class="users-list-toolbar table-card">
+        <div>
+          <h1 class="users-list-title">Auditoría</h1>
+          <p class="users-list-lead">Historial de cambios en Planning y Data. Por defecto solo ves el equipo de tu sesión; quien tenga acceso global (equipo «todos») ve todos los registros.</p>
+        </div>
+        <div class="users-list-toolbar-actions">
+          <button type="button" id="auditExportBtn" class="btn-toolbar btn-primary"><i class="fa-solid fa-file-excel" aria-hidden="true"></i> Exportar Excel</button>
+        </div>
+      </div>
+      <div class="data-filters-panel data-filters-saas audit-filters-panel" role="region" aria-label="Filtros de auditoría">
+        <label class="data-filter-field data-filter-saas-field">
+          <span class="planning-filter-label">Módulo</span>
+          <select id="auditFilterModulo" class="planning-filter-control" aria-label="Filtrar por módulo">
+            <option value="">Todos</option>
+            <option value="planning">Planning</option>
+            <option value="data">Data</option>
+          </select>
+        </label>
+        <label class="data-filter-field data-filter-saas-field">
+          <span class="planning-filter-label">Usuario</span>
+          <input id="auditFilterUsuario" class="planning-filter-control planning-search-input" type="search" placeholder="Usuario⬦" autocomplete="off" aria-label="Filtrar por usuario" />
+        </label>
+        <label class="data-filter-field data-filter-saas-field">
+          <span class="planning-filter-label">Acción</span>
+          <select id="auditFilterAccion" class="planning-filter-control" aria-label="Filtrar por acción">
+            <option value="">Todas</option>
+            <option value="crear">crear</option>
+            <option value="editar">editar</option>
+            <option value="eliminar">eliminar</option>
+          </select>
+        </label>
+        <label class="data-filter-field data-filter-saas-field">
+          <span class="planning-filter-label">Desde</span>
+          <input id="auditFilterFechaDesde" class="planning-filter-control" type="date" aria-label="Fecha desde" />
+        </label>
+        <label class="data-filter-field data-filter-saas-field">
+          <span class="planning-filter-label">Hasta</span>
+          <input id="auditFilterFechaHasta" class="planning-filter-control" type="date" aria-label="Fecha hasta" />
+        </label>
+        <div class="data-filter-field data-filter-saas-field audit-filter-actions">
+          <span class="planning-filter-label" aria-hidden="true">&nbsp;</span>
+          <button type="button" id="auditFilterApplyBtn" class="btn-toolbar btn-primary">Aplicar filtros</button>
+        </div>
+      </div>
+      <p id="auditEmpty" class="users-list-lead table-card audit-empty-msg hidden" role="status">No hay registros de auditoría para los filtros seleccionados.</p>
+      <div class="table-card data-table-card-saas audit-table-card" aria-label="Tabla de auditoría">
+        <div class="data-table-wrap data-table-wrap-saas" role="region">
+          <table class="data-table data-table-saas-general audit-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Usuario</th>
+                <th>Módulo</th>
+                <th>Acción</th>
+                <th>Campo</th>
+                <th>Descripción</th>
+                <th>Valor anterior</th>
+                <th>Valor nuevo</th>
+              </tr>
+            </thead>
+            <tbody id="auditTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="configModule" class="hidden config-module-saas" aria-label="Módulo Configuración">
+    <div class="users-wrap">
+      <div class="users-list-panel">
+        <div class="users-list-toolbar table-card">
+          <div>
+            <h1 class="users-list-title">Configuración</h1>
+            <p class="users-list-lead">Repositorio GitHub y token para cargar y publicar <code>data.json</code> (multiempresa / SaaS).</p>
+          </div>
+          <div class="users-list-toolbar-actions">
+            <button type="button" id="cfgAppEditBtn" class="btn-toolbar btn-secondary">Editar configuración</button>
+            <button type="button" id="cfgAppSaveBtn" class="btn-toolbar btn-primary">Guardar cambios</button>
+          </div>
+        </div>
+        <p id="cfgAppMsg" class="users-global-error hidden" role="status"></p>
+        <div class="users-list-body table-card config-app-card" role="region">
+          <div class="config-app-grid">
+            <label class="users-field">
+              <span class="users-field-label">Repositorio</span>
+              <input id="cfgAppRepo" class="users-input" type="text" readonly autocomplete="off" placeholder="https://github.com/org/repo" />
+              <p class="users-field-hint">Visible siempre; desbloquea con «Editar configuración» para cambiarlo.</p>
+            </label>
+            <label class="users-field config-app-field-token">
+              <span class="users-field-label">Token GitHub</span>
+              <input id="cfgAppToken" class="users-input" type="text" readonly autocomplete="off" spellcheck="false" />
+              <p class="users-field-hint">Tras guardar no se muestra el valor real.</p>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="usersModule" class="hidden users-module-saas" aria-label="Módulo Usuarios">
+    <div class="users-wrap">
+      <div id="usersListPanel" class="users-list-panel">
+        <div class="users-list-toolbar table-card">
+          <div>
+            <h1 class="users-list-title">Usuarios</h1>
+            <p class="users-list-lead">Gestión de accesos y permisos por módulo</p>
+          </div>
+          <div class="users-list-toolbar-actions">
+            <button type="button" id="usersNuevoBtn" class="btn-toolbar btn-primary users-btn-nuevo"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nuevo usuario</button>
+          </div>
+        </div>
+        <p id="usersFormGlobalError" class="users-global-error hidden" role="alert"></p>
+        <div id="usersListBody" class="users-list-body table-card" role="region" aria-live="polite"></div>
+      </div>
+
+      <div id="usersModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="usersFormTitle" aria-hidden="true">
+        <div class="modal-content users-modal-content users-modal-content--users">
+          <header class="users-modal-toolbar">
+            <div class="users-modal-toolbar-text">
+              <h2 id="usersFormTitle" class="users-modal-heading">Registrar nuevo usuario</h2>
+              <p id="usersFormSubtitle" class="users-modal-lead">Completa la información para crear un nuevo usuario en el sistema.</p>
+            </div>
+            <button type="button" id="usersModalCloseBtn" class="users-modal-close" aria-label="Cerrar formulario" title="Cerrar">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </header>
+          <div class="user-form-container">
+            <div class="users-modal-aside-inline" aria-label="Ayuda">
+              <i class="fa-solid fa-user users-aside-ico" aria-hidden="true"></i>
+              <div>
+                <p class="users-aside-title">Información del usuario</p>
+                <p class="users-aside-copy">Todos los campos son obligatorios excepto la foto.</p>
+              </div>
+            </div>
+            <p id="usersFormPageAlert" class="users-global-error users-global-error--form hidden" role="alert"></p>
+
+            <section class="users-surface-card users-surface-card--identity" aria-label="Datos del usuario">
+              <div class="form-grid users-modal-identity-grid">
+                <div class="users-form-col users-form-col--left">
+                  <div class="users-photo-column">
+                    <p class="users-section-label">Foto de perfil <span class="users-optional">(opcional)</span></p>
+                    <div id="usersPhotoDropzone" class="users-photo-dropzone" tabindex="0" role="button" aria-label="Arrastra una imagen o haz clic para seleccionar">
+                      <i class="fa-solid fa-cloud-arrow-up users-photo-drop-ico" aria-hidden="true"></i>
+                      <span class="users-photo-drop-text">Arrastra y suelta una imagen o haz clic para seleccionar. Formatos: JPG, PNG. Máx. 2 MB</span>
+                      <span class="users-photo-drop-meta">Máx. 2 MB</span>
+                      <input id="usersPhotoInput" type="file" accept="image/jpeg,image/png" class="hidden" />
+                    </div>
+                    <p id="usersPhotoError" class="users-field-error hidden" role="alert"></p>
+                    <div id="usersPhotoPreviewWrap" class="users-photo-preview-wrap hidden">
+                      <span id="usersPhotoPreviewLetter" class="users-photo-preview users-photo-preview--letter hidden" aria-hidden="true"></span>
+                      <img id="usersPhotoPreview" class="users-photo-preview users-photo-preview--img hidden" src="" alt="" width="120" height="120" />
+                      <button type="button" id="usersPhotoClearBtn" class="btn-toolbar btn-small">Quitar foto</button>
+                    </div>
+                    <p class="users-photo-hint users-photo-hint--info">Sin foto se mostrará la inicial del nombre en el sistema (avatar tipo Google).</p>
+                  </div>
+                  <div class="users-field">
+                    <label class="users-field-label" for="usersNombre">Nombre <span class="users-req">*</span></label>
+                    <input id="usersNombre" class="users-input" type="text" autocomplete="given-name" placeholder="Ingresa tu nombre" />
+                    <p class="users-field-hint">Solo se permite un nombre (sin espacios).</p>
+                    <p id="usersNombreErr" class="users-field-error hidden" role="alert"></p>
+                  </div>
+                  <div class="users-field">
+                    <label class="users-field-label" for="usersApellido">Apellido <span class="users-req">*</span></label>
+                    <input id="usersApellido" class="users-input" type="text" autocomplete="family-name" placeholder="Ingresa tu apellido" />
+                    <p class="users-field-hint">Solo se permite un apellido (sin espacios).</p>
+                    <p id="usersApellidoErr" class="users-field-error hidden" role="alert"></p>
+                  </div>
+                  <div class="users-field">
+                    <label class="users-field-label" for="usersCargo">Cargo <span class="users-req">*</span></label>
+                    <input id="usersCargo" class="users-input" type="text" autocomplete="organization-title" placeholder="Ingresa el cargo del usuario" />
+                    <p id="usersCargoErr" class="users-field-error hidden" role="alert"></p>
+                  </div>
+                </div>
+                <div class="users-form-col users-form-col--right">
+                  <fieldset class="users-field users-teams-fieldset">
+                    <legend class="users-field-label">Equipos asignados <span class="users-req">*</span></legend>
+                    <p class="users-field-hint">Marca uno o más equipos. Sin equipos no se puede iniciar sesión.</p>
+                    <div id="usersTeamsChecks" class="users-teams-checks" role="group" aria-label="Equipos"></div>
+                    <p id="usersTeamErr" class="users-field-error hidden" role="alert"></p>
+                  </fieldset>
+                  <div class="users-field">
+                    <label class="users-field-label" for="usersUsuario">Usuario <span class="users-req">*</span></label>
+                    <input id="usersUsuario" class="users-input" type="text" autocomplete="username" placeholder="Ingresa el nombre de usuario" />
+                    <p class="users-field-hint">Este será el usuario para iniciar sesión.</p>
+                    <p id="usersUsuarioErr" class="users-field-error hidden" role="alert"></p>
+                  </div>
+                  <div class="users-field">
+                    <label class="users-field-label" for="usersClave">Clave <span id="usersClaveReq" class="users-req">*</span></label>
+                    <div class="users-password-wrap">
+                      <input id="usersClave" class="users-input users-input--password" type="password" autocomplete="new-password" minlength="8" placeholder="Ingresa la contraseña" />
+                      <button type="button" id="usersClaveToggle" class="users-password-toggle" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+                    </div>
+                    <p id="usersClaveEditHint" class="users-field-hint hidden">Si no deseas cambiar la contraseña, deja este campo en blanco. Si el usuario se creó o actualizó desde aquí, se muestra la última clave guardada para consulta del administrador (no es el hash de seguridad).</p>
+                    <p class="users-field-hint users-clave-hint-new users-clave-hint-accent">Mínimo 8 caracteres.</p>
+                    <p id="usersClaveErr" class="users-field-error hidden" role="alert"></p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="users-surface-card users-surface-card--toolbar-perms full-width" aria-label="Permisos de exportación e importación">
+              <div class="users-toolbar-perms-inner">
+                <h2 class="users-modules-title"><i class="fa-solid fa-gears users-modules-title-ico" aria-hidden="true"></i> Datos del sistema (sidebar)</h2>
+                <p class="users-modules-lead">Controlan si el usuario puede exportar o importar el bundle desde la barra lateral, o reiniciar el sistema.</p>
+                <div class="users-toolbar-perms-grid" role="group" aria-label="Permisos de barra lateral">
+                  <label class="users-toolbar-perm-item">
+                    <input type="checkbox" id="usersPermExport" class="users-perm-checkbox" />
+                    <span>Exportar datos</span>
+                  </label>
+                  <label class="users-toolbar-perm-item">
+                    <input type="checkbox" id="usersPermImport" class="users-perm-checkbox" />
+                    <span>Importar datos</span>
+                  </label>
+                  <label class="users-toolbar-perm-item">
+                    <input type="checkbox" id="usersPermReset" class="users-perm-checkbox" />
+                    <span>Resetear sistema</span>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section class="users-surface-card users-surface-card--modules full-width" aria-label="Permisos por módulo">
+              <div class="users-modules-section users-modules-section--card">
+                <div class="users-modules-head">
+                  <div>
+                    <h2 class="users-modules-title"><i class="fa-solid fa-lock users-modules-title-ico" aria-hidden="true"></i> Acceso a módulos</h2>
+                    <p class="users-modules-lead">Selecciona los módulos a los que el usuario tendrá acceso.</p>
+                  </div>
+                  <div class="users-modules-actions">
+                    <label class="users-select-all-label">
+                      <input type="checkbox" id="usersSelectAllModsChk" />
+                      <span>Seleccionar todos</span>
+                    </label>
+                    <button type="button" id="usersClearMods" class="users-link-btn users-link-btn--danger">Limpiar selección</button>
+                  </div>
+                </div>
+                <p id="usersModulosErr" class="users-field-error hidden" role="alert"></p>
+                <div id="usersModCards" class="users-mod-grid"></div>
+              </div>
+            </section>
+
+            <footer class="users-page-footer users-page-footer--modal">
+              <p class="users-footer-note"><i class="fa-solid fa-circle-info users-footer-note-ico" aria-hidden="true"></i> Los cambios quedan en borrador hasta que pulses <strong>Publicar</strong>; entonces se sincronizan con el servidor (sin descargar archivos).</p>
+              <div class="users-footer-actions">
+                <button type="button" id="usersCancelBtn" class="btn-toolbar users-btn-cancel-outline">Cancelar</button>
+                <button type="button" id="usersSaveBtn" class="btn-toolbar btn-primary users-btn-save-primary"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> <span id="usersSaveBtnLabel">Guardar usuario</span></button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="adsThumbModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adsThumbModalTitle">
+    <div class="modal-content ads-thumb-modal-content">
+      <h2 id="adsThumbModalTitle">Subir imagen de anuncio</h2>
+      <p class="ads-thumb-modal-subtitle">Selecciona una imagen y guarda los cambios.</p>
+      <div class="ads-thumb-modal-body">
+        <label class="btn-toolbar btn-primary ads-thumb-modal-upload">
+          Subir imagen
+          <input id="adsThumbFileInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
+        </label>
+        <div id="adsThumbModalPreview" class="preview-anuncio preview-anuncio-modal" aria-label="Vista previa de anuncio"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="adsThumbModalCancelBtn" type="button" class="btn-secondary">Cancelar</button>
+        <button id="adsThumbModalSaveBtn" type="button" class="btn-toolbar btn-primary" disabled>Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dashGastoDiffModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dashGastoDiffTitle">
+    <div class="modal-content dash-gasto-diff-modal-content">
+      <div class="dash-gasto-diff-modal-toolbar">
+        <button type="button" id="dashGastoDiffExportBtn" class="dash-gasto-diff-export-btn">Exportar</button>
+      </div>
+      <h2 id="dashGastoDiffTitle">Registros de DATA no considerados en el dashboard</h2>
+      <p class="dash-gasto-diff-modal-intro">
+        Filas de DATA del <strong>mes y rango seleccionados</strong> que no entran en el gasto del dashboard con los filtros actuales (segmentadores, relaciones, branding y fila de programa).
+      </p>
+      <div class="table-card" aria-label="Detalle por fila">
+        <div class="data-table-wrap dash-gasto-diff-table-wrap" role="region">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>ID Campaña</th>
+                <th>Nombre</th>
+                <th>Gasto</th>
+                <th>Motivo exclusión</th>
+              </tr>
+            </thead>
+            <tbody id="dashGastoDiffTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="closeDashGastoDiffModal" type="button" class="btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dashEndingSoonModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dashEndingSoonTitle">
+    <div class="modal-content dash-ending-soon-modal-content">
+      <h2 id="dashEndingSoonTitle">Campañas por finalizar</h2>
+      <p class="dash-ending-soon-intro">Campañas que terminan en los próximos 5 días.</p>
+      <div class="table-card" aria-label="Campañas por finalizar">
+        <div class="data-table-wrap dash-ending-soon-table-wrap" role="region">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Programa</th>
+                <th>Tipo</th>
+                <th>Intake</th>
+                <th>Fecha fin</th>
+                <th>Días restantes</th>
+              </tr>
+            </thead>
+            <tbody id="dashEndingSoonTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="closeDashEndingSoonModal" type="button" class="btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dataErrorModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dataErrorTitle">
+    <div class="modal-content">
+      <h2 id="dataErrorTitle">Detalle de carga</h2>
+      <p id="dataErrorIntro" class="data-error-intro hidden"></p>
+      <div class="table-card" aria-label="Detalle de carga">
+        <div class="data-table-wrap" role="region" aria-label="Tabla de motivos por fila">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Fila</th>
+                <th>Motivo</th>
+                <th>Vista de datos</th>
+              </tr>
+            </thead>
+            <tbody id="dataErrorTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="closeDataErrorBtn" type="button" class="btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dataLoadModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dataLoadTitle">
+    <div class="modal-content">
+      <h2 id="dataLoadTitle">Carga de Data</h2>
+      <textarea id="dataInput" class="data-textarea" rows="12" placeholder="Pega aquí tu data desde Excel..."></textarea>
+      <div class="modal-actions">
+        <button id="closeDataLoadBtn" type="button" class="btn-secondary">Cerrar</button>
+        <button id="processDataBtn" type="button" class="btn-toolbar btn-primary">Procesar Data</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="medidaModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="medidaModalTitle">
+    <div class="modal-content">
+      <h2 id="medidaModalTitle">Crear medida</h2>
+      <form id="medidaForm" class="campaign-form">
+        <input id="medidaId" type="hidden" />
+        <label>
+          Nombre
+          <input id="medidaNombre" type="text" required />
+        </label>
+        <label>
+          Fórmula (usar gasto, leads, clics, impresiones, presupuesto, meta_leads)
+          <input id="medidaFormula" type="text" required placeholder="ej: gasto / leads" />
+        </label>
+        <label>
+          Descripción (opcional)
+          <input id="medidaDescripcion" type="text" />
+        </label>
+        <div id="medidaFormError" class="form-error hidden"></div>
+        <div class="modal-actions">
+          <button id="cancelMedidaBtn" type="button" class="btn-secondary">Cancelar</button>
+          <button id="saveMedidaBtn" type="submit" class="btn-toolbar btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="dataClearModalOverlay" class="app-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dataClearModalTitle">
+    <div class="app-dialog app-dialog--wide app-dialog-data-clear" role="document">
+      <h3 id="dataClearModalTitle" class="app-dialog-heading">Limpiar datos</h3>
+      <p class="app-dialog-message">Tienes varias fuentes de data. ¿Qué deseas limpiar?</p>
+      <div class="app-dialog-checkboxes" role="group" aria-label="Tipos de data a limpiar">
+        <label class="app-dialog-check-option">
+          <input id="dataClearGeneralChk" type="checkbox" />
+          <span>General</span>
+        </label>
+        <label class="app-dialog-check-option">
+          <input id="dataClearAnunciosChk" type="checkbox" />
+          <span>Anuncios</span>
+        </label>
+      </div>
+      <p class="app-dialog-warning">Esta acción eliminará la data seleccionada de forma permanente</p>
+      <p id="dataClearModalError" class="form-error hidden" role="alert"></p>
+      <div class="app-dialog-actions">
+        <button type="button" id="dataClearCancelBtn" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+        <button type="button" id="dataClearConfirmBtn" class="app-dialog-btn app-dialog-btn-primary app-dialog-btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resetSystemModalOverlay" class="app-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="resetSystemModalTitle">
+    <div class="app-dialog app-dialog--wide app-dialog-reset-system" role="document">
+      <h3 id="resetSystemModalTitle" class="app-dialog-heading">Reiniciar sistema</h3>
+      <p class="app-dialog-message">Esta acción eliminará TODA la información del sistema. Ingresa la clave para continuar</p>
+      <div class="app-dialog-field">
+        <label for="resetSystemKeyInput">Ingresar clave</label>
+        <input id="resetSystemKeyInput" class="app-dialog-input" type="password" autocomplete="off" />
+      </div>
+      <p id="resetSystemModalError" class="form-error hidden" role="alert"></p>
+      <div class="app-dialog-actions">
+        <button type="button" id="resetSystemCancelBtn" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+        <button type="button" id="resetSystemConfirmBtn" class="app-dialog-btn app-dialog-btn-primary app-dialog-btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="appPublishModalOverlay" class="app-publish-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="appPublishModalTitle" aria-hidden="true" data-phase="progress">
+    <div class="app-publish-card" role="document">
+      <div id="appPublishModalPhaseProgress" class="app-publish-phase">
+        <h3 id="appPublishModalTitle" class="app-publish-title">Publicando cambios⬦</h3>
+        <p class="app-publish-sub">Por favor espera mientras guardamos la información.</p>
+        <div class="app-publish-progress" aria-hidden="true">
+          <div id="appPublishProgressBar" class="app-publish-progress-bar"></div>
+        </div>
+      </div>
+      <div id="appPublishModalPhaseDone" class="app-publish-phase app-publish-phase--done hidden">
+        <div class="app-publish-success-ico" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></div>
+        <h3 class="app-publish-title">Cambios publicados correctamente</h3>
+        <p class="app-publish-sub">Tu información ya está guardada.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="ccReassignOverlay" class="app-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ccReassignTitle">
+    <div class="app-dialog app-dialog--wide" role="document">
+      <h3 id="ccReassignTitle" class="app-dialog-heading">Reasignar campañas</h3>
+      <p class="app-dialog-message">Elige el Centro de Costos que recibirá las campañas vinculadas al centro que eliminarás.</p>
+      <div class="app-dialog-field">
+        <label for="ccReassignSelect">Nuevo centro de costos</label>
+        <select id="ccReassignSelect" class="app-dialog-select"></select>
+      </div>
+      <div class="app-dialog-actions">
+        <button type="button" id="ccReassignCancel" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+        <button type="button" id="ccReassignAccept" class="app-dialog-btn app-dialog-btn-primary" disabled>Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="campaignModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-content campaign-modal-surface">
+      <header class="campaign-modal-header">
+        <div class="campaign-modal-header-main">
+          <div class="campaign-modal-icon" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></div>
+          <div class="campaign-modal-titles">
+            <h2 id="modalTitle">Registrar nueva campaña</h2>
+            <p id="f2q7kn" class="campaign-modal-subtitle">Completa la información para crear una nueva campaña</p>
+          </div>
+        </div>
+        <button type="button" class="campaign-modal-close" aria-label="Cerrar" onclick="document.getElementById('cancelBtn')?.click()">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      <p id="formError" class="form-error hidden" role="alert"></p>
+
+      <form id="campaignForm" class="campaign-form campaign-form-modern">
+        <div class="campaign-form-planning-full">
+        <div class="row-3 campaign-planning-row campaign-planning-row-program">
+          <label class="campaign-field">
+            <span class="campaign-field-label">Tipo de programa</span>
+            <span class="campaign-field-control campaign-field-control--select">
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+            <select id="programType" name="programType" required>
+              <option value="">Seleccionar tipo</option>
+              <option value="MBA">MBA</option>
+              <option value="MA">MA</option>
+              <option value="DO">DO</option>
+              <option value="DI">DI</option>
+              <option value="PE">PE</option>
+              <option value="SE">SE</option>
+              <option value="Charla">Charla</option>
+              <option value="Webinar">Webinar</option>
+              <option value="Alcance">Alcance</option>
+            </select>
+            </span>
+          </label>
+
+          <div class="program-combo">
+            <label class="campaign-field campaign-field--program-combo">
+              <span class="campaign-field-label">Programa</span>
+              <span class="campaign-field-control campaign-field-control--select">
+                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></span>
+              <select id="programName" name="programName" required disabled>
+                <option value="">Seleccionar programa</option>
+              </select>
+              <input id="programNameEdit" name="programNameEdit" type="text" class="hidden" placeholder="Escribe nuevo programa" autocomplete="off">
+              </span>
+            </label>
+            <div id="programDropdown" class="dropdown hidden" role="listbox" aria-label="Programas"></div>
+          </div>
+
+          <button id="newProgramBtn" type="button" class="icon-btn campaign-new-program-btn" aria-label="Crear nuevo programa"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="row-intake campaign-planning-row-intake">
+          <label class="campaign-field">
+            <span class="campaign-field-label">Tracking</span>
+            <span class="campaign-field-control campaign-field-control--select">
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-crosshairs"></i></span>
+            <select id="tracking" name="tracking" required>
+              <option value="">Seleccionar</option>
+              <option value="Leadgen">Leadgen</option>
+              <option value="Pixel">Pixel</option>
+            </select>
+            </span>
+          </label>
+          <label class="campaign-field">
+            <span class="campaign-field-label">Plataforma</span>
+            <span class="campaign-field-control campaign-field-control--select">
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-display"></i></span>
+            <select id="plataforma" name="plataforma" required>
+              <option value="">Seleccionar</option>
+              <option value="Meta">Meta</option>
+              <option value="Google">Google</option>
+              <option value="TikTok">TikTok</option>
+              <option value="LinkedIn">LinkedIn</option>
+            </select>
+            </span>
+          </label>
+          <label class="campaign-field">
+            <span class="campaign-field-label">Intake</span>
+            <span class="campaign-field-control campaign-field-control--select">
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+            <select id="intake" name="intake" required>
+              <option value="">Seleccionar intake</option>
+              <option value="Intake 1">Intake 1</option>
+              <option value="Intake 2">Intake 2</option>
+              <option value="Intake 3">Intake 3</option>
+              <option value="Intake 4">Intake 4</option>
+            </select>
+            </span>
+          </label>
+        </div>
+
+        <div class="row-intake-dates campaign-planning-row-dates">
+          <label class="campaign-field">
+            <span class="campaign-field-label">Fecha inicio</span>
+            <span class="campaign-field-control campaign-field-control--date">
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></span>
+            <input id="startDate" name="startDate" type="date" required>
+            </span>
+          </label>
+          <label class="campaign-field">
+            <span class="campaign-field-label">Fecha fin</span>
+            <span class="campaign-field-control campaign-field-control--date">
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></span>
+            <input id="endDate" name="endDate" type="date" required disabled>
+            </span>
+          </label>
+        </div>
+
+        <div class="campaign-separator campaign-separator--soft" aria-hidden="true"></div>
+
+        <div class="row-budget-3 compact-row campaign-metrics-modern">
+          <label id="campaignTargetLeadsLabel" class="campaign-field campaign-field--metric-input">
+            <span class="campaign-field-label">Leads Obj.</span>
+            <span class="campaign-field-control campaign-field-control--number">
+              <input id="targetLeads" name="targetLeads" type="number" min="0" step="1" required>
+            </span>
+          </label>
+
+          <div class="metric-separator" aria-hidden="true"></div>
+
+          <div class="cpl-metric-block campaign-cpl-cluster">
+            <label id="campaignCplTargetLabel" class="campaign-field campaign-field--metric-input">
+              <span class="campaign-field-label">CPL Obj.</span>
+              <span class="campaign-field-control campaign-field-control--number">
+                <input id="cplTarget" name="cplTarget" type="number" min="0" step="1">
+              </span>
+            </label>
+            <div id="cplHistoricoHint" class="hint cpl-historico-hint" role="status" aria-live="polite"></div>
+          </div>
+
+          <div class="campaign-metrics-distrib-strip" aria-hidden="true">
+            <span class="campaign-metrics-distrib-cell"></span>
+            <span class="campaign-metrics-distrib-cell"></span>
+            <span class="campaign-metrics-distrib-cell"></span>
+            <span class="campaign-metrics-distrib-cell"></span>
+            <span class="campaign-metrics-distrib-cell campaign-metrics-distrib-cell--accent"></span>
+            <span class="campaign-metrics-distrib-cell campaign-metrics-distrib-cell--accent"></span>
+          </div>
+
+          <div class="metric-separator" aria-hidden="true"></div>
+
+          <label class="campaign-field campaign-field--metric-readonly">
+            <span class="campaign-field-label">Gasto Total</span>
+            <span class="campaign-money-box">
+              <span class="campaign-money-ico" aria-hidden="true"><i class="fa-solid fa-dollar-sign"></i></span>
+            <input id="totalBudget" name="totalBudget" type="number" min="0" step="0.01" required readonly>
+            </span>
+          </label>
+
+          <label class="campaign-field campaign-field--metric-readonly">
+            <span class="campaign-field-label">Gasto Diario</span>
+            <span class="campaign-money-box">
+              <span class="campaign-money-ico" aria-hidden="true"><i class="fa-solid fa-dollar-sign"></i></span>
+            <input id="gastoDiario" name="gastoDiario" type="text" readonly>
+            </span>
+          </label>
+        </div>
+
+        <div class="preview-header campaign-preview-toolbar">
+          <div class="campaign-preview-toolbar-left">
+            <h3>Vista previa mensual</h3>
+            <span class="campaign-preview-info-ico" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
+          </div>
+          <p id="percentHint" class="hint campaign-preview-stats">Modo automatico por dias activo.</p>
+        </div>
+        <div class="preview-scroll campaign-preview-wrap">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Dias activos</th>
+                <th>% distribucion</th>
+                <th>Presupuesto</th>
+                <th class="preview-col-leads">Leads</th>
+                <th class="preview-col-cpl">CPL</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+          <div class="campaign-preview-empty" aria-hidden="true">
+            <div class="campaign-preview-empty-illu"><i class="fa-solid fa-folder-open"></i></div>
+            <p class="campaign-preview-empty-title">Aún no hay distribución mensual</p>
+            <p class="campaign-preview-empty-copy">La vista previa se mostrará aquí cuando ingreses los datos.</p>
+          </div>
+        </div>
+        </div>
+
+        <div class="campaign-form-cc-section campaign-cc-bar">
+          <label class="campaign-field" for="centroCostoSelect">
+            <span class="campaign-field-label">Centro de costo</span>
+            <span class="campaign-field-control campaign-field-control--select">
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></span>
+            <select id="centroCostoSelect" name="centroCosto">
+              <option value="">Sin centro de costo</option>
+            </select>
+            </span>
+          </label>
+          <p id="centroCostoSaldoHint" class="hint cc-saldo-hint" role="status"></p>
+        </div>
+
+        <div class="modal-actions campaign-modal-actions">
+          <button id="cancelBtn" type="button" class="btn-secondary campaign-btn-secondary"><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Cancelar</span></button>
+          <button type="submit" class="campaign-btn-primary"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i><span>Guardar campaña</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+  </div>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+  <!--
+    Demo / Vercel (frontend-only): JSON público + localStorage al publicar.
+    Backend Node + SQL: pon CAMPATRACK_APP_MODE = "full" y sirve con la API en CAMPATRACK_API_ORIGIN.
+  -->
+  <script>
+    window.CAMPATRACK_APP_MODE = "lite";
+    /* data.json: prioridad a la configuración guardada en el navegador (módulo Configuración / asistente inicial). */
+    window.CAMPATRACK_LITE_DEMO_USER = "demo";
+    window.CAMPATRACK_LITE_DEMO_PASS = "demo";
+  </script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
