@@ -2234,8 +2234,14 @@ function shouldDeferDiskPersistence() {
 }
 
 function cancelPendingDraftNotify() {
-  /* Reservado si en el futuro se reintroduce debounce de notificaciones. */
+  if (appPublishIncrementDebounceTimer != null) {
+    clearTimeout(appPublishIncrementDebounceTimer);
+    appPublishIncrementDebounceTimer = null;
+  }
 }
+
+/** Agrupa en +1 los avisos de borrador disparados en la misma acción (persist + REGENERAR + guardar). */
+let appPublishIncrementDebounceTimer = null;
 
 function withDraftNotificationsSuppressed(fn) {
   appSuppressDraftNotifications += 1;
@@ -2266,13 +2272,23 @@ function appPublishBaselineMatchesCurrent() {
   return cur === appPublishSnapshotBaselineJson;
 }
 
-function registerUnpublishedDraftMutation() {
+function flushPublishCountIncrementFromUserAction() {
   if (appSuppressDraftNotifications > 0) return;
   if (appPublishBaselineMatchesCurrent()) return;
   appPendingPublishCount += 1;
   bumpAppStatePendingChanges();
   updatePublishDraftToolbar();
   persistPublishDraftMeta();
+}
+
+function registerUnpublishedDraftMutation() {
+  if (appSuppressDraftNotifications > 0) return;
+  if (appPublishBaselineMatchesCurrent()) return;
+  if (appPublishIncrementDebounceTimer != null) clearTimeout(appPublishIncrementDebounceTimer);
+  appPublishIncrementDebounceTimer = setTimeout(() => {
+    appPublishIncrementDebounceTimer = null;
+    flushPublishCountIncrementFromUserAction();
+  }, 160);
 }
 
 const MAX_AUDITORIA_ENTRIES = 8000;
@@ -2458,6 +2474,8 @@ function captureAppPublishBaseline() {
   }
 }
 
+const SS_PUBLISH_FRESH_SERVER_HYDRATE = "campatrack_publish_fresh_server_hydrate";
+
 /** Tras cargar data desde el servidor (login o GET): estado = publicado, contador 0, sin “cambios fantasma”. */
 function resetPublishDraftAfterServerHydrate() {
   cancelPendingDraftNotify();
@@ -2466,6 +2484,11 @@ function resetPublishDraftAfterServerHydrate() {
   resetAppStatePendingChanges();
   updatePublishDraftToolbar();
   persistPublishDraftMeta();
+  try {
+    sessionStorage.setItem(SS_PUBLISH_FRESH_SERVER_HYDRATE, "1");
+  } catch (_) {
+    /* ignore */
+  }
 }
 
 /**
@@ -2473,9 +2496,19 @@ function resetPublishDraftAfterServerHydrate() {
  * (para “Descartar” y la barra de publicar). Si no, alinea baseline al estado actual.
  */
 function restoreOrResetPublishDraftAfterBoot() {
+  cancelPendingDraftNotify();
   if (typeof isCampatrackAuthenticated !== "function" || !isCampatrackAuthenticated()) {
     resetPublishDraftAfterServerHydrate();
     return;
+  }
+  try {
+    if (sessionStorage.getItem(SS_PUBLISH_FRESH_SERVER_HYDRATE) === "1") {
+      sessionStorage.removeItem(SS_PUBLISH_FRESH_SERVER_HYDRATE);
+      resetPublishDraftAfterServerHydrate();
+      return;
+    }
+  } catch (_) {
+    /* ignore */
   }
   try {
     const rawP = appMemoryKV.getItem(LS_PUBLISH_PENDING);
@@ -6786,6 +6819,8 @@ let dashboardActiveSubtab = "plataforma";
 let dashboardCrmBottomMode = "platVsCrm";
 /** `"total"` | `"mes"` — alcance temporal solo tabla Intervalo de Gestión (respeta fila seleccionada). */
 let dashboardCrmIntervaloPeriodScope = "total";
+/** Tab operativa CRM activa (preparado para filtrar motivos de no interés). */
+let dashboardCrmOperActiveTab = "gestionados";
 let mostrarMetaGlobal = true;
 try {
   const rawMostrarMetaGlobal = appMemoryKV.getItem(LS_DASH_MOSTRAR_META_GLOBAL);
@@ -13017,41 +13052,128 @@ function renderFechaActualDataInfo() {
   el.textContent = `📅 Data actualizada hasta: ${formatDateInputFromDate(fechaActualData)}`;
 }
 
-/** Última fecha en `appState.dataDraft.data_general` (módulo DATA). */
-function mostrarFechaActualizacion() {
-  const el = document.getElementById("fecha-actualizacion");
-  if (!el) return;
-
-  const vaciar = () => {
-    el.innerText = "";
-    el.classList.add("hidden");
-  };
-
+function computeDashboardFechaActualizacionTexto() {
   const data = ensureDataGeneralDraftShape();
-  if (!data.length) {
-    vaciar();
-    return;
-  }
-
+  if (!data.length) return "";
   const fechas = [];
   for (const d of data) {
     if (!d || typeof d !== "object") continue;
     const dt = d.fecha instanceof Date ? d.fecha : parseFechaData(d.fecha);
     if (dt instanceof Date && !Number.isNaN(dt.getTime())) fechas.push(dt.getTime());
   }
-  if (!fechas.length) {
-    vaciar();
-    return;
-  }
-
+  if (!fechas.length) return "";
   const maxFecha = new Date(Math.max(...fechas));
   const fechaFormateada = maxFecha.toLocaleDateString("es-ES", {
     day: "numeric",
     month: "long",
     year: "numeric"
   });
-  el.innerText = `Actualizado al ${fechaFormateada}`;
-  el.classList.remove("hidden");
+  return `Actualizado al ${fechaFormateada}`;
+}
+
+function syncDashboardCrmHeaderBadges() {
+  const dash = document.getElementById("dashboardModule");
+  const onDash = !!(dash && !dash.classList.contains("hidden"));
+  const crmOn = onDash && getDashboardEffectiveSubtab() === "crm";
+  const teamEl = document.getElementById("appTeamHeaderBadge");
+  const headerFechaEl = document.getElementById("dashCrmActualizadoHeader");
+  const toolbarEnd = document.querySelector("#dashboardModule .dash-toolbar-end-group");
+  const operWrap = document.getElementById("dashCrmOperCardsWrap");
+  const headerFechaText = headerFechaEl instanceof HTMLElement ? String(headerFechaEl.textContent || "").trim() : "";
+
+  toolbarEnd?.classList.toggle("hidden", crmOn);
+  operWrap?.classList.toggle("hidden", !crmOn);
+  operWrap?.setAttribute("aria-hidden", crmOn ? "false" : "true");
+
+  if (crmOn) {
+    teamEl?.classList.add("hidden");
+    if (headerFechaText) headerFechaEl?.classList.remove("hidden");
+    else headerFechaEl?.classList.add("hidden");
+  } else {
+    headerFechaEl?.classList.add("hidden");
+    if (onDash) refreshCampatrackTeamHeader();
+  }
+}
+
+const DASH_CRM_OPER_TAB_LABELS = {
+  gestionados: "Gestionados",
+  "no-gestionados": "No gestionados",
+  "no-gestionables": "No gestionables",
+  contactados: "Contactados",
+  "no-interesados": "No interesados",
+  "en-proceso": "En proceso",
+  "prom-llamadas": "Prom llamadas",
+  "prom-chats": "Prom chats"
+};
+
+function applyDashboardCrmOperTabsUi() {
+  document.querySelectorAll("#dashCrmOperCardsWrap .dash-crm-oper-kpi").forEach((btn) => {
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const tab = String(btn.getAttribute("data-crm-oper-tab") || "");
+    const active = tab === dashboardCrmOperActiveTab;
+    btn.classList.toggle("dash-crm-oper-kpi--active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+}
+
+function renderDashboardCrmMotivosTabla() {
+  const tbody = document.getElementById("dashCrmMotivosTbody");
+  const titleEl = document.getElementById("dashCrmMotivosTitle");
+  if (!tbody) return;
+  applyDashboardCrmIntervaloPeriodScopeUi();
+  const tabLabel = DASH_CRM_OPER_TAB_LABELS[dashboardCrmOperActiveTab] || dashboardCrmOperActiveTab;
+  if (titleEl) titleEl.textContent = tabLabel;
+  tbody.innerHTML = `<tr><td colspan="3" class="dash-crm-motivos-empty">Vista «${escapeHtml(tabLabel)}» — datos en preparación</td></tr>`;
+}
+
+function initDashboardCrmOperTabs() {
+  document.getElementById("dashCrmOperCardsWrap")?.addEventListener("click", (ev) => {
+    const btn = ev.target instanceof HTMLElement ? ev.target.closest("[data-crm-oper-tab]") : null;
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const tab = String(btn.getAttribute("data-crm-oper-tab") || "").trim();
+    if (!tab || tab === dashboardCrmOperActiveTab) return;
+    dashboardCrmOperActiveTab = tab;
+    applyDashboardCrmOperTabsUi();
+    renderDashboardCrmMotivosTabla();
+  });
+  applyDashboardCrmOperTabsUi();
+  renderDashboardCrmMotivosTabla();
+}
+
+/** Última fecha en `appState.dataDraft.data_general` (módulo DATA). */
+function mostrarFechaActualizacion() {
+  const el = document.getElementById("fecha-actualizacion");
+  const headerEl = document.getElementById("dashCrmActualizadoHeader");
+  const text = computeDashboardFechaActualizacionTexto();
+  const vaciar = () => {
+    if (el) {
+      el.innerText = "";
+      el.classList.add("hidden");
+    }
+    if (headerEl) {
+      headerEl.textContent = "";
+      headerEl.classList.add("hidden");
+    }
+  };
+  if (!text) {
+    vaciar();
+    syncDashboardCrmHeaderBadges();
+    return;
+  }
+  const crmOn =
+    (() => {
+      const dash = document.getElementById("dashboardModule");
+      return !!(dash && !dash.classList.contains("hidden") && getDashboardEffectiveSubtab() === "crm");
+    })();
+  if (el) {
+    el.innerText = text;
+    if (crmOn) el.classList.add("hidden");
+    else el.classList.remove("hidden");
+  }
+  if (headerEl) {
+    headerEl.textContent = text;
+  }
+  syncDashboardCrmHeaderBadges();
 }
 
 function ensureMedidasDefaults() {
@@ -14765,7 +14887,7 @@ function dashboardCrmLeadPassesMesOnlyFilter(r) {
   return formatMonthYearData(r.fecha) === estadoFiltrosDashboard.mes;
 }
 
-/** Alcance Total/Mes solo para tabla Intervalo de Gestión. */
+/** Alcance Total/Mes para tablas laterales CRM (dinámica superior e intervalo). */
 function dashboardCrmIntervaloLeadPassesScopeFilter(r) {
   if (!(r?.fecha instanceof Date) || Number.isNaN(r.fecha.getTime())) return false;
   if (dashboardCrmIntervaloPeriodScope === "total") return true;
@@ -14960,15 +15082,8 @@ function renderDashboardKpisCrm() {
   }
 }
 
-function renderDashboardCrmTabla() {
-  const tbody = document.getElementById("dashCrmTbody");
-  const tfoot = document.getElementById("dashCrmTfoot");
-  if (!tbody || !tfoot) return;
-  if (!hasAnyDataLoaded() || !getDashboardSubtabVisibility().crm || getDashboardEffectiveSubtab() !== "crm") {
-    tbody.innerHTML = "";
-    tfoot.innerHTML = "";
-    return;
-  }
+/** Claves de programa visibles en la tabla CRM (mismos criterios que `renderDashboardCrmTabla`). */
+function getDashboardCrmVisibleTableRowKeys() {
   const platMap = getDashboardPlatformLeadsByRowKeyForCrm();
   const crmMap = aggregateDashboardCrmMetricsByRowKey();
   const keys = new Set([...platMap.keys(), ...crmMap.keys()]);
@@ -14983,6 +15098,36 @@ function renderDashboardCrmTabla() {
   if (busq) {
     list = list.filter((k) => dashboardRowSearchHaystackFromKey(k).includes(busq));
   }
+  return list;
+}
+
+function getDashboardCrmVisibleTableRowKeysSet() {
+  return new Set(getDashboardCrmVisibleTableRowKeys());
+}
+
+function filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys) {
+  if (!visibleKeys || visibleKeys.size === 0) return [];
+  const ckMap = buildCrmKeyToPlanningKeysMap();
+  return (rows || []).filter((r) => {
+    const ck = crmCampaignKeyFromRow(r);
+    const pks = ckMap.get(ck);
+    if (!pks?.length) return false;
+    return pks.some((pk) => visibleKeys.has(planningKeyToDashboardRowKey(pk)));
+  });
+}
+
+function renderDashboardCrmTabla() {
+  const tbody = document.getElementById("dashCrmTbody");
+  const tfoot = document.getElementById("dashCrmTfoot");
+  if (!tbody || !tfoot) return;
+  if (!hasAnyDataLoaded() || !getDashboardSubtabVisibility().crm || getDashboardEffectiveSubtab() !== "crm") {
+    tbody.innerHTML = "";
+    tfoot.innerHTML = "";
+    return;
+  }
+  const platMap = getDashboardPlatformLeadsByRowKeyForCrm();
+  const crmMap = aggregateDashboardCrmMetricsByRowKey();
+  let list = getDashboardCrmVisibleTableRowKeys();
   list.sort((a, b) =>
     dashboardCrmSortKey(a).localeCompare(dashboardCrmSortKey(b), "es", {
       sensitivity: "base",
@@ -15438,30 +15583,30 @@ function renderDashboardCrmIntervaloTabla() {
   });
 
   if (totalLeads <= 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="dash-crm-interval-empty">Sin intervalos CRM en la vista actual.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="dash-crm-interval-empty">Sin intervalos CRM en la vista actual.</td></tr>`;
+    const tableEmpty = tbody.closest(".dash-crm-interval-table");
+    if (tableEmpty instanceof HTMLElement) {
+      tableEmpty.style.setProperty("--dash-crm-interval-visible-rows", "1");
+    }
     return;
   }
 
   const extraKeys = [...counts.keys()].filter((k) => !DASH_CRM_INTERVAL_ORDER.includes(k));
   const orderedLabs = [...DASH_CRM_INTERVAL_ORDER, ...extraKeys];
-  const htmlRows = [];
-  for (let i = 0; i < orderedLabs.length; i += 2) {
-    const leftLab = orderedLabs[i];
-    const rightLab = orderedLabs[i + 1];
-    const leftVal = counts.get(leftLab) || 0;
-    const rightVal = rightLab != null ? counts.get(rightLab) || 0 : null;
-    htmlRows.push(`<tr>
-      <td class="dash-crm-interval-lab">${escapeHtml(leftLab)}</td>
-      <td class="dash-crm-interval-num">${escapeHtml(dashFmtLeads(leftVal))}</td>
-      ${
-        rightLab
-          ? `<td class="dash-crm-interval-lab">${escapeHtml(rightLab)}</td>
-      <td class="dash-crm-interval-num">${escapeHtml(dashFmtLeads(rightVal))}</td>`
-          : `<td class="dash-crm-interval-lab dash-crm-interval-total">TOTAL</td>
-      <td class="dash-crm-interval-num dash-crm-interval-total">${escapeHtml(dashFmtLeads(totalLeads))}</td>`
-      }
-    </tr>`);
-  }
+  const htmlRows = orderedLabs.map((lab) => {
+    const val = counts.get(lab) || 0;
+    const pct = totalLeads > 0 ? Math.round((val / totalLeads) * 100) : 0;
+    return `<tr>
+      <td class="dash-crm-interval-lab">${escapeHtml(lab)}</td>
+      <td class="dash-crm-interval-num">${escapeHtml(dashFmtLeads(val))}</td>
+      <td class="dash-crm-interval-pct">${escapeHtml(String(pct))}%</td>
+    </tr>`;
+  });
+  htmlRows.push(`<tr>
+    <td class="dash-crm-interval-lab dash-crm-interval-total">TOTAL</td>
+    <td class="dash-crm-interval-num dash-crm-interval-total">${escapeHtml(dashFmtLeads(totalLeads))}</td>
+    <td class="dash-crm-interval-pct dash-crm-interval-total">100%</td>
+  </tr>`);
   tbody.innerHTML = htmlRows.join("");
   const table = tbody.closest(".dash-crm-interval-table");
   if (table instanceof HTMLElement) {
@@ -15491,6 +15636,7 @@ function renderDashboardCrmBottomPanels() {
     renderDashboardCrmPivotFuente();
   }
   renderDashboardCrmIntervaloTabla();
+  renderDashboardCrmMotivosTabla();
 }
 
 /** KPIs + paneles inferiores CRM (gráfico evolutivo e intervalo) sin recargar tabla principal. */
@@ -15573,8 +15719,10 @@ function getDashboardChartModeloData() {
 }
 
 function getDashboardPlatformRowsForCrmCharts() {
+  const visibleKeys = getDashboardCrmVisibleTableRowKeysSet();
   let base = getDashboardFilteredModeloParaComercialCrm().filter(dashboardModeloPassesChartPeriodFilter);
   base = filtrarDashboardSinBranding(base);
+  base = base.filter((r) => visibleKeys.has(dashboardRowKeyFromModelo(r) || "|||"));
   const selRow = String(programaSeleccionado ?? "").trim();
   if (selRow) {
     base = base.filter((r) => dashboardRowKeyFromModelo(r) === selRow);
@@ -15583,14 +15731,26 @@ function getDashboardPlatformRowsForCrmCharts() {
 }
 
 function getDashboardCrmRowsForCharts() {
-  const rows = getDashboardCrmRowsForBottomPanels().filter(dashboardCrmLeadPassesChartPeriodFilter);
+  const visibleKeys = getDashboardCrmVisibleTableRowKeysSet();
+  let rows = getDashboardCrmRowsForBottomPanels().filter(dashboardCrmLeadPassesChartPeriodFilter);
+  rows = filterDashboardCrmLeadRowsPorFilaSeleccionada(rows);
+  return filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys);
+}
+
+/** CRM tablas laterales: filtros tabla + Total/Mes + fila seleccionada. */
+function getDashboardCrmRowsForSidePanelScope() {
+  const rows = getDashboardCrmRowsForBottomPanels().filter(dashboardCrmIntervaloLeadPassesScopeFilter);
   return filterDashboardCrmLeadRowsPorFilaSeleccionada(rows);
 }
 
-/** CRM para Intervalo de Gestión: filtros tabla + Total/Mes + fila seleccionada. */
+/** CRM para Intervalo de Gestión. */
 function getDashboardCrmRowsForIntervaloTabla() {
-  const rows = getDashboardCrmRowsForBottomPanels().filter(dashboardCrmIntervaloLeadPassesScopeFilter);
-  return filterDashboardCrmLeadRowsPorFilaSeleccionada(rows);
+  return getDashboardCrmRowsForSidePanelScope();
+}
+
+/** CRM para tabla dinámica superior del panel derecho. */
+function getDashboardCrmRowsForMotivosTabla() {
+  return getDashboardCrmRowsForSidePanelScope();
 }
 
 /** CRM pivot Por fuente: filtros de tabla + mes seleccionado (todos los días del mes, con 0). */
@@ -17688,13 +17848,14 @@ function initDashboardModule() {
   document.getElementById("dashCrmScopeTotal")?.addEventListener("click", () => {
     if (dashboardCrmIntervaloPeriodScope === "total") return;
     dashboardCrmIntervaloPeriodScope = "total";
-    renderDashboardCrmIntervaloTabla();
+    renderDashboardCrmBottomPanels();
   });
   document.getElementById("dashCrmScopeMes")?.addEventListener("click", () => {
     if (dashboardCrmIntervaloPeriodScope === "mes") return;
     dashboardCrmIntervaloPeriodScope = "mes";
-    renderDashboardCrmIntervaloTabla();
+    renderDashboardCrmBottomPanels();
   });
+  initDashboardCrmOperTabs();
   const crmChartResizeHost = document.getElementById("dashCrmPanelCompare")?.querySelector(".full-width-chart");
   if (crmChartResizeHost && typeof ResizeObserver !== "undefined") {
     let dashCrmRoTimer = null;
@@ -18376,6 +18537,7 @@ function applyDashboardShellVisibilityForSubtab() {
     tabC.classList.toggle("dash-dashboard-header-tab--active", crmOn);
     tabC.setAttribute("aria-selected", crmOn ? "true" : "false");
   }
+  syncDashboardCrmHeaderBadges();
 }
 
 function applyDashboardMainSubtabsNavVisibility() {
@@ -20126,6 +20288,12 @@ function initTabs() {
     if (typeof updateAppTopbarForModule === "function") {
       updateAppTopbarForModule(safeModule);
     }
+    if (safeModule !== "dashboard") {
+      document.getElementById("dashCrmActualizadoHeader")?.classList.add("hidden");
+      refreshCampatrackTeamHeader();
+    } else if (typeof syncDashboardCrmHeaderBadges === "function") {
+      syncDashboardCrmHeaderBadges();
+    }
     if (isBitacora) {
       if (typeof refreshBitacoraFormProgramaOptions === "function") refreshBitacoraFormProgramaOptions();
       if (typeof renderBitacoraTable === "function") renderBitacoraTable();
@@ -20437,11 +20605,11 @@ function campatrackBootDeferredModules() {
   } else {
     withDraftNotificationsSuppressed(() => REGENERAR_MODELO());
   }
-  if (!document.getElementById("dashboardModule")?.classList.contains("hidden")) {
-    renderDashboard();
-  }
   withDraftNotificationsSuppressed(() => restoreOrResetPublishDraftAfterBoot());
   initDraftPublishToolbar();
+  if (!document.getElementById("dashboardModule")?.classList.contains("hidden")) {
+    withDraftNotificationsSuppressed(() => renderDashboard());
+  }
 }
 
 async function campatrackResumeLiteSessionIfNeeded() {

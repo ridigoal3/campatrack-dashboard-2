@@ -220,6 +220,7 @@
       </div>
     </div>
     <span id="appTeamHeaderBadge" class="app-team-header-badge hidden" aria-live="polite"></span>
+    <span id="dashCrmActualizadoHeader" class="fecha-badge fecha-badge--header hidden" aria-live="polite" role="status"></span>
     <div class="campatrack-top-header-end">
       <div class="app-draft-toolbar" role="group" aria-label="Borrador y publicación">
         <button type="button" id="appDraftDiscardBtn" class="app-draft-btn app-draft-btn--ghost" disabled aria-disabled="true">
@@ -1448,6 +1449,40 @@
             <span class="dash-toolbar-label segmentador-header">Estado</span>
             <div id="dashSegEstado" class="dash-seg-btns"></div>
           </div>
+          <div id="dashCrmOperCardsWrap" class="dash-crm-oper-kpis hidden" role="tablist" aria-label="Vista operativa CRM">
+            <button type="button" class="dash-crm-oper-kpi dash-crm-oper-kpi--active" data-crm-oper-tab="gestionados" role="tab" aria-selected="true">
+              <span class="dash-crm-oper-kpi-label">Gestionados</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+            <button type="button" class="dash-crm-oper-kpi" data-crm-oper-tab="no-gestionados" role="tab" aria-selected="false">
+              <span class="dash-crm-oper-kpi-label">No gestionados</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+            <button type="button" class="dash-crm-oper-kpi" data-crm-oper-tab="no-gestionables" role="tab" aria-selected="false">
+              <span class="dash-crm-oper-kpi-label">No gestionables</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+            <button type="button" class="dash-crm-oper-kpi" data-crm-oper-tab="contactados" role="tab" aria-selected="false">
+              <span class="dash-crm-oper-kpi-label">Contactados</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+            <button type="button" class="dash-crm-oper-kpi" data-crm-oper-tab="no-interesados" role="tab" aria-selected="false">
+              <span class="dash-crm-oper-kpi-label">No interesados</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+            <button type="button" class="dash-crm-oper-kpi" data-crm-oper-tab="en-proceso" role="tab" aria-selected="false">
+              <span class="dash-crm-oper-kpi-label">En proceso</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+            <button type="button" class="dash-crm-oper-kpi" data-crm-oper-tab="prom-llamadas" role="tab" aria-selected="false">
+              <span class="dash-crm-oper-kpi-label">Prom llamadas</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+            <button type="button" class="dash-crm-oper-kpi" data-crm-oper-tab="prom-chats" role="tab" aria-selected="false">
+              <span class="dash-crm-oper-kpi-label">Prom chats</span>
+              <span class="dash-crm-oper-kpi-val">--</span>
+            </button>
+          </div>
           <div class="dash-toolbar-item dash-toolbar-branding">
             <label class="dash-branding-label">
               <input id="dashIncluirBranding" type="checkbox" />
@@ -1578,9 +1613,11 @@
       </div>
 
       <div id="dashShellCrm" class="dash-shell-crm hidden" aria-label="Dashboard comercial CRM">
-        <div class="table-card dash-table-hero dash-table-primary">
-          <div class="dash-table-scroll table-container">
-            <table class="dash-table data-table dash-crm-main-table">
+        <div class="dash-crm-shell-grid">
+          <div class="dash-crm-main-column">
+            <div class="table-card dash-table-hero dash-table-primary dash-crm-main-panel">
+              <div class="dash-table-scroll table-container">
+                <table class="dash-table data-table dash-crm-main-table">
               <thead>
                 <tr class="dash-thead-row-groups">
                   <th class="dash-estado-col dash-th-sticky-corner" rowspan="2" title="Estado">Est.</th>
@@ -1614,47 +1651,69 @@
               </thead>
               <tbody id="dashCrmTbody"></tbody>
               <tfoot id="dashCrmTfoot"></tfoot>
-            </table>
-          </div>
-        </div>
-
-        <div class="dash-crm-bottom-layout">
-          <div class="table-card dash-chart-card dash-crm-dynamic-card">
-            <div class="dash-crm-dynamic-head">
-              <h3 class="dash-chart-title" id="dashCrmDynamicTitle">Vista operativa</h3>
-              <div class="dash-crm-view-toggle" role="group" aria-label="Modo de visualización">
-                <button type="button" id="dashCrmViewPlatVsCrm" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Plataforma vs CRM</button>
-                <button type="button" id="dashCrmViewFuente" class="dash-crm-toggle-btn">Por fuente</button>
-              </div>
-            </div>
-            <div id="dashCrmPanelCompare" class="dash-crm-dynamic-body">
-              <div class="full-width-chart dash-evolucion-chart">
-                <svg id="dashboardChartCrmCompare" viewBox="0 0 960 132" width="100%" class="dash-chart dash-chart-crm-compare" role="img" aria-label="Leads plataforma y CRM por día"></svg>
-              </div>
-            </div>
-            <div id="dashCrmPanelFuente" class="dash-crm-dynamic-body hidden">
-              <div class="dash-table-scroll dash-crm-pivot-scroll">
-                <table class="dash-table data-table dash-crm-pivot-table" id="dashCrmPivotTable">
-                  <thead id="dashCrmPivotThead"></thead>
-                  <tbody id="dashCrmPivotTbody"></tbody>
                 </table>
               </div>
             </div>
-          </div>
-          <div class="table-card dash-chart-card dash-crm-interval-card" aria-label="Intervalo de gestión">
-            <div class="dash-crm-interval-head">
-              <h3 class="dash-chart-title dash-crm-interval-title">Intervalo de Gestión</h3>
-              <div class="dash-crm-view-toggle dash-crm-interval-scope-toggle" role="group" aria-label="Alcance temporal del intervalo">
-                <button type="button" id="dashCrmScopeTotal" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Total</button>
-                <button type="button" id="dashCrmScopeMes" class="dash-crm-toggle-btn">Mes</button>
+
+            <div class="dash-crm-bottom-layout">
+              <div class="table-card dash-chart-card dash-crm-dynamic-card">
+                <div class="dash-crm-dynamic-head">
+                  <h3 class="dash-chart-title" id="dashCrmDynamicTitle">Vista operativa</h3>
+                  <div class="dash-crm-view-toggle" role="group" aria-label="Modo de visualización">
+                    <button type="button" id="dashCrmViewPlatVsCrm" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Plataforma vs CRM</button>
+                    <button type="button" id="dashCrmViewFuente" class="dash-crm-toggle-btn">Por fuente</button>
+                  </div>
+                </div>
+                <div id="dashCrmPanelCompare" class="dash-crm-dynamic-body">
+                  <div class="full-width-chart dash-evolucion-chart">
+                    <svg id="dashboardChartCrmCompare" viewBox="0 0 960 132" width="100%" class="dash-chart dash-chart-crm-compare" role="img" aria-label="Leads plataforma y CRM por día"></svg>
+                  </div>
+                </div>
+                <div id="dashCrmPanelFuente" class="dash-crm-dynamic-body hidden">
+                  <div class="dash-table-scroll dash-crm-pivot-scroll">
+                    <table class="dash-table data-table dash-crm-pivot-table" id="dashCrmPivotTable">
+                      <thead id="dashCrmPivotThead"></thead>
+                      <tbody id="dashCrmPivotTbody"></tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="dash-crm-interval-body">
-              <table class="dash-crm-interval-table" aria-label="Intervalo de gestión">
-                <tbody id="dashCrmIntervalTbody"></tbody>
-              </table>
-            </div>
           </div>
+
+          <aside class="dash-crm-side-panel" aria-label="Paneles laterales CRM">
+            <div class="table-card dash-chart-card dash-crm-motivos-card" aria-label="Motivos de no interés">
+              <div class="dash-crm-motivos-head">
+                <h3 class="dash-chart-title dash-crm-motivos-title" id="dashCrmMotivosTitle">Gestionados</h3>
+                <div class="dash-crm-view-toggle dash-crm-side-scope-toggle" role="group" aria-label="Alcance temporal tablas laterales CRM">
+                  <button type="button" id="dashCrmScopeTotal" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Total</button>
+                  <button type="button" id="dashCrmScopeMes" class="dash-crm-toggle-btn">Mes</button>
+                </div>
+              </div>
+              <div class="dash-crm-motivos-body">
+                <table class="dash-crm-motivos-table" aria-label="Motivos de no interés">
+                  <thead>
+                    <tr>
+                      <th scope="col" class="dash-crm-motivos-th-lab">Motivo</th>
+                      <th scope="col" class="dash-crm-motivos-th-num">#</th>
+                      <th scope="col" class="dash-crm-motivos-th-pct">%</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashCrmMotivosTbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="table-card dash-chart-card dash-crm-interval-card" aria-label="Intervalo de gestión">
+              <div class="dash-crm-interval-head">
+                <h3 class="dash-chart-title dash-crm-interval-title">Intervalo de Gestión</h3>
+              </div>
+              <div class="dash-crm-interval-body">
+                <table class="dash-crm-interval-table" aria-label="Intervalo de gestión">
+                  <tbody id="dashCrmIntervalTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </div>
