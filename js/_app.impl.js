@@ -6735,6 +6735,10 @@ let relFiltroTipo = "";
 let relActiveSubtab = "meta";
 let crmRelPlanningListQuery = "";
 let crmRelCrmListQuery = "";
+let crmRelacionesSearchQuery = "";
+let crmRelFiltroPlataforma = "";
+let crmRelFiltroEstadoRel = "";
+let crmRelFiltroIntake = "";
 let relKpiSessionBaseline = null;
 let modeloAnalitico = [];
 let estadoFiltros = { tipo: null, programa: null, intake: null, tracking: null };
@@ -10013,8 +10017,17 @@ function initDataSubTabs() {
   initCrmDataResumenFilters();
 }
 
+function applyRelacionesHeaderSubtabsNavVisibility() {
+  const wrap = document.getElementById("campatrackRelHeaderSubtabsWrap");
+  const rel = document.getElementById("relacionesModule");
+  const onRel = !!(rel && !rel.classList.contains("hidden"));
+  if (!(wrap instanceof HTMLElement)) return;
+  wrap.setAttribute("aria-hidden", onRel ? "false" : "true");
+}
+
 function refreshRelacionesModuleView() {
   if (relActiveSubtab === "crm") {
+    refreshCrmRelFilterSelects();
     renderCrmRelPlanningList();
     renderCrmRelCrmList();
     renderCrmRelacionesTabla();
@@ -10048,6 +10061,7 @@ function initRelSubTabs() {
   tabMeta.addEventListener("click", () => set("meta"));
   tabCrm.addEventListener("click", () => set("crm"));
   set("meta");
+  applyRelacionesHeaderSubtabsNavVisibility();
 }
 
 function initDataLoadModal() {
@@ -12059,7 +12073,8 @@ function getCrmUniqueCampaignList() {
       map.set(k, {
         crmKey: k,
         nombre: display,
-        leads: 0
+        leads: 0,
+        intake: String(h.intake || "").trim()
       });
     }
     map.get(k).leads += Number(r.leads) || 1;
@@ -12078,24 +12093,77 @@ function getCrmRelLinkedCrmSet() {
   return new Set(relacionesCrm.map((r) => r.crmKey));
 }
 
+function crmRelMatchesIntakeFilter(intakeVal, intakeNorm) {
+  if (!intakeNorm) return true;
+  const n = normalizarTexto(intakeVal);
+  return n === intakeNorm || n.includes(intakeNorm);
+}
+
 function getFilteredCrmRelPlanningKeys() {
+  const linked = getCrmRelLinkedPlanningSet();
+  const gq = normalizarTexto(crmRelacionesSearchQuery);
   const pq = normalizarTexto(crmRelPlanningListQuery);
+  const plat = normalizarTexto(crmRelFiltroPlataforma);
+  const est = crmRelFiltroEstadoRel;
+  const intakeF = normalizarTexto(crmRelFiltroIntake);
   return getPlanningGroups()
     .map((x) => x.key)
     .filter((k) => {
+      if (gq && !normalizarTexto(k).includes(gq)) return false;
       if (pq && !normalizarTexto(k).includes(pq)) return false;
+      const parsed = parsePlanningKey(k);
+      if (plat && normalizarTexto(parsed.plataforma) !== plat && !normalizarTexto(parsed.plataforma).includes(plat)) return false;
+      if (!crmRelMatchesIntakeFilter(parsed.intake, intakeF)) return false;
+      if (est === "con" && !linked.has(k)) return false;
+      if (est === "sin" && linked.has(k)) return false;
       return true;
     })
     .sort((a, b) => a.localeCompare(b, "es"));
 }
 
 function getFilteredCrmRelCampaignList() {
+  const linked = getCrmRelLinkedCrmSet();
+  const gq = normalizarTexto(crmRelacionesSearchQuery);
   const cq = normalizarTexto(crmRelCrmListQuery);
+  const plat = normalizarTexto(crmRelFiltroPlataforma);
+  const est = crmRelFiltroEstadoRel;
+  const intakeF = normalizarTexto(crmRelFiltroIntake);
   return getCrmUniqueCampaignList().filter((u) => {
     const text = `${u.crmKey} ${u.nombre}`;
+    if (gq && !normalizarTexto(text).includes(gq)) return false;
     if (cq && !normalizarTexto(text).includes(cq)) return false;
+    if (plat && !relDataMatchesPlataformaFilter({ nombre: u.nombre, idCampania: u.crmKey }, plat)) return false;
+    if (!crmRelMatchesIntakeFilter(u.intake, intakeF)) return false;
+    if (est === "con" && !linked.has(String(u.crmKey))) return false;
+    if (est === "sin" && linked.has(String(u.crmKey))) return false;
     return true;
   });
+}
+
+function refreshCrmRelFilterSelects() {
+  const selPlat = document.getElementById("crmRelFiltroPlataforma");
+  const selIntake = document.getElementById("crmRelFiltroIntake");
+  if (!selPlat || !selIntake) return;
+  const plats = new Set();
+  const intakes = new Set();
+  planningDraftRecords().forEach((r) => {
+    const p = String(r.plataforma || "").trim();
+    const i = String(r.intake || "").trim();
+    if (p) plats.add(p);
+    if (i) intakes.add(i);
+  });
+  crmLeads.forEach((r) => {
+    const h = crmHydrateDimensionalFieldsOnRow(r);
+    if (h.intake) intakes.add(String(h.intake).trim());
+  });
+  const curP = selPlat.value;
+  const curI = selIntake.value;
+  const platArr = Array.from(plats).sort((a, b) => a.localeCompare(b, "es"));
+  const intakeArr = Array.from(intakes).sort((a, b) => a.localeCompare(b, "es"));
+  selPlat.innerHTML = `<option value="">Todos</option>${platArr.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("")}`;
+  selIntake.innerHTML = `<option value="">Todos</option>${intakeArr.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("")}`;
+  if (platArr.includes(curP)) selPlat.value = curP;
+  if (intakeArr.includes(curI)) selIntake.value = curI;
 }
 
 function refreshCrmRelVincularButton() {
@@ -12191,14 +12259,33 @@ function renderCrmRelacionesTabla() {
   const tbody = document.getElementById("crmRelacionesTbody");
   const count = document.getElementById("crmRelTablaCount");
   if (!tbody) return;
-  const rows = ensureRelacionesCrmDraftShape();
+  const q = normalizarTexto(crmRelacionesSearchQuery);
+  const platF = normalizarTexto(crmRelFiltroPlataforma);
+  const intakeF = normalizarTexto(crmRelFiltroIntake);
+  const estF = crmRelFiltroEstadoRel;
+  const allRows = ensureRelacionesCrmDraftShape();
+  const rows = allRows
+    .map((rel, idx) => ({ rel, idx }))
+    .filter(({ rel }) => {
+      if (estF === "sin") return false;
+      if (q) {
+        const planningTxt = normalizarTexto(String(rel.planningKey ?? ""));
+        const crmTxt = normalizarTexto(String(rel.nombre ?? ""));
+        const keyTxt = normalizarTexto(String(rel.crmKey ?? ""));
+        if (!planningTxt.includes(q) && !crmTxt.includes(q) && !keyTxt.includes(q)) return false;
+      }
+      const parsed = parsePlanningKey(rel.planningKey);
+      if (platF && !normalizarTexto(parsed.plataforma).includes(platF) && normalizarTexto(parsed.plataforma) !== platF) return false;
+      if (!crmRelMatchesIntakeFilter(parsed.intake, intakeF)) return false;
+      return true;
+    });
   if (count) count.textContent = String(rows.length);
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="dash-empty-mini">Sin relaciones CRM creadas</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="dash-empty-mini">${allRows.length ? "Sin relaciones CRM para la búsqueda actual" : "Sin relaciones CRM creadas"}</td></tr>`;
     return;
   }
   tbody.innerHTML = rows
-    .map((r, idx) => {
+    .map(({ rel: r, idx }) => {
       const parsed = parsePlanningKey(r.planningKey);
       const platLabel = String(parsed.plataforma || "CRM").trim() || "CRM";
       const badgePlat = relPlataformaBadgeClass(parsed.plataforma);
@@ -12252,6 +12339,49 @@ function vincularCrmPlanning() {
 }
 
 function initCrmRelacionesModule() {
+  const crmRelacionesSearchInput = document.getElementById("crmRelacionesSearch");
+  crmRelacionesSearchInput?.addEventListener("input", () => {
+    crmRelacionesSearchQuery = String(crmRelacionesSearchInput.value || "").trim();
+    renderCrmRelPlanningList();
+    renderCrmRelCrmList();
+    renderCrmRelacionesTabla();
+  });
+  const onCrmBarFilterChange = () => {
+    const p = document.getElementById("crmRelFiltroPlataforma");
+    const e = document.getElementById("crmRelFiltroEstadoRel");
+    const i = document.getElementById("crmRelFiltroIntake");
+    crmRelFiltroPlataforma = p instanceof HTMLSelectElement ? String(p.value || "").trim() : "";
+    crmRelFiltroEstadoRel = e instanceof HTMLSelectElement ? String(e.value || "").trim() : "";
+    crmRelFiltroIntake = i instanceof HTMLSelectElement ? String(i.value || "").trim() : "";
+    renderCrmRelPlanningList();
+    renderCrmRelCrmList();
+    renderCrmRelacionesTabla();
+  };
+  document.getElementById("crmRelFiltroPlataforma")?.addEventListener("change", onCrmBarFilterChange);
+  document.getElementById("crmRelFiltroEstadoRel")?.addEventListener("change", onCrmBarFilterChange);
+  document.getElementById("crmRelFiltroIntake")?.addEventListener("change", onCrmBarFilterChange);
+  document.getElementById("crmRelLimpiarFiltrosBtn")?.addEventListener("click", () => {
+    crmRelacionesSearchQuery = "";
+    crmRelPlanningListQuery = "";
+    crmRelCrmListQuery = "";
+    crmRelFiltroPlataforma = "";
+    crmRelFiltroEstadoRel = "";
+    crmRelFiltroIntake = "";
+    if (crmRelacionesSearchInput instanceof HTMLInputElement) crmRelacionesSearchInput.value = "";
+    const ps = document.getElementById("crmRelPlanningSearch");
+    const cs = document.getElementById("crmRelCrmSearch");
+    if (ps instanceof HTMLInputElement) ps.value = "";
+    if (cs instanceof HTMLInputElement) cs.value = "";
+    const p = document.getElementById("crmRelFiltroPlataforma");
+    const e = document.getElementById("crmRelFiltroEstadoRel");
+    const i = document.getElementById("crmRelFiltroIntake");
+    if (p instanceof HTMLSelectElement) p.value = "";
+    if (e instanceof HTMLSelectElement) e.value = "";
+    if (i instanceof HTMLSelectElement) i.value = "";
+    renderCrmRelPlanningList();
+    renderCrmRelCrmList();
+    renderCrmRelacionesTabla();
+  });
   document.getElementById("crmRelPlanningSearch")?.addEventListener("input", (ev) => {
     const t = ev.target;
     crmRelPlanningListQuery = t instanceof HTMLInputElement ? String(t.value || "").trim() : "";
@@ -12319,6 +12449,7 @@ function initCrmRelacionesModule() {
     }
   });
   syncRelacionesCrmViewFromDraft();
+  refreshCrmRelFilterSelects();
   renderCrmRelPlanningList();
   renderCrmRelCrmList();
   renderCrmRelacionesTabla();
@@ -19970,6 +20101,11 @@ function initTabs() {
       if (typeof applyDashboardMainSubtabsNavVisibility === "function") applyDashboardMainSubtabsNavVisibility();
     } catch (e) {
       console.warn("applyDashboardMainSubtabsNavVisibility", e);
+    }
+    try {
+      if (typeof applyRelacionesHeaderSubtabsNavVisibility === "function") applyRelacionesHeaderSubtabsNavVisibility();
+    } catch (e) {
+      console.warn("applyRelacionesHeaderSubtabsNavVisibility", e);
     }
     costCenterModule.classList.toggle("hidden", !isCostos);
     adsReportModule.classList.toggle("hidden", safeModule !== "ads-report");

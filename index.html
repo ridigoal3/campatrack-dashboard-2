@@ -212,6 +212,12 @@
           </button>
         </div>
       </div>
+      <div id="campatrackRelHeaderSubtabsWrap" class="campatrack-rel-header-subtabs" role="presentation" aria-hidden="true">
+        <div class="data-subtabs data-subtabs-saas rel-header-subtabs" role="tablist" aria-label="Tipo de relación">
+          <button id="relTabMeta" class="data-subtab data-subtab-active" type="button" role="tab" aria-selected="true">Meta</button>
+          <button id="relTabCrm" class="data-subtab" type="button" role="tab" aria-selected="false">CRM</button>
+        </div>
+      </div>
     </div>
     <span id="appTeamHeaderBadge" class="app-team-header-badge hidden" aria-live="polite"></span>
     <div class="campatrack-top-header-end">
@@ -1100,11 +1106,6 @@
         </article>
       </div>
 
-      <div class="data-subtabs data-subtabs-saas rel-subtabs-saas" role="tablist" aria-label="Tipo de relación">
-        <button id="relTabMeta" class="data-subtab data-subtab-active" type="button" role="tab" aria-selected="true">Meta</button>
-        <button id="relTabCrm" class="data-subtab" type="button" role="tab" aria-selected="false">CRM</button>
-      </div>
-
       <div id="relPanelMeta" class="rel-subpanel" role="tabpanel">
       <div class="rel-filters-bar" role="toolbar" aria-label="Filtros de relaciones">
         <div class="rel-filters-bar-search">
@@ -1236,6 +1237,39 @@
       </div>
 
       <div id="relPanelCrm" class="rel-subpanel hidden" role="tabpanel" aria-label="Relaciones CRM">
+        <div class="rel-filters-bar" role="toolbar" aria-label="Filtros de relaciones CRM">
+          <div class="rel-filters-bar-search">
+            <label class="rel-search-field unique-search rel-filter-search">
+              <span class="rel-search-label">Buscar campañas</span>
+              <input id="crmRelacionesSearch" type="search" placeholder="Buscar por clave, ID o nombre..." autocomplete="off" aria-label="Buscar relaciones CRM" />
+            </label>
+          </div>
+          <div class="rel-filters-bar-selects">
+            <label class="rel-filter-field">
+              <span class="rel-filter-field-label">Plataforma</span>
+              <select id="crmRelFiltroPlataforma" class="rel-filter-select" aria-label="Filtrar CRM por plataforma">
+                <option value="">Todos</option>
+              </select>
+            </label>
+            <label class="rel-filter-field">
+              <span class="rel-filter-field-label">Estado de relación</span>
+              <select id="crmRelFiltroEstadoRel" class="rel-filter-select" aria-label="Filtrar CRM por estado de relación">
+                <option value="">Todos</option>
+                <option value="con">Con relación</option>
+                <option value="sin">Sin relación</option>
+              </select>
+            </label>
+            <label class="rel-filter-field">
+              <span class="rel-filter-field-label">Intake</span>
+              <select id="crmRelFiltroIntake" class="rel-filter-select" aria-label="Filtrar CRM por intake">
+                <option value="">Todos</option>
+              </select>
+            </label>
+          </div>
+          <div class="rel-filters-bar-actions">
+            <button type="button" id="crmRelLimpiarFiltrosBtn" class="btn-toolbar rel-btn-filter-secondary"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Limpiar</button>
+          </div>
+        </div>
         <div class="relaciones-layout rel-tri-grid">
           <div class="rel-col-card rel-col-planning">
             <div class="rel-col-head">

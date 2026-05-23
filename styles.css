@@ -9566,8 +9566,8 @@ body.dark-mode .campatrack-login-select {
 }
 
 #relacionesModule .rel-wrap-saas {
-  padding: clamp(16px, 2vw, 26px);
-  padding-top: 6px;
+  padding: clamp(10px, 1.4vw, 18px);
+  padding-top: 0;
 }
 
 #relacionesModule .rel-saas-hero {
@@ -9655,7 +9655,7 @@ body.dark-mode .campatrack-login-select {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
   gap: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   margin-top: 0;
 }
 
@@ -9862,7 +9862,8 @@ body.dark-mode .campatrack-login-select {
   color: #475569;
 }
 
-#relacionesModule #relacionesSearch {
+#relacionesModule #relacionesSearch,
+#relacionesModule #crmRelacionesSearch {
   width: 100%;
   box-sizing: border-box;
   max-width: none;
@@ -9876,7 +9877,8 @@ body.dark-mode .campatrack-login-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 10-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 101.415-1.414l-3.85-3.85a1.007 1.007 0 00-.115-.1zM12 6.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z'/%3E%3C/svg%3E");
 }
 
-#relacionesModule #relacionesSearch:focus-visible {
+#relacionesModule #relacionesSearch:focus-visible,
+#relacionesModule #crmRelacionesSearch:focus-visible {
   outline: none;
   border-color: var(--rel-accent) !important;
   box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.12);
@@ -11833,6 +11835,58 @@ body.dark-mode .campatrack-login-select {
 /* Ocultar Pestañas Plataforma/CRM fuera del módulo Dashboard (evita fugas si el estado del DOM cambia). */
 #mainAppShell:not(:has(#dashboardModule:not(.hidden))) #campatrackDashHeaderSubtabsWrap {
   display: none !important;
+}
+
+/* Pestañas Meta/CRM solo en módulo Relaciones */
+#mainAppShell:not(:has(#relacionesModule:not(.hidden))) #campatrackRelHeaderSubtabsWrap {
+  display: none !important;
+}
+
+#mainAppShell:has(#relacionesModule:not(.hidden)) #campatrackRelHeaderSubtabsWrap {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+#mainAppShell:has(#relacionesModule:not(.hidden)) .campatrack-top-header-title.app-saas-topbar-dashbind {
+  flex-wrap: nowrap;
+  row-gap: 0;
+  align-items: center;
+}
+
+#mainAppShell:has(#relacionesModule:not(.hidden)) .campatrack-rel-header-subtabs .rel-header-subtabs.data-subtabs-saas {
+  margin: 0;
+  gap: 6px;
+}
+
+#mainAppShell:has(#relacionesModule:not(.hidden)) .campatrack-rel-header-subtabs .rel-header-subtabs .data-subtab {
+  margin: 0;
+  padding: 5px 14px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+}
+
+#mainAppShell:has(#relacionesModule:not(.hidden)) #relacionesModule.rel-module-saas .rel-wrap-saas {
+  padding-top: 0;
+}
+
+#mainAppShell:has(#relacionesModule:not(.hidden)) #relacionesModule .rel-filters-bar {
+  margin-bottom: 10px;
+  padding: 10px 14px;
+}
+
+#mainAppShell:has(#relacionesModule:not(.hidden)) #relacionesModule .rel-tri-grid.relaciones-layout {
+  margin-top: 0;
+}
+
+@media (max-width: 920px) {
+  #mainAppShell:has(#relacionesModule:not(.hidden)) .campatrack-top-header-title.app-saas-topbar-dashbind {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
 }
 
 #mainAppShell:has(#dashboardModule:not(.hidden)).campatrack-app-shell .campatrack-main-column {
@@ -14985,7 +15039,8 @@ body.dark-mode #mainAppShell #relacionesModule .rel-vincular-btn.rel-vincular-bt
 
 body.dark-mode #mainAppShell #relacionesModule .rel-filter-select,
 body.dark-mode #mainAppShell #relacionesModule .rel-inner-search,
-body.dark-mode #mainAppShell #relacionesModule #relacionesSearch {
+body.dark-mode #mainAppShell #relacionesModule #relacionesSearch,
+body.dark-mode #mainAppShell #relacionesModule #crmRelacionesSearch {
   background: #0f172a !important;
   color: #f8fafc !important;
   border-color: rgba(148, 163, 184, 0.35) !important;
@@ -16756,10 +16811,6 @@ body.campatrack-gate-github #campatrackGithubSetupOverlay:not(.hidden) {
   color: #94a3b8;
   font-size: 0.88rem;
   padding: 28px 12px;
-}
-
-#relacionesModule .rel-subtabs-saas {
-  margin: 18px 0 14px;
 }
 
 #relacionesModule .rel-subpanel.hidden {
