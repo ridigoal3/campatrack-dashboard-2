@@ -2072,29 +2072,42 @@
     </div>
   </div>
 
-  <div id="dashEndingSoonModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dashEndingSoonTitle">
+  <div id="dashEndingSoonModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dashEndingSoonTitle" aria-describedby="dashEndingSoonSubtitle">
     <div class="modal-content dash-ending-soon-modal-content">
-      <h2 id="dashEndingSoonTitle">Campañas por finalizar</h2>
-      <p class="dash-ending-soon-intro">Campañas que terminan en los próximos 5 días.</p>
-      <div class="table-card" aria-label="Campañas por finalizar">
-        <div class="data-table-wrap dash-ending-soon-table-wrap" role="region">
-          <table class="data-table">
+      <header class="dash-ending-soon-header">
+        <div class="dash-ending-soon-header-main">
+          <div class="dash-ending-soon-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="dash-ending-soon-header-text">
+            <h2 id="dashEndingSoonTitle" class="dash-ending-soon-title">Campañas próximas a culminar</h2>
+            <p id="dashEndingSoonSubtitle" class="dash-ending-soon-subtitle">Las siguientes campañas finalizarán en los próximos 10 días</p>
+          </div>
+        </div>
+        <button type="button" id="closeDashEndingSoonModalTop" class="dash-ending-soon-close" aria-label="Cerrar alerta">×</button>
+      </header>
+      <div class="dash-ending-soon-body" aria-label="Listado de campañas por finalizar">
+        <div class="dash-ending-soon-table-scroll">
+          <table class="dash-ending-soon-table">
             <thead>
               <tr>
-                <th>Programa</th>
-                <th>Tipo</th>
-                <th>Intake</th>
-                <th>Fecha fin</th>
-                <th>Días restantes</th>
+                <th scope="col">Programa</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Intake</th>
+                <th scope="col">Fecha fin</th>
+                <th scope="col">Restante</th>
               </tr>
             </thead>
             <tbody id="dashEndingSoonTbody"></tbody>
           </table>
         </div>
       </div>
-      <div class="modal-actions">
-        <button id="closeDashEndingSoonModal" type="button" class="btn-secondary">Cerrar</button>
-      </div>
+      <footer class="dash-ending-soon-footer">
+        <button id="closeDashEndingSoonModal" type="button" class="dash-ending-soon-btn-primary">Entendido</button>
+      </footer>
     </div>
   </div>
 

@@ -16304,11 +16304,20 @@ function diffDaysFromTodayToDate(targetDate) {
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
 
+const DASH_ENDING_SOON_ALERT_DAYS = 10;
+
+function dashEndingSoonDaysBadgeClass(diasRestantes) {
+  const d = Math.max(0, Math.round(Number(diasRestantes) || 0));
+  if (d <= 3) return "dash-ending-soon-badge dash-ending-soon-badge--critical";
+  if (d <= 6) return "dash-ending-soon-badge dash-ending-soon-badge--warning";
+  return "dash-ending-soon-badge dash-ending-soon-badge--notice";
+}
+
 function collectDashboardCampaignsEndingSoon() {
   const today = new Date();
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const limit = new Date(start);
-  limit.setDate(limit.getDate() + 5);
+  limit.setDate(limit.getDate() + DASH_ENDING_SOON_ALERT_DAYS);
   return planningDraftRecords()
     .filter((rec) => !esTipoBrandingConvocatoriaDashboard(rec.tipo))
     .map((rec) => {
@@ -16342,14 +16351,14 @@ function openDashEndingSoonModal() {
   if (!rows.length) return;
   tbody.innerHTML = rows
     .map((row) => {
-      const isUrgent = row.diasRestantes <= 2;
-      const daysCls = isUrgent ? "dash-ending-soon-days dash-ending-soon-days--urgent" : "dash-ending-soon-days";
-      return `<tr>
-        <td>${escapeHtml(row.programa)}</td>
-        <td>${escapeHtml(row.tipo)}</td>
-        <td>${escapeHtml(row.intake)}</td>
-        <td>${escapeHtml(formatFechaDdMmmEsFromDate(row.fechaFin))}</td>
-        <td class="${daysCls}">${escapeHtml(String(row.diasRestantes))} días</td>
+      const badgeCls = dashEndingSoonDaysBadgeClass(row.diasRestantes);
+      const diasLabel = row.diasRestantes === 1 ? "1 día" : `${row.diasRestantes} días`;
+      return `<tr class="dash-ending-soon-row">
+        <td class="dash-ending-soon-cell dash-ending-soon-cell--programa" title="${escapeHtml(row.programa)}">${escapeHtml(row.programa)}</td>
+        <td class="dash-ending-soon-cell">${escapeHtml(row.tipo)}</td>
+        <td class="dash-ending-soon-cell">${escapeHtml(row.intake)}</td>
+        <td class="dash-ending-soon-cell dash-ending-soon-cell--date">${escapeHtml(formatFechaDdMmmEsFromDate(row.fechaFin))}</td>
+        <td class="dash-ending-soon-cell dash-ending-soon-cell--badge"><span class="${badgeCls}">${escapeHtml(diasLabel)}</span></td>
       </tr>`;
     })
     .join("");
@@ -17671,6 +17680,7 @@ function initDashboardModule() {
 
   document.getElementById("closeDashGastoDiffModal")?.addEventListener("click", () => closeDashGastoDiffModal());
   document.getElementById("closeDashEndingSoonModal")?.addEventListener("click", () => closeDashEndingSoonModal());
+  document.getElementById("closeDashEndingSoonModalTop")?.addEventListener("click", () => closeDashEndingSoonModal());
   document.getElementById("dashGastoDiffExportBtn")?.addEventListener("click", () => exportDashGastoDiffToExcel());
   document.getElementById("dashExportTableBtn")?.addEventListener("click", () => exportDashboardTableToExcel());
   document.getElementById("dashGastoDiffModal")?.addEventListener("click", (e) => {
