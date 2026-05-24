@@ -19,6 +19,19 @@ import {
 } from "./app-state.js";
 import { syncCampatrackGithubAfterPublish } from "./github-backup.js";
 import {
+  allocatePlanningRecordId,
+  migrateLegacyPlanningIdsToStructuredInPlace,
+  reconcilePlanningRecordIdSeq
+} from "./campatrack-planning-ids.js";
+import {
+  PLANNING_IMPORT_COL,
+  parsePlanningExcelMatrix,
+  parsePlanningImportDate,
+  parsePlanningImportInteger,
+  parsePlanningImportMoney,
+  readPlanningExcelAoAFromBuffer
+} from "./campatrack-planning-excel-import.js";
+import {
   buildGithubRawDataJsonUrl,
   hasClientGithubConfigComplete,
   loadClientGithubConfig,
@@ -267,6 +280,8 @@ function planningDraftRecords() {
 }
 let selectedRecordId = null;
 let editingRecordId = null;
+/** IDs marcados tras importación Excel (solo memoria; no se persiste el archivo). */
+const planningExcelModifiedRecordIds = new Set();
 const bitacoraData = [];
 let bitacoraFechaRangoPicker = null;
 let bitacoraEditingId = null;
@@ -288,9 +303,17 @@ let catalogosSistema = {
   intakes: []
 };
 
-/** ID único por fila de planning (no usar nombre/programa como clave). */
+/** ID único por fila de planning: PLN-000001 (secuencial, estable). Legacy se conserva. */
 function newPlanningRecordId() {
-  return Date.now() + Math.random();
+  return allocatePlanningRecordId(
+    getPlanningRecordIdSeq,
+    setPlanningRecordIdSeq,
+    ensurePlanningDraftShape().records
+  );
+}
+
+function syncPlanningRecordIdSeqFromRecords(records) {
+  setPlanningRecordIdSeq(reconcilePlanningRecordIdSeq(records, getPlanningRecordIdSeq()));
 }
 
 /** Comparación estable de ids (localStorage / DOM pueden mezclar número y string). */
@@ -299,9 +322,52 @@ function samePlanningRecordId(a, b) {
   return String(a) === String(b);
 }
 
+/** Remapea referencias en memoria tras migrar id de planning. */
+function remapPlanningIdReferences(idMap) {
+  if (!idMap || !idMap.size) return;
+  for (const [oldId, newId] of idMap) {
+    if (Object.prototype.hasOwnProperty.call(consumoPorCampaña, oldId)) {
+      consumoPorCampaña[newId] = consumoPorCampaña[oldId];
+      delete consumoPorCampaña[oldId];
+    }
+  }
+  if (selectedRecordId != null && idMap.has(String(selectedRecordId))) {
+    selectedRecordId = idMap.get(String(selectedRecordId));
+  }
+  if (editingRecordId != null && idMap.has(String(editingRecordId))) {
+    editingRecordId = idMap.get(String(editingRecordId));
+  }
+}
+
+/**
+ * Migra ids legacy → PLN-* en caché merge + borrador; mantiene secuencia estable.
+ * @returns {boolean} hubo cambios
+ */
+function ensurePlanningStructuredIdsInCollections() {
+  if (!Array.isArray(planningMergedRecordsCache) || !planningMergedRecordsCache.length) {
+    recomputePlanningMergedCacheFromRecords();
+  }
+  const merged = planningMergedRecordsCache || [];
+  let changed = false;
+  const { changed: migrated, idMap } = migrateLegacyPlanningIdsToStructuredInPlace(
+    merged,
+    getPlanningRecordIdSeq,
+    setPlanningRecordIdSeq
+  );
+  if (migrated) {
+    changed = true;
+    remapPlanningIdReferences(idMap);
+  }
+  if (ensurePlanningArrayStableUniqueIds(merged)) changed = true;
+  setPlanningRecordIdSeq(reconcilePlanningRecordIdSeq(merged, getPlanningRecordIdSeq()));
+  reloadPlanningWorkingSliceFromCache();
+  if (changed) syncConsumoFromRecords();
+  return changed;
+}
+
 /** Asigna id a filas legacy y desduplica ids repetidos para que Editar resuelva siempre la fila correcta. */
 function ensurePlanningRecordsHaveStableUniqueIds() {
-  return ensurePlanningArrayStableUniqueIds(planningDraftRecords());
+  return ensurePlanningStructuredIdsInCollections();
 }
 /** Fechas de referencia en edición (tras hidratar) para detectar cambio real de rango sin falsos positivos. */
 let editCampaignBaselineDates = null;
@@ -527,6 +593,7 @@ function syncPlanningMergedCacheFromAppStateDraft() {
     r && typeof r === "object" ? { ...r } : r
   );
   migratePlanningRowsTeamIds(planningMergedRecordsCache);
+  ensurePlanningStructuredIdsInCollections();
 }
 
 try {
@@ -903,7 +970,7 @@ function ensurePlanningArrayStableUniqueIds(arr) {
     if (invalid) {
       let nid;
       do {
-        nid = newPlanningRecordId();
+        nid = allocatePlanningRecordId(getPlanningRecordIdSeq, setPlanningRecordIdSeq, arr);
       } while (seen.has(String(nid)));
       r.id = nid;
       seen.add(String(nid));
@@ -941,12 +1008,7 @@ function reloadPlanningWorkingSliceFromCache() {
   src.forEach((r) => {
     if (rowBelongsToCurrentTeam(r)) draft.records.push(r && typeof r === "object" ? { ...r } : r);
   });
-  const maxId = draft.records.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0);
-  if (Number.isFinite(Number(getPlanningRecordIdSeq()))) {
-    setPlanningRecordIdSeq(Math.max(1, Math.round(Number(getPlanningRecordIdSeq())), maxId + 1));
-  } else if (maxId) {
-    setPlanningRecordIdSeq(maxId + 1);
-  }
+  syncPlanningRecordIdSeqFromRecords(draft.records);
 }
 
 function writePlanningPayloadToLocalStorage(mergedRows, seq) {
@@ -2515,6 +2577,7 @@ const SS_PUBLISH_FRESH_SERVER_HYDRATE = "campatrack_publish_fresh_server_hydrate
 /** Tras cargar data desde el servidor (login o GET): estado = publicado, contador 0, sin “cambios fantasma”. */
 function resetPublishDraftAfterServerHydrate() {
   cancelPendingDraftNotify();
+  planningExcelModifiedRecordIds.clear();
   captureAppPublishBaseline();
   appPendingPublishCount = 0;
   resetAppStatePendingChanges();
@@ -2586,9 +2649,10 @@ function applyMemorySnapshotFromBundle(snap) {
           : readParsedPlanningPayloadFromDisk().rows;
       planningMergedRecordsCache = mergePlanningDraftIntoMergeCache(base, rows, tid);
     }
-    if (Number.isFinite(Number(snap.planning_data.recordIdSeq)))
-      setPlanningRecordIdSeq(Math.max(1, Math.round(Number(snap.planning_data.recordIdSeq))));
-    reloadPlanningWorkingSliceFromCache();
+    setPlanningRecordIdSeq(
+      reconcilePlanningRecordIdSeq(rows, snap.planning_data.recordIdSeq ?? getPlanningRecordIdSeq())
+    );
+    ensurePlanningStructuredIdsInCollections();
   }
   if (snap.cc_data && Array.isArray(snap.cc_data.centros)) {
     centrosCostos.length = 0;
@@ -2994,6 +3058,7 @@ async function confirmDiscardDraftChanges() {
     primaryDanger: true
   });
   if (!ok) return;
+  planningExcelModifiedRecordIds.clear();
   if (!appPublishSnapshotBaselineJson) {
     cancelPendingDraftNotify();
     captureAppPublishBaseline();
@@ -3044,12 +3109,7 @@ function persistPlanningData(opts = {}) {
   const merged = planningMergedRecordsCache || planningDraftRecords().slice();
   migratePlanningRowsTeamIds(merged);
   reloadPlanningWorkingSliceFromCache();
-  const maxMergedId = merged.reduce((m, r) => Math.max(m, Number(r?.id) || 0), 0);
-  if (Number.isFinite(Number(getPlanningRecordIdSeq()))) {
-    setPlanningRecordIdSeq(Math.max(Math.max(1, Math.round(Number(getPlanningRecordIdSeq()))), maxMergedId + 1));
-  } else if (maxMergedId) {
-    setPlanningRecordIdSeq(maxMergedId + 1);
-  }
+  syncPlanningRecordIdSeqFromRecords(merged);
   if (!shouldDeferDiskPersistence()) {
     try {
       writePlanningPayloadToLocalStorage(merged, getPlanningRecordIdSeq());
@@ -3073,17 +3133,12 @@ function hydratarPlanningData() {
     const parsed = readParsedPlanningPayloadFromDisk();
     const allRows = parsed.rows.slice();
     const teamMigrated = migratePlanningRowsTeamIds(allRows);
-    const idsChanged = ensurePlanningArrayStableUniqueIds(allRows);
-    const maxAll = allRows.reduce((m, r) => Math.max(m, Number(r?.id) || 0), 0);
-    if (Number.isFinite(Number(parsed.recordIdSeq))) {
-      setPlanningRecordIdSeq(Math.max(Math.max(1, Math.round(Number(parsed.recordIdSeq))), maxAll + 1));
-    } else if (maxAll) {
-      setPlanningRecordIdSeq(maxAll + 1);
-    } else {
-      setPlanningRecordIdSeq(Math.max(1, Number(getPlanningRecordIdSeq()) || 1));
-    }
     planningMergedRecordsCache = sanitizeStructuralDuplicatePlanningRows(allRows, getCurrentTeamId());
-    reloadPlanningWorkingSliceFromCache();
+    for (const r of planningMergedRecordsCache || []) syncRecordDerivedTotalsFromDistribution(r);
+    const idsChanged = ensurePlanningStructuredIdsInCollections();
+    setPlanningRecordIdSeq(
+      reconcilePlanningRecordIdSeq(planningMergedRecordsCache || [], parsed.recordIdSeq ?? getPlanningRecordIdSeq())
+    );
     return idsChanged || teamMigrated;
   } catch (err) {
     console.warn("No se pudo cargar planning_data", err);
@@ -3684,6 +3739,10 @@ function computeMonthlyArraysForRecordWithOverrides(record, year) {
 }
 
 function buildRecordRow(record) {
+  syncRecordDerivedTotalsFromDistribution(record);
+  const midx = findPlanningRecordIndexInMerged(record.id);
+  if (midx >= 0) syncRecordDerivedTotalsFromDistribution(planningMergedRecordsCache[midx]);
+
   const rid = String(record.id);
   const year = parseDateInput(record.fechaInicio)?.getFullYear() || new Date().getFullYear();
   const { monthlyInvestment, monthlyLeads, monthlyCpl } = computeMonthlyArraysForRecordWithOverrides(record, year);
@@ -3713,8 +3772,8 @@ function buildRecordRow(record) {
     <td class="planning-body-cell planning-cell-dbl-editable" data-planning-edit="fechaFin" data-record-id="${rid}">${t(formatDateDdMmm(record.fechaFin))}</td>
     <td class="planning-body-cell planning-cell-plat planning-cell-readonly" data-record-id="${rid}">${planningPlataformaCellHtml(record.plataforma)}</td>
     <td class="planning-body-cell planning-cell-tracking planning-cell-readonly" data-record-id="${rid}"><span class="planning-tracking-label">${t(record.tracking)}</span></td>
-    <td class="planning-body-cell planning-presupuesto-cell planning-cell-readonly" data-record-id="${rid}"><span class="planning-presupuesto-val">${escapeHtml(formatMoney(record.presupuesto) || "")}</span></td>
-    <td class="group-end planning-body-cell planning-leads-total-cell planning-cell-readonly" data-record-id="${rid}"><span class="planning-leads-total-chip">${t(record.leads)}</span></td>
+    <td class="planning-body-cell planning-presupuesto-cell planning-cell-readonly planning-cell-calculated" data-record-id="${rid}" title="Calculado: suma distribución inversión"><span class="planning-presupuesto-val">${escapeHtml(formatMoney(record.presupuesto) || "")}</span></td>
+    <td class="group-end planning-body-cell planning-leads-total-cell planning-cell-readonly planning-cell-calculated" data-record-id="${rid}" title="Calculado: suma distribución leads"><span class="planning-leads-total-chip">${t(record.leads)}</span></td>
   `;
   const invCells = Array.from({ length: 12 }, (_, i) => {
     const cls = i === 11 ? "group-end" : "";
@@ -3739,17 +3798,24 @@ function buildRecordRow(record) {
       if (monthlyDays[i] <= 0) return `<td class="${cls} planning-mes-muted"></td>`;
       const inner = n > 0 ? escapeHtml(formatCpl(n) || "") : "";
       const tier = n > 0 ? planningPillTier(n, mxCpl) : "planning-pill-tier--ghost";
-      return `<td class="${cls} planning-cell-mes-cpl planning-cell-readonly" data-mcol-cpl="${i}" data-record-id="${rid}"><span class="planning-pill planning-pill-cpl ${tier}">${inner}</span></td>`;
+      return `<td class="${cls} planning-cell-mes-cpl planning-cell-readonly planning-cell-calculated" data-mcol-cpl="${i}" data-record-id="${rid}" title="Calculado: inversión ÷ leads del mes"><span class="planning-pill planning-pill-cpl ${tier}">${inner}</span></td>`;
     })
     .join("");
   row.innerHTML = `
     <td class="sticky-col-tipo planning-sticky-tipo planning-cell-readonly" data-record-id="${rid}"><span class="${planningTipoBadgeClassFromTipo(record.tipo)}">${t(record.tipo)}</span></td>
     <td class="sticky-col-program group-end planning-sticky-program planning-cell-readonly" data-record-id="${rid}">
-      <span class="planning-campaign-name planning-campaign-name--only">${t(record.programa)}</span>
+      <span class="planning-campaign-name planning-campaign-name--only">${t(record.programa)}</span>${
+        planningExcelModifiedRecordIds.has(rid)
+          ? `<span class="planning-excel-import-badge" title="Actualizado desde Excel — cambios pendientes de publicar">Excel</span>`
+          : ""
+      }
     </td>
     ${metaCells}
     ${configCells}
     ${invCells}${leadCells}${cplCells}`;
+  if (planningExcelModifiedRecordIds.has(rid)) {
+    row.classList.add("planning-row-excel-import");
+  }
   return row;
 }
 
@@ -3758,8 +3824,9 @@ function planningYearForRecord(record) {
   return parseDateInput(record.fechaInicio)?.getFullYear() || new Date().getFullYear();
 }
 
-/** Iguala presupuesto y leads totales del registro con la suma de la distribución mensual calculada. */
-function syncRecordBudgetTotalsFromComputedMonths(record) {
+/** Iguala presupuesto y leads de configuración con la suma de la distribución mensual. */
+function syncRecordDerivedTotalsFromDistribution(record) {
+  if (!record || typeof record !== "object") return false;
   const y = planningYearForRecord(record);
   const { monthlyInvestment, monthlyLeads } = computeMonthlyArraysForRecordWithOverrides(record, y);
   let sumInv = 0;
@@ -3768,8 +3835,21 @@ function syncRecordBudgetTotalsFromComputedMonths(record) {
     sumInv += Number(monthlyInvestment[i]) || 0;
     sumLeads += Math.max(0, Math.round(Number(monthlyLeads[i]) || 0));
   }
-  record.presupuesto = sumInv;
-  record.leads = sumLeads;
+  let changed = false;
+  if (Number(record.presupuesto) !== sumInv) {
+    record.presupuesto = sumInv;
+    changed = true;
+  }
+  if (Math.max(0, Math.round(Number(record.leads) || 0)) !== sumLeads) {
+    record.leads = sumLeads;
+    changed = true;
+  }
+  return changed;
+}
+
+/** @deprecated alias */
+function syncRecordBudgetTotalsFromComputedMonths(record) {
+  return syncRecordDerivedTotalsFromDistribution(record);
 }
 
 /** Congela la vista mensual actual en `distribucionMensual` y quita overrides sueltos (coherente con edición en tabla). */
@@ -3840,7 +3920,7 @@ function setPlanningMonthlyInvFromCell(record, monthIdx, rawText) {
   if (!record.distribucionMensual[key] || typeof record.distribucionMensual[key] !== "object")
     record.distribucionMensual[key] = { presupuesto: 0, leads: 0 };
   record.distribucionMensual[key].presupuesto = invVal;
-  syncRecordBudgetTotalsFromComputedMonths(record);
+  syncRecordDerivedTotalsFromDistribution(record);
 }
 
 function setPlanningMonthlyLeadFromCell(record, monthIdx, rawText) {
@@ -3850,7 +3930,7 @@ function setPlanningMonthlyLeadFromCell(record, monthIdx, rawText) {
   if (!record.distribucionMensual[key] || typeof record.distribucionMensual[key] !== "object")
     record.distribucionMensual[key] = { presupuesto: 0, leads: 0 };
   record.distribucionMensual[key].leads = leadsVal;
-  syncRecordBudgetTotalsFromComputedMonths(record);
+  syncRecordDerivedTotalsFromDistribution(record);
 }
 
 function setPlanningMonthlyCplFromCell(record, monthIdx, rawText) {
@@ -3864,7 +3944,7 @@ function setPlanningMonthlyCplFromCell(record, monthIdx, rawText) {
   if (!record.distribucionMensual[key] || typeof record.distribucionMensual[key] !== "object")
     record.distribucionMensual[key] = { presupuesto: 0, leads: 0 };
   record.distribucionMensual[key].leads = leads;
-  syncRecordBudgetTotalsFromComputedMonths(record);
+  syncRecordDerivedTotalsFromDistribution(record);
 }
 
 function planningEstadoCampana(record) {
@@ -5663,7 +5743,18 @@ document.getElementById("planningFiltrosAvanzadosBtn")?.addEventListener("click"
 });
 
 document.getElementById("planningImportTableBtn")?.addEventListener("click", () => {
-  document.getElementById("importDataFileInput")?.click();
+  if (getCampatrackRole() === "viewer") {
+    showCampatrackToast("No tienes permiso para importar Planning.", "error");
+    return;
+  }
+  document.getElementById("planningExcelImportInput")?.click();
+});
+
+document.getElementById("planningExcelImportInput")?.addEventListener("change", (ev) => {
+  const input = ev.target;
+  const file = input instanceof HTMLInputElement ? input.files?.[0] : null;
+  if (input instanceof HTMLInputElement) input.value = "";
+  if (file) void handlePlanningExcelImportFile(file);
 });
 
 planningBody?.addEventListener("dblclick", (event) => {
@@ -16626,16 +16717,319 @@ function planningExportFilename() {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  return `planning_export_${yyyy}${mm}${dd}.xlsx`;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `Planning_CampaTrack_${yyyy}-${mm}-${dd}_${hh}-${mi}.xlsx`;
+}
+
+const PLANNING_EXPORT_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+function planningExportMetaCellValue(metas, key) {
+  const raw = metas?.[key];
+  if (raw === "" || raw === undefined || raw === null) return "";
+  if (key === "cplMeta" && Number.isFinite(Number(raw))) return formatCpl(raw);
+  return String(raw);
+}
+
+/** Encabezados tabulares (fila 1): coincide con columnas visibles del planning. */
+function planningExportHeadersRow() {
+  return [
+    "ID",
+    "Tipo",
+    "Programa",
+    "Leads",
+    "Interesados",
+    "Postulantes",
+    "Matriculados",
+    "CPL",
+    "Intake",
+    "Inicio",
+    "Fin",
+    "Plataforma",
+    "Tracking",
+    ...PLANNING_EXPORT_MONTHS,
+    ...PLANNING_EXPORT_MONTHS
+  ];
+}
+
+/** Una fila Excel por campaña (metas manuales + distribuciones; presupuesto/leads config se recalculan al importar). */
+function planningRecordToExportRow(record) {
+  const year = planningYearForRecord(record);
+  const { monthlyInvestment, monthlyLeads } = computeMonthlyArraysForRecordWithOverrides(record, year);
+  const monthlyDays = countDaysByMonthForRangeInYear(record.fechaInicio, record.fechaFin, year);
+  const metas = record.metas || {};
+  const invCells = PLANNING_EXPORT_MONTHS.map((_, i) =>
+    monthlyDays[i] === 0 ? "" : formatMoney(monthlyInvestment[i]) || ""
+  );
+  const leadCells = PLANNING_EXPORT_MONTHS.map((_, i) =>
+    monthlyDays[i] === 0 ? "" : String(Math.round(Number(monthlyLeads[i]) || 0))
+  );
+  return [
+    String(record.id ?? ""),
+    String(record.tipo ?? ""),
+    String(record.programa ?? ""),
+    planningExportMetaCellValue(metas, "leads"),
+    planningExportMetaCellValue(metas, "interesados"),
+    planningExportMetaCellValue(metas, "postulantes"),
+    planningExportMetaCellValue(metas, "matriculados"),
+    planningExportMetaCellValue(metas, "cplMeta"),
+    String(record.intake ?? ""),
+    formatDateDdMmm(record.fechaInicio),
+    formatDateDdMmm(record.fechaFin),
+    String(record.plataforma ?? ""),
+    String(record.tracking ?? ""),
+    ...invCells,
+    ...leadCells
+  ];
+}
+
+function planningImportMetaValueForCompare(metas, key) {
+  const raw = metas?.[key];
+  if (raw === "" || raw === undefined || raw === null) return "";
+  if (key === "cplMeta" && Number.isFinite(Number(raw))) return formatCpl(raw);
+  return String(raw).trim();
+}
+
+function planningImportCellEquals(a, b) {
+  return String(a ?? "").trim() === String(b ?? "").trim();
+}
+
+/** Aplica cambios de una fila Excel (ignora ID/Tipo/Programa y campos calculados). */
+function applyPlanningImportCellsToRecord(record, cells, colMap = PLANNING_IMPORT_COL) {
+  const out = { ...record, metas: { ...(record.metas || {}) } };
+  let changed = false;
+  const year = planningYearForRecord(out);
+
+  const metaKeys = [
+    ["leads", colMap.META_LEADS],
+    ["interesados", colMap.META_INTERESADOS],
+    ["postulantes", colMap.META_POSTULANTES],
+    ["matriculados", colMap.META_MATRICULADOS],
+    ["cplMeta", colMap.META_CPL]
+  ];
+  for (const [key, col] of metaKeys) {
+    const incoming = String(cells[col] ?? "").trim();
+    if (incoming === "") continue;
+    const normalized =
+      key === "cplMeta"
+        ? formatCpl(Number(String(incoming).replace(/[^\d.-]/g, ""))) || incoming
+        : incoming;
+    const current = planningImportMetaValueForCompare(out.metas, key);
+    if (!planningImportCellEquals(normalized, current)) {
+      out.metas[key] = normalized;
+      changed = true;
+    }
+  }
+
+  const intake = String(cells[colMap.INTAKE] ?? "").trim();
+  if (intake && !planningImportCellEquals(intake, out.intake)) {
+    out.intake = intake;
+    changed = true;
+  }
+
+  const startYear = parseDateInput(out.fechaInicio)?.getFullYear() || year;
+  const endYear = parseDateInput(out.fechaFin)?.getFullYear() || year;
+  const newStart = parsePlanningImportDate(cells[colMap.INICIO], startYear);
+  const newEnd = parsePlanningImportDate(cells[colMap.FIN], endYear);
+  if (newStart && !planningImportCellEquals(newStart, out.fechaInicio)) {
+    out.fechaInicio = newStart;
+    changed = true;
+  }
+  if (newEnd && !planningImportCellEquals(newEnd, out.fechaFin)) {
+    out.fechaFin = newEnd;
+    changed = true;
+  }
+
+  const plat = String(cells[colMap.PLATAFORMA] ?? "").trim();
+  if (plat && !planningImportCellEquals(plat, out.plataforma)) {
+    out.plataforma = plat;
+    changed = true;
+  }
+  const tracking = String(cells[colMap.TRACKING] ?? "").trim();
+  if (tracking && !planningImportCellEquals(tracking, out.tracking)) {
+    out.tracking = tracking;
+    changed = true;
+  }
+
+  const yAfter = planningYearForRecord(out);
+  const monthlyDays = countDaysByMonthForRangeInYear(out.fechaInicio, out.fechaFin, yAfter);
+  const calc = computeMonthlyArraysForRecordWithOverrides(out, yAfter);
+  const dm =
+    out.distribucionMensual && typeof out.distribucionMensual === "object"
+      ? JSON.parse(JSON.stringify(out.distribucionMensual))
+      : {};
+  let dmChanged = false;
+  for (let i = 0; i < 12; i += 1) {
+    const key = DIST_MES_KEYS[i];
+    if (!dm[key]) {
+      dm[key] = {
+        presupuesto: Math.max(0, Number(calc.monthlyInvestment[i]) || 0),
+        leads: Math.max(0, Math.round(Number(calc.monthlyLeads[i]) || 0))
+      };
+    }
+    if (monthlyDays[i] === 0) continue;
+    const invMoney = parsePlanningImportMoney(cells[colMap.INV_START + i]);
+    if (invMoney != null && invMoney !== Number(dm[key].presupuesto)) {
+      dm[key].presupuesto = invMoney;
+      dmChanged = true;
+    }
+    const leadInt = parsePlanningImportInteger(cells[colMap.LEADS_START + i]);
+    if (leadInt != null && leadInt !== Math.max(0, Math.round(Number(dm[key].leads) || 0))) {
+      dm[key].leads = leadInt;
+      dmChanged = true;
+    }
+  }
+  if (dmChanged) {
+    out.distribucionMensual = dm;
+    delete out.monthlyInvOverride;
+    changed = true;
+  }
+
+  if (syncRecordDerivedTotalsFromDistribution(out)) changed = true;
+
+  return { changed, record: out };
+}
+
+function findPlanningRecordIndexInMerged(recordId) {
+  if (!Array.isArray(planningMergedRecordsCache)) recomputePlanningMergedCacheFromRecords();
+  return (planningMergedRecordsCache || []).findIndex((r) => samePlanningRecordId(r?.id, recordId));
+}
+
+async function handlePlanningExcelImportFile(file) {
+  const XLSX = typeof window !== "undefined" ? window.XLSX : null;
+  if (!XLSX?.read) {
+    void showAppDialog({
+      message: "No se encontró la librería de Excel (SheetJS). Recarga la página e inténtalo de nuevo.",
+      primaryText: "Entendido",
+      showSecondary: false,
+      primaryDanger: false
+    });
+    return;
+  }
+  if (!(file instanceof File)) return;
+  const name = String(file.name || "").toLowerCase();
+  if (!name.endsWith(".xlsx") && !name.endsWith(".xls")) {
+    showCampatrackToast("Selecciona un archivo Excel (.xlsx).", "error");
+    return;
+  }
+
+  let aoa;
+  try {
+    aoa = readPlanningExcelAoAFromBuffer(await file.arrayBuffer(), XLSX);
+  } catch (e) {
+    console.warn("[Planning import]", e);
+    showCampatrackToast(String(e?.message || "No se pudo leer el Excel."), "error");
+    return;
+  }
+
+  const parsed = parsePlanningExcelMatrix(aoa);
+  if (!parsed.ok) {
+    void showAppDialog({
+      message: parsed.errors.join("\n") || "El Excel no tiene el formato esperado.",
+      primaryText: "Entendido",
+      showSecondary: false,
+      primaryDanger: false
+    });
+    return;
+  }
+
+  ensurePlanningStructuredIdsInCollections();
+
+  let updated = 0;
+  let unchanged = 0;
+  let ignored = 0;
+  const warnings = [...parsed.warnings];
+  const conflicts = [];
+
+  const colMap = parsed.colMap || PLANNING_IMPORT_COL;
+
+  for (const cells of parsed.rows) {
+    const recordId = String(cells[colMap.ID] ?? "").trim();
+    if (!recordId) continue;
+    const idx = findPlanningRecordIndexInMerged(recordId);
+    if (idx < 0) {
+      ignored += 1;
+      warnings.push(`ID no encontrado (fila omitida): ${recordId}`);
+      continue;
+    }
+    const prev = planningMergedRecordsCache[idx];
+    const { changed, record: next } = applyPlanningImportCellsToRecord(prev, cells, colMap);
+    if (!changed) {
+      unchanged += 1;
+      continue;
+    }
+    const conflict = getPlanningRecordIntegrityConflictMessage(next, recordId);
+    if (conflict) {
+      conflicts.push(`${recordId}: ${conflict}`);
+      continue;
+    }
+    diffPlanningRecordForAudit(String(recordId), prev, next);
+    planningMergedRecordsCache[idx] = next;
+    planningExcelModifiedRecordIds.add(String(recordId));
+    updated += 1;
+  }
+
+  reloadPlanningWorkingSliceFromCache();
+  rebuildPlanningTable();
+  if (updated > 0) persistPlanningData();
+
+  const summary = [
+    updated ? `${updated} campaña(s) actualizada(s)` : null,
+    unchanged ? `${unchanged} sin cambios` : null,
+    ignored ? `${ignored} ID(s) ignorado(s)` : null,
+    conflicts.length ? `${conflicts.length} con conflicto` : null
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (conflicts.length) console.warn("[Planning import] Conflictos:", conflicts);
+  if (warnings.length) console.info("[Planning import] Avisos:", warnings);
+
+  showCampatrackToast(
+    updated
+      ? `Importación Excel: ${summary}. Revisa y pulsa Publicar.`
+      : `Importación Excel: ${summary || "sin actualizaciones"}.`,
+    updated ? "success" : ignored || conflicts.length ? "warning" : "info"
+  );
+
+  const detail = [...warnings.slice(0, 8), ...conflicts.slice(0, 5)];
+  if (detail.length) {
+    void showAppDialog({
+      message: `${summary}\n\n${detail.join("\n")}${warnings.length + conflicts.length > detail.length ? "\n…" : ""}`,
+      primaryText: "Entendido",
+      showSecondary: false,
+      primaryDanger: false
+    });
+  }
 }
 
 function exportPlanningTableToExcel() {
-  void showAppDialog({
-    message: "La exportación a Excel está deshabilitada.",
-    primaryText: "Entendido",
-    showSecondary: false,
-    primaryDanger: false
-  });
+  const XLSX = typeof window !== "undefined" ? window.XLSX : null;
+  if (!XLSX?.utils?.aoa_to_sheet) {
+    void showAppDialog({
+      message: "No se encontró la librería de Excel (SheetJS). Recarga la página e inténtalo de nuevo.",
+      primaryText: "Entendido",
+      showSecondary: false,
+      primaryDanger: false
+    });
+    return;
+  }
+  if (ensurePlanningStructuredIdsInCollections()) {
+    rebuildPlanningTable();
+    registerUnpublishedDraftMutation();
+  }
+  const records = getFilteredRecords();
+  const aoa = [planningExportHeadersRow(), ...records.map((r) => planningRecordToExportRow(r))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Planning");
+  XLSX.writeFile(wb, planningExportFilename());
+  showCampatrackToast(
+    records.length
+      ? `Planning exportado: ${records.length} campaña(s) (filtros actuales).`
+      : "Planning exportado (sin filas visibles; solo encabezados).",
+    records.length ? "success" : "info"
+  );
 }
 
 function openDashGastoDiffModal() {

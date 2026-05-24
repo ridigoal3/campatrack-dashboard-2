@@ -254,6 +254,13 @@
     </div>
   </header>
   <input id="importDataFileInput" class="hidden" type="file" accept="application/json,.json" aria-hidden="true" />
+  <input
+    id="planningExcelImportInput"
+    class="hidden"
+    type="file"
+    accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+    aria-hidden="true"
+  />
 
   <section id="planningModule" class="hidden plan-module-saas">
     <div class="dashboard dashboard-saas">
@@ -2376,15 +2383,6 @@
               </span>
             </label>
             <div id="cplHistoricoHint" class="hint cpl-historico-hint" role="status" aria-live="polite"></div>
-          </div>
-
-          <div class="campaign-metrics-distrib-strip" aria-hidden="true">
-            <span class="campaign-metrics-distrib-cell"></span>
-            <span class="campaign-metrics-distrib-cell"></span>
-            <span class="campaign-metrics-distrib-cell"></span>
-            <span class="campaign-metrics-distrib-cell"></span>
-            <span class="campaign-metrics-distrib-cell campaign-metrics-distrib-cell--accent"></span>
-            <span class="campaign-metrics-distrib-cell campaign-metrics-distrib-cell--accent"></span>
           </div>
 
           <div class="metric-separator" aria-hidden="true"></div>

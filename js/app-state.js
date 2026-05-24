@@ -5,6 +5,7 @@
 
 import { hasClientGithubConfigComplete } from "./campatrack-github-config.js";
 import { createEmptyCampatrackBundle, loadModularBundleFromGithub } from "./campatrack-data-store.js";
+import { reconcilePlanningRecordIdSeq } from "./campatrack-planning-ids.js";
 import { crmDebugEnabled, crmDebugLog, crmDebugBundleMeta, crmDebugLeadsCount } from "./campatrack-crm-debug.js";
 
 export const appState = {
@@ -166,7 +167,7 @@ function normalizePlanningSliceFromBundle(planningData) {
   const seq = Number.isFinite(Number(planningData.recordIdSeq))
     ? Math.max(1, Math.round(Number(planningData.recordIdSeq)))
     : 1;
-  return { records: recs, recordIdSeq: seq };
+  return { records: recs, recordIdSeq: reconcilePlanningRecordIdSeq(recs, seq) };
 }
 
 /**

@@ -4912,26 +4912,8 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   background: #cbd5e1;
 }
 
-#campaignModal .campaign-metrics-distrib-strip {
-  display: flex;
-  gap: 4px;
-  flex: 1 1 160px;
-  min-width: 140px;
-  max-width: 240px;
-  align-items: flex-end;
-  padding-bottom: 11px;
-  box-sizing: border-box;
-}
-
-#campaignModal .campaign-metrics-distrib-cell {
-  flex: 1;
-  height: 10px;
-  border-radius: 4px;
-  background: #e2e8f0;
-}
-
-#campaignModal .campaign-metrics-distrib-cell--accent {
-  background: linear-gradient(180deg, #fb923c, #ea580c);
+#campaignModal .campaign-field--metric-readonly {
+  flex: 0 0 auto;
 }
 
 #campaignModal .campaign-money-box {
@@ -5181,11 +5163,6 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
     width: 100%;
     height: 2px;
     min-height: 2px;
-  }
-
-  #campaignModal .campaign-metrics-distrib-strip {
-    max-width: none;
-    order: -1;
   }
 
   #campaignModal .campaign-preview-stats {
@@ -9605,6 +9582,29 @@ body.dark-mode .campatrack-login-select {
   color: #1e3a8a !important;
 }
 
+#planningModule .planning-table-saas tbody tr.planning-row-excel-import > td {
+  box-shadow: inset 3px 0 0 rgba(234, 179, 8, 0.85);
+}
+
+#planningModule .planning-excel-import-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #92400e;
+  background: rgba(250, 204, 21, 0.35);
+  vertical-align: middle;
+}
+
+#planningModule .planning-table-saas tbody tr.planning-row-excel-import:not(.row-selected) > td {
+  background-color: rgba(250, 204, 21, 0.06);
+}
+
 #planningModule .planning-table-saas tbody tr[data-record-id] td {
   padding: 12px 11px;
   vertical-align: middle;
@@ -9637,6 +9637,16 @@ body.dark-mode .campatrack-login-select {
 
 #planningModule .planning-table tbody td.planning-cell-readonly:not(.planning-mes-muted) {
   cursor: default;
+}
+
+#planningModule .planning-table tbody td.planning-cell-calculated:not(.planning-mes-muted) {
+  opacity: 0.88;
+  background: rgba(148, 163, 184, 0.06);
+}
+
+#planningModule .planning-table tbody td.planning-cell-calculated .planning-presupuesto-val,
+#planningModule .planning-table tbody td.planning-cell-calculated .planning-leads-total-chip {
+  color: var(--ct-muted, #64748b);
 }
 
 #planningModule .planning-table-saas td.planning-cell-mes-inv,
