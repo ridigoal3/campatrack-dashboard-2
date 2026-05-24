@@ -28,11 +28,17 @@ import {
 } from "./campatrack-github-config.js";
 import { campatrackShouldPersistKeyToDisk } from "./campatrack-persistence-policy.js";
 import {
+  crmDebugEnabled,
+  crmDebugLog,
+  crmDebugBundleMeta,
+  crmDebugStack,
+  crmDebugLeadsCount
+} from "./campatrack-crm-debug.js";
+import {
   createEmptyCampatrackBundle,
   loadModularBundleFromGithub,
-  campatrackMonthKeyFromFecha,
-  replaceCrmGithubSnapshotFromSerializedRows,
-  partitionRowsByMonth
+  reassembleBundleCrmFromManifestIfNeeded,
+  campatrackMonthKeyFromFecha
 } from "./campatrack-data-store.js";
 import {
   campatrackGateInit,
@@ -62,9 +68,18 @@ let campatrackLiteLoginBundleCache = null;
 function scheduleGithubSyncAfterSuccessfulPublish(dataCompletaReal, user) {
   try {
     const ghUser = String(user?.username || "admin").replace(/[^a-zA-Z0-9_-]/g, "_");
-    void syncCampatrackGithubAfterPublish(dataCompletaReal, ghUser).catch((err) => {
-      console.error("[GitHub] Error en backup o actualización (publicación local ya completada):", err);
-    });
+    crmDebugBundleMeta(dataCompletaReal, "github sync (bundle enviado)");
+    void syncCampatrackGithubAfterPublish(dataCompletaReal, ghUser)
+      .then(() => {
+        crmDebugLog("after publish (GitHub OK)", {
+          origen: "syncCampatrackGithubAfterPublish",
+          usuario: ghUser
+        });
+      })
+      .catch((err) => {
+        crmDebugLog("after publish (GitHub ERROR)", { error: String(err?.message || err) });
+        console.error("[GitHub] Error en backup o actualización (publicación local ya completada):", err);
+      });
   } catch (e) {
     console.error("[GitHub] No se pudo programar sincronización:", e);
   }
@@ -147,6 +162,9 @@ function createCampatrackPrefixedLocalStorageKV(prefix) {
       lsRemove(pre + key);
     },
     clear() {
+      if (crmDebugEnabled()) {
+        crmDebugStack("appMemoryKV.clear()");
+      }
       for (const key of Object.keys(memFallback)) delete memFallback[key];
       for (const full of lsKeysWithPrefix()) lsRemove(full);
     }
@@ -974,7 +992,7 @@ const CATALOGO_SEMILLA_TRACKING = ["Leadgen", "Pixel", "Google"];
 const CATALOGO_SEMILLA_PLATAFORMAS = ["Meta", "Google", "TikTok", "LinkedIn"];
 const CATALOGO_SEMILLA_INTAKES = ["Intake 1", "Intake 2", "Intake 3", "Intake 4"];
 
-/** CC, bitácora y modelo en `appState.dataDraft` (misma idea que planning); no appMemoryKV. */
+/** CC, bitácora, modelo y CRM en `appState.dataDraft` (misma idea que planning); no appMemoryKV. */
 function syncCcBitacoraModeloDraftFromRuntime() {
   if (!appState.dataDraft || typeof appState.dataDraft !== "object") appState.dataDraft = {};
   appState.dataDraft.cc_data = {
@@ -987,6 +1005,18 @@ function syncCcBitacoraModeloDraftFromRuntime() {
   appState.dataDraft.modeloAnalitico = modeloSer;
   appState.dataDraft.campatrack_users_db = JSON.parse(JSON.stringify(ensureCampatrackUsersDraftShape()));
   appState.dataDraft.auditoria = JSON.parse(JSON.stringify(ensureAuditoriaDraftShape()));
+  ensureRelacionesCrmDraftShape();
+  ensureCrmLeadsDraftShape();
+}
+
+/** Sincroniza vistas runtime CRM desde el borrador (tras hidratar API o memoria). */
+function syncCrmRuntimeViewsAfterHydrate() {
+  try {
+    syncRelacionesCrmViewFromDraft();
+    syncCrmLeadsViewFromDraft();
+  } catch (e) {
+    console.warn("syncCrmRuntimeViewsAfterHydrate", e);
+  }
 }
 
 function applyCcBitacoraModeloRuntimeFromDraftOrBundle(source) {
@@ -2424,13 +2454,14 @@ function runWithDiskPersistenceEnabled(fn) {
 }
 
 function buildMemorySnapshotForPublish() {
+  crmDebugSnapshot("before publish (entrada)", { paso: "buildMemorySnapshotForPublish" });
   syncCcBitacoraModeloDraftFromRuntime();
   recomputePlanningMergedCacheFromRecords();
   migratePlanningRowsTeamIds(planningMergedRecordsCache || []);
   reloadPlanningWorkingSliceFromCache();
   refreshTeamScopedDataCachesForSnapshot();
   const planningSnap = JSON.parse(JSON.stringify(planningMergedRecordsCache && planningMergedRecordsCache.length ? planningMergedRecordsCache : planningDraftRecords()));
-  return {
+  const snap = {
     planning_data: { records: planningSnap, recordIdSeq: getPlanningRecordIdSeq() },
     cc_data: { centros: JSON.parse(JSON.stringify(centrosCostos)), seq: centroCostoIdSeq },
     catalogos_sistema: JSON.parse(JSON.stringify(catalogosSistema)),
@@ -2448,6 +2479,11 @@ function buildMemorySnapshotForPublish() {
     campatrack_users_db: JSON.parse(JSON.stringify(getCampatrackStoredUsers())),
     auditoria: JSON.parse(JSON.stringify(ensureAuditoriaDraftShape()))
   };
+  crmDebugLeadsCount("before publish (snapshot listo)", {
+    origen: "buildMemorySnapshotForPublish",
+    bundle_crm_leads_count: Array.isArray(snap.crm_leads) ? snap.crm_leads.length : null
+  });
+  return snap;
 }
 
 /** Metadatos de “publicar” para sobrevivir a cierre del navegador (misma capa que `appMemoryKV`). */
@@ -2650,6 +2686,20 @@ function applyMemorySnapshotFromBundle(snap) {
     ensureRelacionesCrmDraftShape().length = 0;
     syncRelacionesCrmViewFromDraft();
   }
+  if (snap.crm_leads != null) {
+    const drLeads = ensureCrmLeadsDraftShape();
+    drLeads.length = 0;
+    const rowsLeads = deserializeCrmLeads(Array.isArray(snap.crm_leads) ? snap.crm_leads : []);
+    migrateMissingTeamIdOnRows(rowsLeads);
+    rowsLeads.forEach((r) => drLeads.push(r));
+    syncCrmLeadsViewFromDraft();
+  } else {
+    ensureCrmLeadsDraftShape().length = 0;
+    syncCrmLeadsViewFromDraft();
+    if (crmDebugEnabled()) {
+      crmDebugStack("applyMemorySnapshotFromBundle: snap.crm_leads ausente — borrador CRM vaciado");
+    }
+  }
   sanitizeRelacionesDraftChannels();
   syncRelacionesViewFromDraft();
   if (Array.isArray(snap.medidas)) {
@@ -2725,6 +2775,12 @@ function flushAllPersistedStateToDisk() {
       appMemoryKV.setItem("programas", JSON.stringify(programs));
     } catch (err) {
       console.warn("flush programas", err);
+    }
+    try {
+      appMemoryKV.setItem("relaciones_crm", JSON.stringify(ensureRelacionesCrmDraftShape()));
+      appMemoryKV.setItem("crm_leads", JSON.stringify(serializeCrmLeads(ensureCrmLeadsDraftShape())));
+    } catch (err) {
+      console.warn("flush CRM en memoria de sesión", err);
     }
     guardarTodo({ incluirTablasData: true });
   });
@@ -6729,6 +6785,7 @@ function syncRelacionesCrmViewFromDraft() {
 
 function syncCrmLeadsViewFromDraft() {
   const draft = ensureCrmLeadsDraftShape();
+  const antesRuntime = crmLeads.length;
   draft.forEach((r) => {
     if (!r || typeof r !== "object") return;
     const nm = crmNormalizeQuarterTokensToPlanningIntake(String(r.nombreCampania || "").trim());
@@ -6737,9 +6794,60 @@ function syncCrmLeadsViewFromDraft() {
   });
   crmLeads.length = 0;
   draft.forEach((row) => crmLeads.push(row));
+  crmDebugLeadsCount("runtime crm_leads", {
+    origen: "syncCrmLeadsViewFromDraft",
+    runtime_crmLeads: crmLeads.length,
+    draft_crm_leads: draft.length
+  });
+  if (crmDebugEnabled() && (antesRuntime > 0 || draft.length > 0) && draft.length === 0 && antesRuntime > 0) {
+    crmDebugStack("syncCrmLeadsViewFromDraft vació runtime");
+  }
   updateDataKpisFromCrm();
   refreshCrmDataSegmentadoresUI();
   renderCrmDataResumenTable();
+}
+
+/** Estado local CRM (borrador + runtime + KV sesión) — solo con trazabilidad activa. */
+function crmDebugSnapshot(stage, extra = {}) {
+  if (!crmDebugEnabled()) return;
+  let kvCrm = null;
+  let kvRel = null;
+  try {
+    const rc = appMemoryKV.getItem("crm_leads");
+    if (rc) {
+      const p = JSON.parse(rc);
+      kvCrm = Array.isArray(p) ? p.length : typeof p;
+    } else kvCrm = 0;
+  } catch (_) {
+    kvCrm = "parse_err";
+  }
+  try {
+    const rr = appMemoryKV.getItem("relaciones_crm");
+    if (rr) {
+      const p = JSON.parse(rr);
+      kvRel = Array.isArray(p) ? p.length : typeof p;
+    } else kvRel = 0;
+  } catch (_) {
+    kvRel = "parse_err";
+  }
+  crmDebugLog(stage, {
+    origen: extra.origen ?? stage,
+    ...extra,
+    draft_crm_leads: ensureCrmLeadsDraftShape().length,
+    runtime_crmLeads: crmLeads.length,
+    draft_relaciones_crm: ensureRelacionesCrmDraftShape().length,
+    runtime_relacionesCrm: relacionesCrm.length,
+    appMemoryKV_crm_leads: kvCrm,
+    appMemoryKV_relaciones_crm: kvRel,
+    pendingPublishCount: appPendingPublishCount,
+    authenticated: typeof isCampatrackAuthenticated === "function" ? isCampatrackAuthenticated() : null
+  });
+}
+
+try {
+  globalThis.__campatrackCrmDebugSnapshot = crmDebugSnapshot;
+} catch (_) {
+  /* ignore */
 }
 
 function replaceCurrentTeamRelacionesFromMerged(mergedSlice) {
@@ -7088,6 +7196,7 @@ const EXPORT_BUNDLE_KEYS = [
   "data_anuncios",
   "relaciones",
   "relaciones_crm",
+  "crm_leads",
   "campatrack_users_db",
   "campatrack_teams_db",
   "auditoria"
@@ -7138,6 +7247,8 @@ function construirSnapshotDesdeLocalStorageComoExport() {
     data_ads_report: leerJsonLocalStorage(LS_KEYS.dataAdsReport, "dataAdsReport"),
     data_anuncios: leerJsonLocalStorage(LS_KEYS.dataAnuncios, "dataAnuncios"),
     relaciones: JSON.parse(JSON.stringify(ensureRelacionesDraftShape())),
+    relaciones_crm: JSON.parse(JSON.stringify(ensureRelacionesCrmDraftShape())),
+    crm_leads: serializeCrmLeads(ensureCrmLeadsDraftShape()),
     campatrack_users_db: JSON.parse(JSON.stringify(ensureCampatrackUsersDraftShape())),
     campatrack_teams_db: getCampatrackStoredTeams(),
     campaniasUnicasData: leerJsonLocalStorage(LS_KEYS.campaniasUnicasData),
@@ -7256,11 +7367,17 @@ async function guardarDataEnAPI(dataCompletaReal) {
     partitionKey,
     topKeys: Object.keys(dataCompletaReal),
     planningRecords: planRec.length,
-    recordIdSeq: dataCompletaReal.planning_data?.recordIdSeq
+    recordIdSeq: dataCompletaReal.planning_data?.recordIdSeq,
+    crmLeads: Array.isArray(dataCompletaReal.crm_leads) ? dataCompletaReal.crm_leads.length : 0,
+    relacionesCrm: Array.isArray(dataCompletaReal.relaciones_crm) ? dataCompletaReal.relaciones_crm.length : 0
   });
 
   if (campatrackIsLiteMode()) {
     console.info("[CampaTrack lite] Publicación: sincronización GitHub (sin localStorage masivo).");
+    crmDebugLeadsCount("after publish (lite → GitHub)", {
+      origen: "guardarDataEnAPI",
+      bundle_crm_leads_count: Array.isArray(dataCompletaReal.crm_leads) ? dataCompletaReal.crm_leads.length : null
+    });
     syncDataOriginalFromPublishedDraft(dataCompletaReal);
     applyPlanningOriginalFromDraft();
     scheduleGithubSyncAfterSuccessfulPublish(dataCompletaReal, user);
@@ -7291,6 +7408,11 @@ async function guardarDataEnAPI(dataCompletaReal) {
 
   console.info("[CampaTrack publicar] Guardado OK. Respuesta:", bodyJson ?? bodyText);
 
+  crmDebugLeadsCount("after publish (API OK)", {
+    origen: "guardarDataEnAPI",
+    partitionKey,
+    bundle_crm_leads_count: Array.isArray(dataCompletaReal.crm_leads) ? dataCompletaReal.crm_leads.length : null
+  });
   syncDataOriginalFromPublishedDraft(dataCompletaReal);
   applyPlanningOriginalFromDraft();
   scheduleGithubSyncAfterSuccessfulPublish(dataCompletaReal, user);
@@ -7308,8 +7430,9 @@ function applyJsonBundleToLocalDraftOnly(bundle, opts = {}) {
   try {
     syncRelacionesViewFromDraft();
     syncDataRelacionesModeloConsistency();
+    syncCrmRuntimeViewsAfterHydrate();
   } catch (e) {
-    console.warn("applyJsonBundleToLocalDraftOnly modelo/rel", e);
+    console.warn("applyJsonBundleToLocalDraftOnly modelo/rel/crm", e);
   }
   try {
     hydratarCentrosCostos();
@@ -7635,6 +7758,12 @@ async function afterLoginSuccess(user) {
       if (!bundle || typeof bundle !== "object" || Array.isArray(bundle)) {
         bundle = createEmptyCampatrackBundle();
       }
+      crmDebugBundleMeta(bundle, "fetched bundle (lite login)");
+      crmDebugLeadsCount("fetched crm_leads count", {
+        origen: "afterLoginSuccess-lite",
+        bundle_crm_leads_count: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : null,
+        data_manifest_crm: bundle.data_manifest?.crm ?? null
+      });
       const planSrc = bundle.planning_data ?? bundle.planning;
       const planRecs = Array.isArray(planSrc?.records) ? planSrc.records : Array.isArray(planSrc) ? planSrc : [];
       console.info("[CampaTrack lite] Bundle aplicado tras login", {
@@ -7647,10 +7776,12 @@ async function afterLoginSuccess(user) {
         try {
           syncRelacionesViewFromDraft();
           syncDataRelacionesModeloConsistency();
+          syncCrmRuntimeViewsAfterHydrate();
         } catch (e) {
-          console.warn("Post-hydrate (login lite): modelo / relaciones", e);
+          console.warn("Post-hydrate (login lite): modelo / relaciones / CRM", e);
         }
       });
+      crmDebugSnapshot("hydrate (post login lite)", { origen: "afterLoginSuccess" });
       resetPublishDraftAfterServerHydrate();
       campatrackMergeSessionProfileFromDraftUsers();
       return bundle;
@@ -7664,27 +7795,41 @@ async function afterLoginSuccess(user) {
       return null;
     }
     const json = await res.json();
-    const bundle = parseBundleDataFromApiJson(json);
+    let bundle = parseBundleDataFromApiJson(json);
     if (!bundle) {
       console.log("No hay data para este usuario");
       return null;
     }
+    crmDebugBundleMeta(bundle, "fetched bundle (GET /api/data, antes reassemble)");
+    bundle = await reassembleBundleCrmFromManifestIfNeeded(bundle);
+    crmDebugBundleMeta(bundle, "fetched bundle (tras reassemble)");
     const planSrc = bundle.planning_data ?? bundle.planning;
     const planRecs = Array.isArray(planSrc?.records) ? planSrc.records : Array.isArray(planSrc) ? planSrc : [];
     console.info("[CampaTrack sesión] GET /api/data aplicado", {
       partitionKey,
       topKeys: Object.keys(bundle),
-      planningRecords: planRecs.length
+      planningRecords: planRecs.length,
+      crmLeads: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : 0,
+      relacionesCrm: Array.isArray(bundle.relaciones_crm) ? bundle.relaciones_crm.length : 0
     });
+    crmDebugLeadsCount("fetched crm_leads count", {
+      origen: "afterLoginSuccess",
+      partitionKey,
+      bundle_crm_leads_count: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : null,
+      data_manifest_crm: bundle.data_manifest?.crm ?? null
+    });
+    crmDebugSnapshot("fetched bundle (pre-hydrate login)", { partitionKey, origen: "afterLoginSuccess" });
     withDraftNotificationsSuppressed(() => {
       hydrateAppStateDraftFromApiBundle(bundle);
       try {
         syncRelacionesViewFromDraft();
         syncDataRelacionesModeloConsistency();
+        syncCrmRuntimeViewsAfterHydrate();
       } catch (e) {
-        console.warn("Post-hydrate (login): modelo / relaciones", e);
+        console.warn("Post-hydrate (login): modelo / relaciones / CRM", e);
       }
     });
+    crmDebugSnapshot("hydrate (post login)", { origen: "afterLoginSuccess" });
     resetPublishDraftAfterServerHydrate();
     campatrackMergeSessionProfileFromDraftUsers();
     return bundle;
@@ -7716,6 +7861,11 @@ async function cargarDataDesdeBackend(opts = {}) {
       return;
     }
     if (appPendingPublishCount > 0 && !force) {
+      crmDebugSnapshot("cargarDataDesdeBackend OMITIDO (borrador pendiente)", {
+        origen: "cargarDataDesdeBackend",
+        force,
+        pendingPublishCount: appPendingPublishCount
+      });
       if (typeof rebuildPlanningTable === "function") rebuildPlanningTable();
       if (typeof renderTablaData === "function") renderTablaData();
       if (typeof setFechaActualData === "function") setFechaActualData();
@@ -7762,6 +7912,7 @@ async function cargarDataDesdeBackend(opts = {}) {
       console.log("No hay data para este usuario");
       return;
     }
+    bundle = await reassembleBundleCrmFromManifestIfNeeded(bundle);
     const planSrcRefresh = bundle.planning_data ?? bundle.planning;
     const planRecsRefresh =
       Array.isArray(planSrcRefresh?.records) ? planSrcRefresh.records : Array.isArray(planSrcRefresh) ? planSrcRefresh : [];
@@ -7777,10 +7928,12 @@ async function cargarDataDesdeBackend(opts = {}) {
       try {
         syncRelacionesViewFromDraft();
         syncDataRelacionesModeloConsistency();
+        syncCrmRuntimeViewsAfterHydrate();
       } catch (e) {
-        console.warn("Post-hydrate (backend): modelo / relaciones", e);
+        console.warn("Post-hydrate (backend): modelo / relaciones / CRM", e);
       }
     });
+    crmDebugSnapshot("hydrate (post cargarDataDesdeBackend)", { origen: "cargarDataDesdeBackend" });
     campatrackMergeSessionProfileFromDraftUsers();
     if (typeof syncCampatrackProfileHeader === "function") syncCampatrackProfileHeader();
     if (typeof rebuildPlanningTable === "function") rebuildPlanningTable();
@@ -7849,9 +8002,12 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
   ) {
     return;
   }
+  crmDebugSnapshot("applyFetchedBundle (antes clear KV)", { origen: "campatrackApplyFetchedBundleToRuntime" });
+  crmDebugBundleMeta(bundlePayload, "applyFetchedBundle (payload)");
   try {
     appMemoryKV.clear();
   } catch (_) {}
+  crmDebugSnapshot("applyFetchedBundle (después clear KV)", { origen: "campatrackApplyFetchedBundleToRuntime" });
   try {
     const u = getUser();
     if (u && String(u.username ?? "").trim()) {
@@ -7873,13 +8029,6 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
       console.warn("No se pudo guardar en almacén en memoria:", clave, err);
     }
   }
-  if (Array.isArray(bundlePayload.crm_leads)) {
-    try {
-      appMemoryKV.setItem("crm_leads", JSON.stringify(bundlePayload.crm_leads));
-    } catch (err) {
-      console.warn("crm_leads en memoria", err);
-    }
-  }
   try {
     syncDataOriginalFromPublishedDraft(bundlePayload);
   } catch (_) {}
@@ -7893,6 +8042,11 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
   } catch (e) {
     console.warn("hydratarDesdeLocalStorage tras aplicar bundle API", e);
   }
+  syncCrmLeadsViewFromDraft();
+  crmDebugLeadsCount("runtime crm_leads", {
+    origen: "campatrackApplyFetchedBundleToRuntime",
+    nota: "sin re-hidratar bundle (evita wipe si core traía crm_leads vacío)"
+  });
   campatrackMergeSessionProfileFromDraftUsers();
   if (typeof syncCampatrackProfileHeader === "function") syncCampatrackProfileHeader();
   if (typeof rebuildPlanningTable === "function") rebuildPlanningTable();
@@ -8294,15 +8448,34 @@ function deserializeCrmLeads(list) {
 }
 
 function hydrateCrmLeadsFromBundle(bundle) {
-  const list = ensureCrmLeadsDraftShape();
-  list.length = 0;
-  if (!bundle || bundle.crm_leads == null) {
+  const draftAntes = ensureCrmLeadsDraftShape().length;
+  const runtimeAntes = crmLeads.length;
+  if (!bundle || !Object.prototype.hasOwnProperty.call(bundle, "crm_leads")) {
+    crmDebugLog("hydrate (sin clave crm_leads — no toca borrador)", {
+      draftAntes,
+      runtimeAntes,
+      bundleKeys: bundle && typeof bundle === "object" ? Object.keys(bundle).sort() : []
+    });
     syncCrmLeadsViewFromDraft();
     return;
   }
+  const rawLen = Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : null;
+  const list = ensureCrmLeadsDraftShape();
+  list.length = 0;
   const rows = deserializeCrmLeads(Array.isArray(bundle.crm_leads) ? bundle.crm_leads : []);
   migrateMissingTeamIdOnRows(rows);
   rows.forEach((r) => list.push(r));
+  crmDebugLeadsCount("hydrate (hydrateCrmLeadsFromBundle)", {
+    draftAntes,
+    runtimeAntes,
+    bundle_crm_leads_count: rawLen,
+    deserialized_rows: rows.length,
+    draftDespues: list.length,
+    filasPerdidasEnDeserialize: rawLen != null ? Math.max(0, rawLen - rows.length) : null
+  });
+  if (crmDebugEnabled() && rawLen > 0 && rows.length === 0) {
+    crmDebugStack("hydrateCrmLeadsFromBundle: bundle tenía filas pero deserialize devolvió 0");
+  }
   syncCrmLeadsViewFromDraft();
 }
 
@@ -9027,6 +9200,40 @@ function hydratarDesdeLocalStorage() {
     }
   }
   syncRelacionesViewFromDraft();
+
+  ensureRelacionesCrmDraftShape();
+  const drCrmRel = ensureRelacionesCrmDraftShape();
+  if (!drCrmRel.length) {
+    try {
+      const raw = appMemoryKV.getItem("relaciones_crm");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const arr = Array.isArray(parsed) ? parsed.map((x) => (typeof x === "object" && x ? { ...x } : x)) : [];
+        arr.forEach((r) => drCrmRel.push(r));
+      }
+    } catch (err) {
+      console.warn("Migración one-shot relaciones_crm desde memoria", err);
+    }
+  }
+  syncRelacionesCrmViewFromDraft();
+
+  const drCrmLeads = ensureCrmLeadsDraftShape();
+  if (!drCrmLeads.length) {
+    try {
+      const raw = appMemoryKV.getItem("crm_leads");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const stored = normalizarArrayPersistido(parsed) ?? (Array.isArray(parsed) ? parsed : []);
+        const rows = deserializeCrmLeads(Array.isArray(stored) ? stored : []);
+        migrateMissingTeamIdOnRows(rows);
+        rows.forEach((r) => drCrmLeads.push(r));
+      }
+    } catch (err) {
+      console.warn("Migración one-shot crm_leads desde memoria", err);
+    }
+  }
+  syncCrmLeadsViewFromDraft();
+  crmDebugSnapshot("hydrate (fin hydratarDesdeLocalStorage)", { origen: "hydratarDesdeLocalStorage" });
 
   medidasMergedCache = readFullMedidasFromDisk();
   medidas = medidasMergedCache.filter(rowBelongsToCurrentTeam);
@@ -11831,24 +12038,6 @@ async function parseCrmUploadFile(file, options = {}) {
   throw new Error("Formato no soportado. Usa CSV o XLSX.");
 }
 
-/**
- * Intenta escribir shards CRM en el repo configurado (modo lite).
- * @returns {{ ok: true, skipped?: boolean } | { ok: false, error: string }}
- */
-async function persistCrmLeadsToGithubByMonth(rows) {
-  if (!campatrackIsLiteMode() || !hasClientGithubConfigComplete()) return { ok: true, skipped: true };
-  try {
-    const serialized = serializeCrmLeads(rows);
-    await replaceCrmGithubSnapshotFromSerializedRows(serialized);
-    return { ok: true };
-  } catch (e) {
-    console.warn("persistCrmLeadsToGithubByMonth", e);
-    const msg =
-      typeof e?.message === "string" ? e.message : String(e);
-    return { ok: false, error: msg };
-  }
-}
-
 async function prepareCrmImportRowsFromFile(file, monthSel) {
   const forcedMk = monthSel instanceof HTMLSelectElement ? String(monthSel.value || "").trim() : "";
   let parsed = await parseCrmUploadFile(file, { allowMissingFecha: false });
@@ -11973,6 +12162,12 @@ function mergeCrmLeadsImportUpsert(incomingRows) {
     }
   }
   syncCrmLeadsViewFromDraft();
+  crmDebugLeadsCount("upload (post import CRM)", {
+    origen: "mergeCrmLeadsImportUpsert",
+    inserted,
+    updated,
+    total: draft.length
+  });
   return { inserted, updated, skipped, total: draft.length, totalAntesMerge };
 }
 
@@ -12045,30 +12240,11 @@ function initCrmImportModule() {
       });
 
       const draft = ensureCrmLeadsDraftShape();
-      if (campatrackIsLiteMode() && hasClientGithubConfigComplete()) {
-        const gh = await persistCrmLeadsToGithubByMonth(draft);
-        if (gh.ok) {
-          showCampatrackToast(
-            `CRM guardado en GitHub: ${merge.inserted} nuevo(s), ${merge.updated} actualizado(s).`,
-            "success"
-          );
-        } else {
-          registerUnpublishedDraftMutation();
-          const hint = gh.error.includes("403")
-            ? `${gh.error.slice(0, 220)} Revisa reglas del repo en GitHub, permisos del token o bloqueos CORS desde localhost.`
-            : `${gh.error.slice(0, 280)}`;
-          showCampatrackToast(
-            `CRM importado en la app (borrador actualizado). No se pudo subir a GitHub: ${hint}`,
-            "error"
-          );
-        }
-      } else {
-        registerUnpublishedDraftMutation();
-        showCampatrackToast(
-          `CRM fusionado: ${merge.inserted} nuevo(s), ${merge.updated} actualizado(s). Publica para persistir.`,
-          "success"
-        );
-      }
+      registerUnpublishedDraftMutation();
+      showCampatrackToast(
+        `CRM importado: ${merge.inserted} nuevo(s), ${merge.updated} actualizado(s). Total en borrador: ${draft.length}. Usa «Publicar» para guardar.`,
+        "success"
+      );
       renderRelacionesEstado();
       if (relActiveSubtab === "crm") {
         renderCrmRelCrmList();
@@ -12254,6 +12430,12 @@ function renderCrmRelCrmList() {
   const linked = getCrmRelLinkedCrmSet();
   const items = getFilteredCrmRelCampaignList();
   const totalCrm = getCrmUniqueCampaignList().length;
+  crmDebugLeadsCount("render crm panel dataset", {
+    origen: "renderCrmRelCrmList",
+    runtime_crmLeads: crmLeads.length,
+    campanias_unicas_crm: totalCrm,
+    filas_panel: items.length
+  });
   const selCount = document.getElementById("crmRelCrmSelectedCount");
   const badge = document.getElementById("crmRelCrmBadgeTotal");
   if (selCount) selCount.textContent = String(selectedCrmRelCrmKeys.size);
@@ -12363,6 +12545,7 @@ function vincularCrmPlanning() {
   }
   list.push(row);
   syncRelacionesCrmViewFromDraft();
+  crmDebugSnapshot("relacion CRM creada", { origen: "vincularCrmPlanning", planningKey, crmKey });
   selectedCrmRelPlanningKeys = new Set();
   selectedCrmRelCrmKeys = new Set();
   registerUnpublishedDraftMutation();
@@ -20576,7 +20759,9 @@ function campatrackBootDeferredModules() {
   if (typeof campatrackGateIsReady === "function" && campatrackIsLiteMode() && !campatrackGateIsReady()) {
     return;
   }
+  crmDebugSnapshot("bootstrap (antes hydratarDesdeLocalStorage)", { origen: "campatrackBootDeferredModules" });
   hydratarDesdeLocalStorage();
+  crmDebugSnapshot("bootstrap (después hydratarDesdeLocalStorage)", { origen: "campatrackBootDeferredModules" });
   ensureCampatrackTeamsSeed();
   initTabs();
   initCampatrackAppHeader();

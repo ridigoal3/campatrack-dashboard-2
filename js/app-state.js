@@ -5,6 +5,7 @@
 
 import { hasClientGithubConfigComplete } from "./campatrack-github-config.js";
 import { createEmptyCampatrackBundle, loadModularBundleFromGithub } from "./campatrack-data-store.js";
+import { crmDebugEnabled, crmDebugLog, crmDebugBundleMeta, crmDebugLeadsCount } from "./campatrack-crm-debug.js";
 
 export const appState = {
   dataOriginal: {},
@@ -177,6 +178,8 @@ function normalizePlanningSliceFromBundle(planningData) {
  */
 export function hydrateAppStateDraftFromApiBundle(bundle) {
   if (bundle == null || typeof bundle !== "object" || Array.isArray(bundle)) return;
+  crmDebugBundleMeta(bundle, "hydrate (entrada hydrateAppStateDraftFromApiBundle)");
+  const draftCrmAntes = Array.isArray(appState.dataDraft?.crm_leads) ? appState.dataDraft.crm_leads.length : 0;
   const cloneOrig =
     typeof structuredClone === "function" ? structuredClone(bundle) : JSON.parse(JSON.stringify(bundle));
   const cloneDraft =
@@ -184,7 +187,15 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
   appState.dataOriginal = cloneOrig;
   if (!appState.dataDraft || typeof appState.dataDraft !== "object") appState.dataDraft = {};
   for (const key of Object.keys(cloneDraft)) {
-    if (key === "planning_data" || key === "planning" || key === "data_general" || key === "relaciones") continue;
+    if (
+      key === "planning_data" ||
+      key === "planning" ||
+      key === "data_general" ||
+      key === "relaciones" ||
+      key === "crm_leads"
+    ) {
+      continue;
+    }
     appState.dataDraft[key] = cloneDraft[key];
   }
   const slice = normalizePlanningSliceFromBundle(bundle.planning_data ?? bundle.planning);
@@ -238,15 +249,16 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
   sanitizeRelacionesDraftChannels();
 
   ensureCrmLeadsDraftShape();
-  let crmLeads = bundle.crm_leads;
-  if (typeof crmLeads === "string") {
-    try {
-      crmLeads = JSON.parse(crmLeads);
-    } catch {
-      crmLeads = [];
-    }
-  }
-  appState.dataDraft.crm_leads = Array.isArray(crmLeads) ? crmLeads : [];
+  crmDebugLeadsCount("hydrate (pre hook crm_leads)", {
+    origen: "hydrateAppStateDraftFromApiBundle",
+    draft_crm_leads_antes: draftCrmAntes,
+    bundle_tiene_clave_crm_leads: Object.prototype.hasOwnProperty.call(bundle, "crm_leads"),
+    bundle_crm_leads_count: Array.isArray(bundle.crm_leads)
+      ? bundle.crm_leads.length
+      : bundle.crm_leads == null
+        ? null
+        : typeof bundle.crm_leads
+  });
 
   if (
     !Object.prototype.hasOwnProperty.call(bundle, "campatrack_users_db") ||
@@ -310,6 +322,21 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
     }
   } catch (_) {
     /* ignore */
+  }
+  if (crmDebugEnabled()) {
+    crmDebugLeadsCount("hydrate (fin hydrateAppStateDraftFromApiBundle)", {
+      origen: "hydrateAppStateDraftFromApiBundle",
+      draft_crm_leads: appState.dataDraft.crm_leads?.length ?? 0
+    });
+    try {
+      if (typeof globalThis.__campatrackCrmDebugSnapshot === "function") {
+        globalThis.__campatrackCrmDebugSnapshot("hydrate (post hooks app-state)", {
+          origen: "hydrateAppStateDraftFromApiBundle"
+        });
+      }
+    } catch (_) {
+      /* ignore */
+    }
   }
 }
 

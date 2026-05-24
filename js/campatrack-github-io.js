@@ -42,8 +42,20 @@ export async function readResponseJsonSafe(res) {
   }
 }
 
+/** Límite práctico GitHub Contents API (~1 MB por archivo). */
+export const GITHUB_CONTENT_MAX_BYTES = 950_000;
+
+export function estimateJsonUtf8Bytes(data) {
+  try {
+    return new Blob([JSON.stringify(data)]).size;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+/** JSON compacto (sin indent) para reducir tamaño en PUT. */
 export function bundleToGithubBase64Content(data) {
-  return btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
 }
 
 export function decodeGithubContentBase64(b64) {
@@ -86,14 +98,19 @@ export async function githubContentsRequest(pathInRepo, init = {}) {
 
 /** @param {string} pathInRepo @returns {Promise<string|null>} */
 export async function getGithubFileSha(pathInRepo) {
-  const res = await githubContentsRequest(pathInRepo, { method: "GET" });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`getGithubFileSha ${res.status}: ${t.slice(0, 400)}`);
+  try {
+    const res = await githubContentsRequest(pathInRepo, { method: "GET" });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      console.warn(`[github-io] getGithubFileSha ${pathInRepo}: HTTP ${res.status}`);
+      return null;
+    }
+    const body = await readResponseJsonSafe(res);
+    return body && typeof body.sha === "string" ? body.sha : null;
+  } catch (e) {
+    console.warn(`[github-io] getGithubFileSha ${pathInRepo}:`, e);
+    return null;
   }
-  const body = await readResponseJsonSafe(res);
-  return body && typeof body.sha === "string" ? body.sha : null;
 }
 
 /**
@@ -126,24 +143,64 @@ export async function readGithubJsonFile(pathInRepo) {
  * @param {string} pathInRepo
  * @param {object} data
  * @param {string} commitMessage
+ * @param {{ skipShaLookup?: boolean }} [opts] — true para archivos nuevos (evita GET 404 en consola).
  */
-export async function writeGithubJsonFile(pathInRepo, data, commitMessage) {
+export async function writeGithubJsonFile(pathInRepo, data, commitMessage, opts = {}) {
   const creds = getClientGithubApiCredentials();
   if (!creds) throw new Error("Sin configuración GitHub completa.");
-  const sha = await getGithubFileSha(pathInRepo);
+  const bytes = estimateJsonUtf8Bytes(data);
+  if (bytes > GITHUB_CONTENT_MAX_BYTES) {
+    throw new Error(
+      `Archivo demasiado grande para GitHub (${Math.round(bytes / 1024)} KB > ${Math.round(GITHUB_CONTENT_MAX_BYTES / 1024)} KB): ${pathInRepo}`
+    );
+  }
+  const sha = opts.skipShaLookup === true ? null : await getGithubFileSha(pathInRepo);
   const body = {
     message: commitMessage,
     content: bundleToGithubBase64Content(data),
     branch: creds.branch
   };
   if (sha) body.sha = sha;
-  const res = await githubContentsRequest(pathInRepo, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  let res;
+  try {
+    res = await githubContentsRequest(pathInRepo, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  } catch (e) {
+    throw new Error(`writeGithubJsonFile red: ${pathInRepo} — ${String(e?.message || e)}`);
+  }
   if (!res.ok) {
     const t = await res.text();
     throw new Error(`writeGithubJsonFile ${res.status}: ${t.slice(0, 400)}`);
   }
+}
+
+/**
+ * PUT tolerante a fallos (publicación modular no debe abortar por un shard).
+ * @returns {Promise<{ ok: true } | { ok: false, error: string }>}
+ */
+export async function tryWriteGithubJsonFile(pathInRepo, data, commitMessage, opts = {}) {
+  try {
+    await writeGithubJsonFile(pathInRepo, data, commitMessage, opts);
+    return { ok: true };
+  } catch (e) {
+    const msg = typeof e?.message === "string" ? e.message : String(e);
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Crea o actualiza sin GET previo (evita ruido 404 en consola).
+ * Intenta PUT sin sha; si el archivo ya existe (422), reintenta con sha.
+ * @returns {Promise<{ ok: true } | { ok: false, error: string }>}
+ */
+export async function upsertGithubJsonFile(pathInRepo, data, commitMessage) {
+  const created = await tryWriteGithubJsonFile(pathInRepo, data, commitMessage, { skipShaLookup: true });
+  if (created.ok) return created;
+  if (/422|already exists|sha/i.test(created.error)) {
+    return tryWriteGithubJsonFile(pathInRepo, data, commitMessage, { skipShaLookup: false });
+  }
+  return created;
 }

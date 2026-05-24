@@ -6,9 +6,10 @@ import { getClientGithubApiCredentials } from "./campatrack-github-config.js";
 import {
   publishModularBundleToGithub,
   BACKUP_FOLDER,
+  buildSlimGithubBackupFromBundle,
   bundleToGithubBase64Content
 } from "./campatrack-data-store.js";
-import { githubContentsRequest, getGithubFileSha } from "./campatrack-github-io.js";
+import { githubContentsRequest, getGithubFileSha, upsertGithubJsonFile } from "./campatrack-github-io.js";
 
 const MAIN_JSON_PATH = "data.json";
 
@@ -31,18 +32,13 @@ export async function createGithubBackup(data, usernameLabel) {
   const safeUser = String(usernameLabel || "user").replace(/[^a-zA-Z0-9_-]/g, "_");
   const filename = `campatrack_backup_${safeUser}_${stamp}.json`;
   const pathInRepo = `${BACKUP_FOLDER}/${filename}`;
-  const res = await githubContentsRequest(pathInRepo, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: `CampaTrack backup ${filename}`,
-      content: bundleToGithubBase64Content(data),
-      branch: creds.branch
-    })
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`createGithubBackup ${res.status}: ${t.slice(0, 400)}`);
+  const wr = await upsertGithubJsonFile(
+    pathInRepo,
+    buildSlimGithubBackupFromBundle(data),
+    `CampaTrack backup ${filename}`
+  );
+  if (!wr.ok) {
+    throw new Error(`createGithubBackup: ${wr.error}`);
   }
 }
 

@@ -6,17 +6,46 @@
  * - backups/: copias al publicar
  */
 
-import { buildGithubRawDataJsonUrl, getClientGithubApiCredentials } from "./campatrack-github-config.js";
+import {
+  buildGithubRawDataJsonUrl,
+  getClientGithubApiCredentials,
+  hasClientGithubConfigComplete
+} from "./campatrack-github-config.js";
+import { crmDebugEnabled, crmDebugLog, crmDebugBundleMeta, crmDebugLeadsCount } from "./campatrack-crm-debug.js";
+import {
+  COMPRESSION_ENCODING,
+  COMPRESSION_VERSION,
+  packExtraPayloadForGithub,
+  packMonthShardForGithub,
+  payloadFromCompressedExtra,
+  rowsFromCompressedShard
+} from "./campatrack-compression.js";
 import {
   bundleToGithubBase64Content,
+  estimateJsonUtf8Bytes,
+  GITHUB_CONTENT_MAX_BYTES,
   readGithubJsonFile,
   readResponseJsonSafe,
   safeJsonParse,
-  writeGithubJsonFile
+  upsertGithubJsonFile
 } from "./campatrack-github-io.js";
 
 const MAIN_JSON_PATH = "data.json";
 const BACKUP_FOLDER = "backups";
+const EXTRAS_FOLDER = "extras";
+/** Filas CRM por archivo shard (ajustado dinámicamente según tamaño comprimido). */
+const CRM_ROWS_PER_GITHUB_SHARD = 8000;
+/** Claves voluminosas que no deben ir inline en data.json (van a extras/* o shards). */
+const GITHUB_OFFLOAD_KEYS = [
+  "crm_leads",
+  "data_general",
+  "data_ads_report",
+  "data_anuncios",
+  "campaniasUnicasData",
+  "medidas",
+  "modelo",
+  "modeloAnalitico"
+];
 
 /** @typedef {{ meta?: string[], crm?: string[] }} DataManifest */
 
@@ -70,6 +99,13 @@ export function campatrackCrmPath(monthKey) {
   return `crm/${monthKey}.json`;
 }
 
+/** @param {string} extraKey clave del bundle (p. ej. campaniasUnicasData) */
+export function campatrackExtraPath(extraKey, partIdx = 0) {
+  const k = String(extraKey || "").trim();
+  if (!k) return `${EXTRAS_FOLDER}/unknown.json`;
+  return partIdx <= 0 ? `${EXTRAS_FOLDER}/${k}.json` : `${EXTRAS_FOLDER}/${k}-${partIdx + 1}.json`;
+}
+
 /**
  * @param {Array<{ fecha?: string|Date }>} rows
  * @returns {Map<string, object[]>}
@@ -94,7 +130,7 @@ export function splitBundleForModularStorage(bundle) {
   const metaRows = Array.isArray(bundle.data_general) ? bundle.data_general : [];
   const crmRows = Array.isArray(bundle.crm_leads) ? bundle.crm_leads : [];
   delete core.data_general;
-  delete core.crm_leads;
+  /* crm_leads permanece inline en data.json (igual que relaciones_crm) para restore fiable en login. */
   const metaShards = partitionRowsByMonth(metaRows);
   const crmShards = partitionRowsByMonth(crmRows);
   /** @type {DataManifest} */
@@ -129,23 +165,237 @@ export function mergeModularPartsIntoBundle(core, metaRows = [], crmRows = []) {
   return out;
 }
 
-function wrapMonthShard(monthKey, rows) {
+function monthShardMeta(monthKey) {
   const [y, m] = String(monthKey).split("/");
   return {
-    version: 1,
+    version: 2,
     year: Number(y),
     month: Number(m),
-    updatedAt: new Date().toISOString(),
-    rows: Array.isArray(rows) ? rows : []
+    updatedAt: new Date().toISOString()
   };
+}
+
+function buildMonthShardFile(monthKey, rows, kind, storageKey, log = true) {
+  const label = `${kind} shard ${storageKey}`;
+  return packMonthShardForGithub(monthShardMeta(monthKey), rows, label, { log });
+}
+
+function estimateMonthShardFileBytes(monthKey, rows, kind, storageKey) {
+  return estimateJsonUtf8Bytes(buildMonthShardFile(monthKey, rows, kind, storageKey, false));
+}
+
+function wrapMonthShard(monthKey, rows) {
+  return buildMonthShardFile(monthKey, rows, "legacy", monthKey, false);
 }
 
 /** @param {object|null} shard */
 export function rowsFromMonthShard(shard) {
-  if (!shard) return [];
-  if (Array.isArray(shard)) return shard;
-  if (Array.isArray(shard.rows)) return shard.rows;
-  return [];
+  return rowsFromCompressedShard(shard);
+}
+
+/**
+ * Parte leads CRM en varios archivos si un mes supera el límite de GitHub.
+ * @param {string} monthKey
+ * @param {object[]} rows
+ * @returns {Array<{ storageKey: string, rows: object[] }>}
+ */
+export function planCrmShardWrites(monthKey, rows) {
+  const arr = Array.isArray(rows) ? rows : [];
+  const base = String(monthKey || "").trim();
+  if (!base) return [];
+  if (!arr.length) return [{ storageKey: base, rows: [] }];
+  const out = [];
+  let i = 0;
+  let partIdx = 0;
+  while (i < arr.length) {
+    let end = Math.min(i + CRM_ROWS_PER_GITHUB_SHARD, arr.length);
+    let slice = arr.slice(i, end);
+    while (
+      slice.length > 1 &&
+      estimateMonthShardFileBytes(base, slice, "crm", partIdx === 0 ? base : `${base}-${partIdx + 1}`) >
+        GITHUB_CONTENT_MAX_BYTES
+    ) {
+      end = i + Math.max(1, Math.floor(slice.length / 2));
+      slice = arr.slice(i, end);
+    }
+    const storageKey = partIdx === 0 ? base : `${base}-${partIdx + 1}`;
+    out.push({ storageKey, rows: slice });
+    i = end;
+    partIdx += 1;
+  }
+  return out;
+}
+
+/** Índice mínimo de backup (solo metadatos; evita límite 1 MB de GitHub). */
+function buildSlimGithubBackup(bundle, split) {
+  const { metaShards, crmShards, manifest } = split;
+  return {
+    _campatrack_backup: {
+      version: 2,
+      createdAt: new Date().toISOString(),
+      counts: {
+        crm_leads: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : 0,
+        data_general: Array.isArray(bundle.data_general) ? bundle.data_general.length : 0,
+        relaciones_crm: Array.isArray(bundle.relaciones_crm) ? bundle.relaciones_crm.length : 0
+      },
+      meta_months: [...metaShards.keys()].sort(),
+      crm_months: manifest?.crm ?? [...crmShards.keys()].sort(),
+      note: "Índice de backup; datos en data.json, meta/*, crm/*, extras/*"
+    }
+  };
+}
+
+function wrapExtraPayload(extraKey, payload) {
+  return {
+    version: 1,
+    key: extraKey,
+    updatedAt: new Date().toISOString(),
+    payload: payload ?? null
+  };
+}
+
+/**
+ * Parte arrays grandes en varios archivos extras/*.
+ * @param {string} extraKey
+ * @param {unknown} payload
+ * @returns {Array<{ path: string, payload: unknown }>}
+ */
+function planExtraPayloadWrites(extraKey, payload) {
+  if (payload == null) return [];
+  const wrappedPlain = (data) => wrapExtraPayload(extraKey, data);
+  const wrappedForGithub = (data) =>
+    packExtraPayloadForGithub(wrappedPlain(data), `extra ${extraKey}`, { log: false });
+  const singleBytes = estimateJsonUtf8Bytes(wrappedForGithub(payload));
+  if (singleBytes <= GITHUB_CONTENT_MAX_BYTES) {
+    return [
+      {
+        path: campatrackExtraPath(extraKey),
+        payload: packExtraPayloadForGithub(wrappedPlain(payload), `extra ${extraKey}`)
+      }
+    ];
+  }
+  if (!Array.isArray(payload)) {
+    console.warn(
+      `[GitHub] extra ${extraKey} demasiado grande y no es array; se omite (${Math.round(singleBytes / 1024)} KB)`
+    );
+    return [];
+  }
+  const out = [];
+  let i = 0;
+  let partIdx = 0;
+  while (i < payload.length) {
+    let end = Math.min(i + CRM_ROWS_PER_GITHUB_SHARD, payload.length);
+    let slice = payload.slice(i, end);
+    while (
+      slice.length > 1 &&
+      estimateJsonUtf8Bytes(wrappedForGithub(slice)) > GITHUB_CONTENT_MAX_BYTES
+    ) {
+      end = i + Math.max(1, Math.floor(slice.length / 2));
+      slice = payload.slice(i, end);
+    }
+    const path = campatrackExtraPath(extraKey, partIdx);
+    out.push({
+      path,
+      payload: packExtraPayloadForGithub(wrappedPlain(slice), `extra ${extraKey} ${path}`)
+    });
+    i = end;
+    partIdx += 1;
+  }
+  return out;
+}
+
+/** Quita datasets voluminosos del núcleo; deben vivir en shards o extras/*. */
+function stripOffloadedKeysFromCore(core) {
+  const out = { ...core };
+  for (const key of GITHUB_OFFLOAD_KEYS) delete out[key];
+  return out;
+}
+
+/** Ajusta data.json al límite de GitHub (~1 MB). */
+function prepareCoreForGithubContents(core) {
+  let out = stripOffloadedKeysFromCore(core);
+  if (estimateJsonUtf8Bytes(out) <= GITHUB_CONTENT_MAX_BYTES) return out;
+
+  if (Array.isArray(out.auditoria) && out.auditoria.length > 300) {
+    out = { ...out, auditoria: out.auditoria.slice(-300) };
+    console.info("[GitHub] data.json: auditoria recortada a 300 entradas recientes.");
+  }
+  if (estimateJsonUtf8Bytes(out) <= GITHUB_CONTENT_MAX_BYTES) return out;
+
+  if (Array.isArray(out.bitacora_data) && out.bitacora_data.length > 500) {
+    out = { ...out, bitacora_data: out.bitacora_data.slice(-500) };
+    console.info("[GitHub] data.json: bitacora_data recortada a 500 entradas.");
+  }
+  if (estimateJsonUtf8Bytes(out) <= GITHUB_CONTENT_MAX_BYTES) return out;
+
+  const bytes = estimateJsonUtf8Bytes(out);
+  throw new Error(
+    `data.json sigue demasiado grande (${Math.round(bytes / 1024)} KB > ${Math.round(GITHUB_CONTENT_MAX_BYTES / 1024)} KB) tras externalizar datasets. Revisa relaciones/planning.`
+  );
+}
+
+/**
+ * Escribe claves voluminosas en extras/* y devuelve mapa manifest { key: path[] }.
+ * @param {object} bundle
+ * @returns {Promise<{ extrasManifest: Record<string, string[]>, errors: string[] }>}
+ */
+async function publishOffloadedExtrasToGithub(bundle) {
+  /** @type {Record<string, string[]>} */
+  const extrasManifest = {};
+  const errors = [];
+  for (const key of GITHUB_OFFLOAD_KEYS) {
+    if (key === "crm_leads" || key === "data_general") continue;
+    const val = bundle[key];
+    if (val == null) continue;
+    if (Array.isArray(val) && !val.length) continue;
+    const plans = planExtraPayloadWrites(key, val);
+    if (!plans.length) continue;
+    const paths = [];
+    for (const plan of plans) {
+      const wr = await upsertGithubJsonFile(plan.path, plan.payload, `CampaTrack: extra ${key}`);
+      if (wr.ok) paths.push(plan.path);
+      else {
+        console.warn(`[GitHub] ${plan.path} omitido:`, wr.error);
+        errors.push(`${plan.path}: ${wr.error}`);
+      }
+    }
+    if (paths.length) extrasManifest[key] = paths;
+  }
+  return { extrasManifest, errors };
+}
+
+/** Recompone claves extras desde GitHub según manifest. */
+async function loadExtrasFromGithub(core) {
+  const manifest = core?.data_manifest && typeof core.data_manifest === "object" ? core.data_manifest : {};
+  const extrasMap =
+    manifest.extras && typeof manifest.extras === "object" && !Array.isArray(manifest.extras)
+      ? manifest.extras
+      : {};
+  const out = { ...core };
+  const keys = Object.keys(extrasMap).length ? Object.keys(extrasMap) : [];
+  for (const key of keys) {
+    if (out[key] != null && !(Array.isArray(out[key]) && out[key].length === 0)) continue;
+    const paths = Array.isArray(extrasMap[key]) ? extrasMap[key].filter(Boolean) : [];
+    if (!paths.length) continue;
+    /** @type {unknown[]} */
+    const merged = [];
+    let scalar = undefined;
+    for (const p of paths) {
+      const raw = await readGithubJsonFile(p);
+      if (raw == null) continue;
+      const payload = payloadFromCompressedExtra(raw);
+      if (Array.isArray(payload)) merged.push(...payload);
+      else if (payload != null) scalar = payload;
+    }
+    if (merged.length) out[key] = merged;
+    else if (scalar !== undefined) out[key] = scalar;
+  }
+  return out;
+}
+
+/** @param {object} bundle */
+export function buildSlimGithubBackupFromBundle(bundle) {
+  return buildSlimGithubBackup(bundle, splitBundleForModularStorage(bundle));
 }
 
 /**
@@ -259,7 +509,45 @@ export async function loadModularBundleFromGithub(opts = {}) {
     crmRows = await loadMonthShardsSafe(crmKeys, campatrackCrmPath);
   }
 
-  return mergeModularPartsIntoBundle(core, metaRows, crmRows);
+  return mergeModularPartsIntoBundle(await loadExtrasFromGithub(core), metaRows, crmRows);
+}
+
+/**
+ * Si el bundle trae `data_manifest.crm` pero no `crm_leads` inline, reconstruye leads desde shards GitHub
+ * (misma lógica que `loadModularBundleFromGithub`; útil tras GET /api/data con núcleo modular).
+ * @param {object} bundle
+ * @returns {Promise<object>}
+ */
+export async function reassembleBundleCrmFromManifestIfNeeded(bundle) {
+  if (!bundle || typeof bundle !== "object" || Array.isArray(bundle)) return bundle;
+  if (Array.isArray(bundle.crm_leads) && bundle.crm_leads.length > 0) return bundle;
+  const manifest = bundle.data_manifest && typeof bundle.data_manifest === "object" ? bundle.data_manifest : null;
+  const crmKeys = manifest && Array.isArray(manifest.crm) ? manifest.crm.filter(Boolean) : [];
+  crmDebugLog("fetched bundle (reassemble CRM)", {
+    origen: "reassembleBundleCrmFromManifestIfNeeded",
+    inline_crm_leads: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : null,
+    manifest_crm_keys: crmKeys,
+    github_configured: hasClientGithubConfigComplete()
+  });
+  if (!crmKeys.length) return bundle;
+  if (!hasClientGithubConfigComplete()) {
+    console.warn("[data-store] Manifest CRM sin crm_leads inline y GitHub no configurado.");
+    return bundle;
+  }
+  try {
+    const crmRows = await loadMonthShardsSafe(crmKeys, campatrackCrmPath);
+    const merged = mergeModularPartsIntoBundle(bundle, [], crmRows);
+    crmDebugLog("fetched bundle (reassemble CRM OK)", {
+      origen: "reassembleBundleCrmFromManifestIfNeeded",
+      shards_cargados: crmKeys.length,
+      crm_rows_reconstruidos: crmRows.length,
+      bundle_crm_leads_final: Array.isArray(merged.crm_leads) ? merged.crm_leads.length : null
+    });
+    return merged;
+  } catch (e) {
+    console.warn("[data-store] No se pudieron cargar shards CRM del manifest:", e);
+    return bundle;
+  }
 }
 
 /** @param {string} monthKey */
@@ -288,37 +576,108 @@ export async function loadCrmMonthFromGithub(monthKey) {
  * @param {string} usernameLabel
  */
 export async function publishModularBundleToGithub(bundle, usernameLabel) {
-  const { core, metaShards, crmShards } = splitBundleForModularStorage(bundle);
+  crmDebugBundleMeta(bundle, "github publish (entrada bundle completo)");
+  const split = splitBundleForModularStorage(bundle);
+  const { core, metaShards, crmShards } = split;
+  crmDebugLog("github publish (split modular)", {
+    origen: "publishModularBundleToGithub",
+    core_crm_leads_inline: Array.isArray(core.crm_leads) ? core.crm_leads.length : 0,
+    crm_shard_months: Array.from(crmShards.keys()),
+    crm_rows_total: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : 0,
+    crm_rows_en_shards: [...crmShards.values()].reduce((n, rows) => n + (rows?.length || 0), 0)
+  });
   const safeUser = String(usernameLabel || "user").replace(/[^a-zA-Z0-9_-]/g, "_");
   const pad = (n) => String(n).padStart(2, "0");
   const d = new Date();
   const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
   const backupPath = `${BACKUP_FOLDER}/campatrack_backup_${safeUser}_${stamp}.json`;
-  await writeGithubJsonFile(backupPath, bundle, `CampaTrack backup ${stamp}`);
+  const errors = [];
+
+  const backupRes = await upsertGithubJsonFile(
+    backupPath,
+    buildSlimGithubBackup(bundle, split),
+    `CampaTrack backup ${stamp}`
+  );
+  if (!backupRes.ok) {
+    console.warn("[GitHub] Backup índice omitido:", backupRes.error);
+    errors.push(`backup: ${backupRes.error}`);
+  }
+
   for (const [mk, rows] of metaShards) {
-    await writeGithubJsonFile(
+    const wr = await upsertGithubJsonFile(
       campatrackMetaPath(mk),
-      wrapMonthShard(mk, rows),
+      buildMonthShardFile(mk, rows, "meta", mk),
       `CampaTrack: meta ${mk}`
     );
+    if (!wr.ok) {
+      console.warn(`[GitHub] meta/${mk} omitido:`, wr.error);
+      errors.push(`meta/${mk}: ${wr.error}`);
+    }
   }
+
+  const crmManifestKeys = [];
   for (const [mk, rows] of crmShards) {
-    await writeGithubJsonFile(
-      campatrackCrmPath(mk),
-      wrapMonthShard(mk, rows),
-      `CampaTrack: CRM ${mk}`
-    );
+    for (const plan of planCrmShardWrites(mk, rows)) {
+      const wr = await upsertGithubJsonFile(
+        campatrackCrmPath(plan.storageKey),
+        buildMonthShardFile(mk, plan.rows, "crm", plan.storageKey),
+        `CampaTrack: CRM ${plan.storageKey}`
+      );
+      if (wr.ok) {
+        crmManifestKeys.push(plan.storageKey);
+      } else {
+        console.warn(`[GitHub] crm/${plan.storageKey} omitido:`, wr.error);
+        errors.push(`crm/${plan.storageKey}: ${wr.error}`);
+      }
+    }
   }
-  await writeGithubJsonFile(MAIN_JSON_PATH, core, "CampaTrack: actualizar data.json");
+
+  const extrasResult = await publishOffloadedExtrasToGithub(bundle);
+  errors.push(...extrasResult.errors);
+
+  core.data_manifest = core.data_manifest && typeof core.data_manifest === "object" ? core.data_manifest : { meta: [], crm: [] };
+  core.data_manifest.crm = crmManifestKeys.sort();
+  core.data_manifest.compression = {
+    version: COMPRESSION_VERSION,
+    encoding: COMPRESSION_ENCODING,
+    scope: "shards,extras"
+  };
+  if (Object.keys(extrasResult.extrasManifest).length) {
+    core.data_manifest.extras = extrasResult.extrasManifest;
+  }
+
+  const coreForGithub = prepareCoreForGithubContents(core);
+  const coreRes = await upsertGithubJsonFile(MAIN_JSON_PATH, coreForGithub, "CampaTrack: actualizar data.json");
+  if (!coreRes.ok) {
+    console.error("[GitHub] No se pudo actualizar data.json:", coreRes.error);
+    throw new Error(`No se pudo actualizar data.json en GitHub: ${coreRes.error}`);
+  }
+
+  crmDebugLeadsCount("after publish (GitHub data.json)", {
+    origen: "publishModularBundleToGithub",
+    core_crm_leads_inline: Array.isArray(coreForGithub.crm_leads) ? coreForGithub.crm_leads.length : 0,
+    data_manifest_crm: coreForGithub.data_manifest?.crm ?? null,
+    github_partial_errors: errors.length ? errors : undefined
+  });
+
+  if (errors.length) {
+    console.warn("[GitHub] Publicación parcial (data.json OK). Detalle:", errors);
+  }
 }
 
-/** @param {string} monthKey @param {object[]} rows */
+/** @param {string} monthKey @param {object[]} rows @returns {Promise<string[]>} claves manifest escritas */
 export async function saveCrmMonthToGithub(monthKey, rows) {
-  await writeGithubJsonFile(
-    campatrackCrmPath(monthKey),
-    wrapMonthShard(monthKey, rows),
-    `CampaTrack: CRM ${monthKey}`
-  );
+  const manifestKeys = [];
+  for (const plan of planCrmShardWrites(monthKey, rows)) {
+    const wr = await upsertGithubJsonFile(
+      campatrackCrmPath(plan.storageKey),
+      buildMonthShardFile(monthKey, plan.rows, "crm", plan.storageKey),
+      `CampaTrack: CRM ${plan.storageKey}`
+    );
+    if (!wr.ok) throw new Error(wr.error);
+    manifestKeys.push(plan.storageKey);
+  }
+  return manifestKeys;
 }
 
 /**
@@ -327,23 +686,30 @@ export async function saveCrmMonthToGithub(monthKey, rows) {
  */
 export async function replaceCrmGithubSnapshotFromSerializedRows(serializedRows) {
   const shards = partitionRowsByMonth(serializedRows);
-  const monthKeysSorted = [...shards.keys()].sort();
+  const crmManifestKeys = [];
   for (const [mk, shardRows] of shards) {
-    await saveCrmMonthToGithub(mk, shardRows);
+    const keys = await saveCrmMonthToGithub(mk, shardRows);
+    crmManifestKeys.push(...keys);
   }
   const core = await readGithubJsonFile(MAIN_JSON_PATH);
   if (!core || typeof core !== "object") {
-    console.warn("[data-store] replaceCrmGithub: data.json ilegible; shards CRM escritos"); // sin manifest
-    return monthKeysSorted;
+    console.warn("[data-store] replaceCrmGithub: data.json ilegible; shards CRM escritos");
+    return crmManifestKeys.sort();
   }
   if (!core.data_manifest || typeof core.data_manifest !== "object") {
     core.data_manifest = { meta: [], crm: [] };
   }
   if (!Array.isArray(core.data_manifest.meta)) core.data_manifest.meta = [];
-  core.data_manifest.crm = monthKeysSorted;
-  core.crm_leads = [];
-  await writeGithubJsonFile(MAIN_JSON_PATH, core, `CampaTrack: manifest CRM (${monthKeysSorted.length} mes(es)) tras import`);
-  return monthKeysSorted;
+  core.data_manifest.crm = crmManifestKeys.sort();
+  core.crm_leads = Array.isArray(serializedRows) ? serializedRows : [];
+  const coreForGithub = prepareCoreForGithubContents(core);
+  const wr = await upsertGithubJsonFile(
+    MAIN_JSON_PATH,
+    coreForGithub,
+    `CampaTrack: manifest CRM (${crmManifestKeys.length} shard(s)) tras import`
+  );
+  if (!wr.ok) throw new Error(wr.error);
+  return crmManifestKeys.sort();
 }
 
 export { bundleToGithubBase64Content, MAIN_JSON_PATH, BACKUP_FOLDER };
