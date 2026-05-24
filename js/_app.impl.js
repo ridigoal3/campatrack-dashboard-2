@@ -6,6 +6,7 @@ import {
   ensureRelacionesCrmDraftShape,
   ensureCrmLeadsDraftShape,
   ensureCampatrackUsersDraftShape,
+  hydrateCampatrackUsersAndAuditoriaFromBundle,
   ensureAuditoriaDraftShape,
   getPlanningRecordIdSeq,
   setPlanningRecordIdSeq,
@@ -2545,6 +2546,9 @@ function buildMemorySnapshotForPublish() {
     origen: "buildMemorySnapshotForPublish",
     bundle_crm_leads_count: Array.isArray(snap.crm_leads) ? snap.crm_leads.length : null
   });
+  console.info("[CampaTrack publicar] Snapshot incluye usuarios:", {
+    campatrack_users_db: Array.isArray(snap.campatrack_users_db) ? snap.campatrack_users_db.length : 0
+  });
   return snap;
 }
 
@@ -2843,8 +2847,10 @@ function flushAllPersistedStateToDisk() {
     try {
       appMemoryKV.setItem("relaciones_crm", JSON.stringify(ensureRelacionesCrmDraftShape()));
       appMemoryKV.setItem("crm_leads", JSON.stringify(serializeCrmLeads(ensureCrmLeadsDraftShape())));
+      appMemoryKV.setItem("campatrack_users_db", JSON.stringify(ensureCampatrackUsersDraftShape()));
+      appMemoryKV.setItem("auditoria", JSON.stringify(ensureAuditoriaDraftShape()));
     } catch (err) {
-      console.warn("flush CRM en memoria de sesión", err);
+      console.warn("flush CRM/usuarios en memoria de sesión", err);
     }
     guardarTodo({ incluirTablasData: true });
   });
@@ -7471,7 +7477,7 @@ async function guardarDataEnAPI(dataCompletaReal) {
     });
     syncDataOriginalFromPublishedDraft(dataCompletaReal);
     applyPlanningOriginalFromDraft();
-    scheduleGithubSyncAfterSuccessfulPublish(dataCompletaReal, user);
+    await syncCampatrackGithubAfterPublish(dataCompletaReal, user.username || "admin");
     return true;
   }
 
@@ -7502,7 +7508,10 @@ async function guardarDataEnAPI(dataCompletaReal) {
   crmDebugLeadsCount("after publish (API OK)", {
     origen: "guardarDataEnAPI",
     partitionKey,
-    bundle_crm_leads_count: Array.isArray(dataCompletaReal.crm_leads) ? dataCompletaReal.crm_leads.length : null
+    bundle_crm_leads_count: Array.isArray(dataCompletaReal.crm_leads) ? dataCompletaReal.crm_leads.length : null,
+    campatrack_users_db: Array.isArray(dataCompletaReal.campatrack_users_db)
+      ? dataCompletaReal.campatrack_users_db.length
+      : 0
   });
   syncDataOriginalFromPublishedDraft(dataCompletaReal);
   applyPlanningOriginalFromDraft();
@@ -7903,12 +7912,15 @@ async function afterLoginSuccess(user) {
       crmLeads: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : 0,
       relacionesCrm: Array.isArray(bundle.relaciones_crm) ? bundle.relaciones_crm.length : 0
     });
-    crmDebugLeadsCount("fetched crm_leads count", {
-      origen: "afterLoginSuccess",
-      partitionKey,
-      bundle_crm_leads_count: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : null,
-      data_manifest_crm: bundle.data_manifest?.crm ?? null
-    });
+  crmDebugLeadsCount("fetched crm_leads count", {
+    origen: "afterLoginSuccess",
+    partitionKey,
+    bundle_crm_leads_count: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : null,
+    data_manifest_crm: bundle.data_manifest?.crm ?? null
+  });
+  console.info("[CampaTrack sesión] Usuarios en bundle:", {
+    campatrack_users_db: Array.isArray(bundle.campatrack_users_db) ? bundle.campatrack_users_db.length : 0
+  });
     crmDebugSnapshot("fetched bundle (pre-hydrate login)", { partitionKey, origen: "afterLoginSuccess" });
     withDraftNotificationsSuppressed(() => {
       hydrateAppStateDraftFromApiBundle(bundle);
@@ -8095,9 +8107,18 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
   }
   crmDebugSnapshot("applyFetchedBundle (antes clear KV)", { origen: "campatrackApplyFetchedBundleToRuntime" });
   crmDebugBundleMeta(bundlePayload, "applyFetchedBundle (payload)");
+  let savedThemePref = null;
+  try {
+    savedThemePref = appMemoryKV.getItem(LS_CAMPATRACK_THEME);
+  } catch (_) {}
   try {
     appMemoryKV.clear();
   } catch (_) {}
+  if (savedThemePref != null) {
+    try {
+      appMemoryKV.setItem(LS_CAMPATRACK_THEME, savedThemePref);
+    } catch (_) {}
+  }
   crmDebugSnapshot("applyFetchedBundle (después clear KV)", { origen: "campatrackApplyFetchedBundleToRuntime" });
   try {
     const u = getUser();
@@ -8110,7 +8131,6 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
   } catch (_) {}
 
   for (const clave of EXPORT_BUNDLE_KEYS) {
-    if (clave === "campatrack_users_db" || clave === "auditoria") continue;
     if (!Object.prototype.hasOwnProperty.call(bundlePayload, clave)) continue;
     const v = bundlePayload[clave];
     if (v == null || v === undefined) continue;
@@ -8119,6 +8139,11 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
     } catch (err) {
       console.warn("No se pudo guardar en almacén en memoria:", clave, err);
     }
+  }
+  try {
+    hydrateCampatrackUsersAndAuditoriaFromBundle(bundlePayload);
+  } catch (e) {
+    console.warn("hydrateCampatrackUsersAndAuditoriaFromBundle", e);
   }
   try {
     syncDataOriginalFromPublishedDraft(bundlePayload);
@@ -8221,6 +8246,7 @@ function campatrackCompletePostLoginPipeline(bundlePayload) {
     if (typeof scheduleDashEndingSoonAlert === "function") scheduleDashEndingSoonAlert();
     resetPublishDraftAfterServerHydrate();
     if (campatrackIsLiteMode()) campatrackGateOnDataReady();
+    bootstrapCampatrackAuthShell();
     return;
   }
 
@@ -8975,6 +9001,9 @@ function guardarTodo(opts = {}) {
     const mergedPlan = planningMergedRecordsCache || planningDraftRecords().slice();
     appMemoryKV.setItem("planning", JSON.stringify(mergedPlan));
     appMemoryKV.setItem(LS_PLANNING_DATA, JSON.stringify({ records: mergedPlan, recordIdSeq: getPlanningRecordIdSeq() }));
+    syncCcBitacoraModeloDraftFromRuntime();
+    appMemoryKV.setItem("campatrack_users_db", JSON.stringify(ensureCampatrackUsersDraftShape()));
+    appMemoryKV.setItem("auditoria", JSON.stringify(ensureAuditoriaDraftShape()));
     if (incluirTablasData) {
       refreshTeamScopedDataCachesForSnapshot();
       appMemoryKV.setItem("data_anuncios", JSON.stringify(serializeDataAnuncios(dataAnunciosMergedCache || dataAnuncios)));
@@ -9325,6 +9354,33 @@ function hydratarDesdeLocalStorage() {
   }
   syncCrmLeadsViewFromDraft();
   crmDebugSnapshot("hydrate (fin hydratarDesdeLocalStorage)", { origen: "hydratarDesdeLocalStorage" });
+
+  const drUsers = ensureCampatrackUsersDraftShape();
+  if (!drUsers.length) {
+    try {
+      const rawUsers = appMemoryKV.getItem("campatrack_users_db");
+      if (rawUsers) {
+        const parsed = JSON.parse(rawUsers);
+        const arr = Array.isArray(parsed) ? parsed : [];
+        arr.forEach((u) => drUsers.push(u && typeof u === "object" ? { ...u } : u));
+      }
+    } catch (err) {
+      console.warn("Migración one-shot campatrack_users_db desde memoria", err);
+    }
+  }
+  const drAud = ensureAuditoriaDraftShape();
+  if (!drAud.length) {
+    try {
+      const rawAud = appMemoryKV.getItem("auditoria");
+      if (rawAud) {
+        const parsed = JSON.parse(rawAud);
+        const arr = Array.isArray(parsed) ? parsed : [];
+        arr.forEach((x) => drAud.push(x && typeof x === "object" ? { ...x } : x));
+      }
+    } catch (err) {
+      console.warn("Migración one-shot auditoria desde memoria", err);
+    }
+  }
 
   medidasMergedCache = readFullMedidasFromDisk();
   medidas = medidasMergedCache.filter(rowBelongsToCurrentTeam);
@@ -18466,11 +18522,6 @@ const LS_CAMPATRACK_USER = "campatrack_user";
 /** Clave localStorage para tema (`"dark"` | `"light"`). */
 const LS_CAMPATRACK_THEME = "theme";
 
-function campatrackInvalidateUsersDraft() {
-  const d = ensureCampatrackUsersDraftShape();
-  d.length = 0;
-}
-
 function getCampatrackStoredUsers() {
   return ensureCampatrackUsersDraftShape().map((u) => (u && typeof u === "object" ? { ...u } : u));
 }
@@ -18480,6 +18531,13 @@ function saveCampatrackStoredUsers(list) {
   const draft = ensureCampatrackUsersDraftShape();
   draft.length = 0;
   next.forEach((u) => draft.push(u));
+  if (!shouldDeferDiskPersistence()) {
+    try {
+      appMemoryKV.setItem("campatrack_users_db", JSON.stringify(draft));
+    } catch (err) {
+      console.warn("No se pudo persistir campatrack_users_db en memoria", err);
+    }
+  }
   registerUnpublishedDraftMutation();
 }
 
@@ -18762,7 +18820,6 @@ function campatrackApplyLoginSuccessToStorage(sessionUser) {
   } catch (se) {
     console.warn("No se pudo guardar sesión", se);
   }
-  campatrackInvalidateUsersDraft();
 }
 
 function updateAppTopbarForModule(which) {
@@ -18822,6 +18879,8 @@ function initAppThemeToggle() {
     /* ignore */
   }
   applyCampatrackThemeToggleUi();
+  if (btn.dataset.campatrackBound === "1") return;
+  btn.dataset.campatrackBound = "1";
   btn.addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
     const dark = document.body.classList.contains("dark-mode");
@@ -18833,6 +18892,13 @@ function initAppThemeToggle() {
     applyCampatrackThemeToggleUi();
     refreshChartsAfterThemeChange();
   });
+}
+
+/** Toggle tema + menú perfil/logout: solo requiere sesión activa, no rol. */
+function campatrackEnsureAuthenticatedHeaderUi() {
+  if (typeof isCampatrackAuthenticated !== "function" || !isCampatrackAuthenticated()) return;
+  initCampatrackAppHeader();
+  initAppThemeToggle();
 }
 const SS_USUARIO_LOGUEADO = "usuario_logueado";
 /** Sesión backend: { username, role } — clave solicitada por el contrato de API */
@@ -19316,6 +19382,7 @@ function bootstrapCampatrackAuthShell() {
   }
   appDeferredDiskPersistence = ok ? false : true;
   if (!ok && lite) campatrackGateOnLogout();
+  if (showShell) campatrackEnsureAuthenticatedHeaderUi();
 }
 
 /** @type {((which: string) => void) | null} */
@@ -19366,6 +19433,8 @@ function initCampatrackAppHeader() {
   const logoutBtn = document.getElementById("appLogoutBtn");
   if (!wrap || !btn || !menu) return;
   syncCampatrackProfileHeader();
+  if (wrap.dataset.campatrackBound === "1") return;
+  wrap.dataset.campatrackBound = "1";
 
   const closeMenu = () => {
     menu.classList.remove("is-open");

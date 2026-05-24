@@ -7922,10 +7922,19 @@ body.dark-mode .campatrack-login-select {
 }
 
 #mainAppShell .app-theme-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.68rem;
   color: #fff;
   opacity: 0.38;
+  line-height: 1;
   transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+#mainAppShell .app-theme-toggle-icon i {
+  font-size: 0.68rem;
+  line-height: 1;
 }
 
 #mainAppShell .app-theme-toggle-moon {

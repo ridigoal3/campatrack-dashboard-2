@@ -136,6 +136,27 @@ export function ensureCampatrackUsersDraftShape() {
   return appState.dataDraft.campatrack_users_db;
 }
 
+/** Restaura usuarios y auditoría desde un bundle API/GitHub (misma fuente de verdad que relaciones). */
+export function hydrateCampatrackUsersAndAuditoriaFromBundle(bundle) {
+  if (bundle == null || typeof bundle !== "object" || Array.isArray(bundle)) return;
+  ensureCampatrackUsersDraftShape();
+  if (Array.isArray(bundle.campatrack_users_db)) {
+    appState.dataDraft.campatrack_users_db = bundle.campatrack_users_db.map((u) =>
+      u && typeof u === "object" ? { ...u } : u
+    );
+  } else if (Object.prototype.hasOwnProperty.call(bundle, "campatrack_users_db")) {
+    appState.dataDraft.campatrack_users_db = [];
+  }
+  ensureAuditoriaDraftShape();
+  if (Array.isArray(bundle.auditoria)) {
+    appState.dataDraft.auditoria = bundle.auditoria.map((x) =>
+      x && typeof x === "object" ? { ...x } : x
+    );
+  } else if (Object.prototype.hasOwnProperty.call(bundle, "auditoria")) {
+    appState.dataDraft.auditoria = [];
+  }
+}
+
 /** Historial de auditoría (planning / data); persiste en el bundle API bajo `auditoria`. */
 export function ensureAuditoriaDraftShape() {
   if (!appState.dataDraft || typeof appState.dataDraft !== "object") appState.dataDraft = {};
@@ -193,7 +214,9 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
       key === "planning" ||
       key === "data_general" ||
       key === "relaciones" ||
-      key === "crm_leads"
+      key === "crm_leads" ||
+      key === "campatrack_users_db" ||
+      key === "auditoria"
     ) {
       continue;
     }
@@ -261,18 +284,7 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
         : typeof bundle.crm_leads
   });
 
-  if (
-    !Object.prototype.hasOwnProperty.call(bundle, "campatrack_users_db") ||
-    !Array.isArray(bundle.campatrack_users_db)
-  ) {
-    appState.dataDraft.campatrack_users_db = [];
-  }
-  if (!Array.isArray(appState.dataDraft.campatrack_users_db)) appState.dataDraft.campatrack_users_db = [];
-
-  if (!Object.prototype.hasOwnProperty.call(bundle, "auditoria") || !Array.isArray(bundle.auditoria)) {
-    appState.dataDraft.auditoria = [];
-  }
-  if (!Array.isArray(appState.dataDraft.auditoria)) appState.dataDraft.auditoria = [];
+  hydrateCampatrackUsersAndAuditoriaFromBundle(bundle);
 
   console.log("Relaciones después de hydrate:", appState.dataDraft.relaciones);
   try {

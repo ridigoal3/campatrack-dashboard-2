@@ -656,6 +656,9 @@ export async function publishModularBundleToGithub(bundle, usernameLabel) {
   crmDebugLeadsCount("after publish (GitHub data.json)", {
     origen: "publishModularBundleToGithub",
     core_crm_leads_inline: Array.isArray(coreForGithub.crm_leads) ? coreForGithub.crm_leads.length : 0,
+    campatrack_users_db: Array.isArray(coreForGithub.campatrack_users_db)
+      ? coreForGithub.campatrack_users_db.length
+      : 0,
     data_manifest_crm: coreForGithub.data_manifest?.crm ?? null,
     github_partial_errors: errors.length ? errors : undefined
   });
