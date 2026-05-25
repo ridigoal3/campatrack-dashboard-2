@@ -65,6 +65,13 @@ import {
   campatrackGateMaybeBootModules,
   campatrackGateIsReady
 } from "./campatrack-app-gate.js";
+import {
+  coalesceDashAnimationFrame,
+  createDashMemoStore,
+  createDashRenderGate,
+  createDashSignature,
+  createDashVirtualTbody
+} from "./campatrack-dashboard-perf.js";
 
 /**
  * Debe cargarse solo como módulo ES (p. ej. `import "./_app.impl.js"` desde `app.js` con `type="module"`).
@@ -6878,6 +6885,7 @@ function syncRelacionesCrmViewFromDraft() {
   });
   relacionesCrm.length = 0;
   draft.forEach((rel) => relacionesCrm.push(rel));
+  invalidateDashboardQueryCache();
 }
 
 function syncCrmLeadsViewFromDraft() {
@@ -6899,6 +6907,7 @@ function syncCrmLeadsViewFromDraft() {
   if (crmDebugEnabled() && (antesRuntime > 0 || draft.length > 0) && draft.length === 0 && antesRuntime > 0) {
     crmDebugStack("syncCrmLeadsViewFromDraft vació runtime");
   }
+  invalidateDashboardQueryCache();
   updateDataKpisFromCrm();
   refreshCrmDataSegmentadoresUI();
   renderCrmDataResumenTable();
@@ -6996,6 +7005,99 @@ let estadoFiltrosDashboard = {
   busquedaPrograma: ""
 };
 let programaSeleccionado = null;
+
+/** —— Rendimiento dashboards: índices + memoización (invalidar al cambiar modelo/CRM/relaciones) —— */
+let dashModeloIndexGen = 0;
+/** @type {{ gen: number, len: number, byMes: Map<string, object[]> } | null} */
+let dashModeloIndex = null;
+const dashQueryMemo = createDashMemoStore();
+let dashCrmPkMapCache = null;
+let dashCrmPkMapRelLen = -1;
+const dashMainChartGate = createDashRenderGate();
+const dashCrmCompareChartGate = createDashRenderGate();
+/** @type {ReturnType<createDashVirtualTbody> | null} */
+let dashPlatVirtualTable = null;
+/** @type {ReturnType<createDashVirtualTbody> | null} */
+let dashCrmVirtualTable = null;
+
+function invalidateDashboardQueryCache() {
+  dashModeloIndexGen += 1;
+  dashModeloIndex = null;
+  dashQueryMemo.clear();
+  dashCrmPkMapCache = null;
+  dashCrmPkMapRelLen = -1;
+  dashMainChartGate.reset();
+  dashCrmCompareChartGate.reset();
+  document
+    .querySelectorAll("[data-dash-seg-values-sig]")
+    .forEach((el) => el.removeAttribute("data-dash-seg-values-sig"));
+}
+
+function dashboardAnalyticsSignature(extra = "") {
+  return createDashSignature([
+    dashModeloIndexGen,
+    modeloAnalitico.length,
+    crmLeads.length,
+    relacionesCrm.length,
+    incluirBrandingDashboard ? 1 : 0,
+    estadoFiltrosDashboard.mes,
+    estadoFiltrosDashboard.fechaInicio,
+    estadoFiltrosDashboard.fechaFin,
+    estadoFiltrosDashboard.tipo,
+    estadoFiltrosDashboard.intake,
+    estadoFiltrosDashboard.tracking,
+    estadoFiltrosDashboard.plataforma,
+    estadoFiltrosDashboard.estado,
+    estadoFiltrosDashboard.busquedaPrograma,
+    programaSeleccionado || "",
+    extra
+  ]);
+}
+
+function ensureDashboardModeloIndex() {
+  const len = modeloAnalitico.length;
+  if (dashModeloIndex && dashModeloIndex.gen === dashModeloIndexGen && dashModeloIndex.len === len) {
+    return dashModeloIndex;
+  }
+  const byMes = new Map();
+  for (const r of modeloAnalitico) {
+    if (!(r.fecha instanceof Date) || !String(r.idCampania ?? "").trim()) continue;
+    const mes = formatMonthYearData(r.fecha);
+    if (!byMes.has(mes)) byMes.set(mes, []);
+    byMes.get(mes).push(r);
+  }
+  dashModeloIndex = { gen: dashModeloIndexGen, len, byMes };
+  return dashModeloIndex;
+}
+
+function getCachedCrmKeyToPlanningKeysMap() {
+  if (dashCrmPkMapCache && dashCrmPkMapRelLen === relacionesCrm.length) return dashCrmPkMapCache;
+  dashCrmPkMapCache = buildCrmKeyToPlanningKeysMap();
+  dashCrmPkMapRelLen = relacionesCrm.length;
+  return dashCrmPkMapCache;
+}
+
+function ensureDashPlatVirtualTable() {
+  const tbody = document.getElementById("dashTbody");
+  const scrollEl = document.querySelector("#dashShellPlataforma .dash-table-scroll");
+  if (!tbody) return null;
+  if (!dashPlatVirtualTable || dashPlatVirtualTable._tbody !== tbody) {
+    dashPlatVirtualTable = createDashVirtualTbody({ scrollEl, tbody, rowHeight: 36, threshold: 64 });
+    dashPlatVirtualTable._tbody = tbody;
+  }
+  return dashPlatVirtualTable;
+}
+
+function ensureDashCrmVirtualTable() {
+  const tbody = document.getElementById("dashCrmTbody");
+  const scrollEl = document.querySelector("#dashShellCrm .dash-table-scroll.table-container");
+  if (!tbody) return null;
+  if (!dashCrmVirtualTable || dashCrmVirtualTable._tbody !== tbody) {
+    dashCrmVirtualTable = createDashVirtualTbody({ scrollEl, tbody, rowHeight: 36, threshold: 48 });
+    dashCrmVirtualTable._tbody = tbody;
+  }
+  return dashCrmVirtualTable;
+}
 
 function syncDashboardTableRowDomSelectionHighlight() {
   try {
@@ -13290,6 +13392,7 @@ function REGENERAR_MODELO() {
   persistModeloState();
   generarModeloAnalitico();
   persistModeloState();
+  invalidateDashboardQueryCache();
   renderModeloTabla();
   refreshSegmentadoresValues();
   refreshMedidasFiltros();
@@ -15082,6 +15185,9 @@ function dashboardModeloFiltroSegmentos(r) {
  * Orden de filtros: 1) mes, 2) rango de fechas (inclusive), 3) segmentadores (tipo, intake, etc.).
  */
 function getDashboardFilteredData() {
+  const sig = dashboardAnalyticsSignature("filteredData");
+  const hit = dashQueryMemo.get("filteredData");
+  if (hit && hit.sig === sig) return hit.val;
   if (!estadoFiltrosDashboard.mes) {
     const now = new Date();
     estadoFiltrosDashboard.mes = formatMonthYearData(now);
@@ -15089,16 +15195,19 @@ function getDashboardFilteredData() {
   const mesSel = estadoFiltrosDashboard.mes;
   const fi = String(estadoFiltrosDashboard.fechaInicio || "").trim();
   const ff = String(estadoFiltrosDashboard.fechaFin || "").trim();
-  return modeloAnalitico.filter((r) => {
-    // Campañas con data: el modelo analítico debería cumplirlo siempre, pero se valida por seguridad.
-    if (!(r.fecha instanceof Date) || !String(r.idCampania ?? "").trim()) return false;
-    if (formatMonthYearData(r.fecha) !== mesSel) return false;
-    const ds = formatDateInputFromDate(r.fecha);
-    if (fi && ds < fi) return false;
-    if (ff && ds > ff) return false;
-    if (!dashboardModeloFiltroSegmentos(r)) return false;
-    return true;
-  });
+  const idx = ensureDashboardModeloIndex();
+  let pool = idx.byMes.get(mesSel) || [];
+  if (fi || ff) {
+    pool = pool.filter((r) => {
+      const ds = formatDateInputFromDate(r.fecha);
+      if (fi && ds < fi) return false;
+      if (ff && ds > ff) return false;
+      return true;
+    });
+  }
+  const val = pool.filter((r) => dashboardModeloFiltroSegmentos(r));
+  dashQueryMemo.set("filteredData", { sig, val });
+  return val;
 }
 
 /**
@@ -15107,6 +15216,9 @@ function getDashboardFilteredData() {
  * Para donut "Distribución por plataforma" y Top 5 CPL (vista global del periodo).
  */
 function getDashboardFilteredDataPeriodOnly() {
+  const sig = dashboardAnalyticsSignature("periodOnly");
+  const hit = dashQueryMemo.get("periodOnly");
+  if (hit && hit.sig === sig) return hit.val;
   if (!estadoFiltrosDashboard.mes) {
     const now = new Date();
     estadoFiltrosDashboard.mes = formatMonthYearData(now);
@@ -15114,19 +15226,26 @@ function getDashboardFilteredDataPeriodOnly() {
   const mesSel = estadoFiltrosDashboard.mes;
   const fi = String(estadoFiltrosDashboard.fechaInicio || "").trim();
   const ff = String(estadoFiltrosDashboard.fechaFin || "").trim();
-  return modeloAnalitico.filter((r) => {
-    if (!(r.fecha instanceof Date) || !String(r.idCampania ?? "").trim()) return false;
-    if (formatMonthYearData(r.fecha) !== mesSel) return false;
+  const idx = ensureDashboardModeloIndex();
+  let pool = idx.byMes.get(mesSel) || [];
+  const val = pool.filter((r) => {
     const ds = formatDateInputFromDate(r.fecha);
     if (fi && ds < fi) return false;
     if (ff && ds > ff) return false;
     return true;
   });
+  dashQueryMemo.set("periodOnly", { sig, val });
+  return val;
 }
 
 /** Modelo analítico solo con segmentadores del dashboard (sin mes ni rango). */
 function getDashboardModeloFilteredBySegmentsOnly() {
-  return modeloAnalitico.filter((r) => dashboardModeloFiltroSegmentos(r));
+  const sig = dashboardAnalyticsSignature("segmentsOnly");
+  const hit = dashQueryMemo.get("segmentsOnly");
+  if (hit && hit.sig === sig) return hit.val;
+  const val = modeloAnalitico.filter((r) => dashboardModeloFiltroSegmentos(r));
+  dashQueryMemo.set("segmentsOnly", { sig, val });
+  return val;
 }
 
 function dashboardRowKeyMatchesDashboardSegmentFilters(rowKey) {
@@ -15141,10 +15260,15 @@ function dashboardRowKeyMatchesDashboardSegmentFilters(rowKey) {
 
 /** Modelo dashboard Comercial CRM: segmentadores sí; mes y rango de fechas NO acotan plataforma/CRM aquí. */
 function getDashboardFilteredModeloParaComercialCrm() {
-  return modeloAnalitico.filter((r) => {
+  const sig = dashboardAnalyticsSignature("crmModeloSeg");
+  const hit = dashQueryMemo.get("crmModeloSeg");
+  if (hit && hit.sig === sig) return hit.val;
+  const val = modeloAnalitico.filter((r) => {
     if (!(r.fecha instanceof Date) || !String(r.idCampania ?? "").trim()) return false;
     return dashboardModeloFiltroSegmentos(r);
   });
+  dashQueryMemo.set("crmModeloSeg", { sig, val });
+  return val;
 }
 
 /** Columna «Programa» en tabla CRM (sin duplicar el tracking). */
@@ -15226,17 +15350,24 @@ function dashboardCrmIntervaloLeadPassesScopeFilter(r) {
 
 /** Suma leads plataforma por fila — tab Comercial CRM (global por segmentadores, sin mes ni rango). */
 function getDashboardPlatformLeadsByRowKeyForCrm() {
+  const sig = dashboardAnalyticsSignature("platLeadsByRow");
+  const hit = dashQueryMemo.get("platLeadsByRow");
+  if (hit && hit.sig === sig) return hit.val;
   const dataGlob = filtrarDashboardSinBranding(getDashboardFilteredModeloParaComercialCrm());
   const map = new Map();
   dataGlob.forEach((r) => {
     const key = dashboardRowKeyFromModelo(r) || "|||";
     map.set(key, (map.get(key) || 0) + (Number(r.leads) || 0));
   });
+  dashQueryMemo.set("platLeadsByRow", { sig, val: map });
   return map;
 }
 
 function aggregateDashboardCrmMetricsByRowKey() {
-  const ckMap = buildCrmKeyToPlanningKeysMap();
+  const sig = dashboardAnalyticsSignature("crmAggByRow");
+  const hit = dashQueryMemo.get("crmAggByRow");
+  if (hit && hit.sig === sig) return hit.val;
+  const ckMap = getCachedCrmKeyToPlanningKeysMap();
   const agg = new Map();
   const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
   crmLeads.forEach((r) => {
@@ -15259,6 +15390,7 @@ function aggregateDashboardCrmMetricsByRowKey() {
       if (r.esMatriculado) slot.crmMat += 1;
     }
   });
+  dashQueryMemo.set("crmAggByRow", { sig, val: agg });
   return agg;
 }
 
@@ -15287,7 +15419,7 @@ function dashCrmNormalizeFuentePivotFromRow(row) {
 
 /** Filas CRM vinculadas + segmentadores; sin filtro de mes ni rango (vista CRM global). */
 function getDashboardCrmRowsForBottomPanels() {
-  const ckMap = buildCrmKeyToPlanningKeysMap();
+  const ckMap = getCachedCrmKeyToPlanningKeysMap();
   const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
   const out = [];
   crmLeads.forEach((r) => {
@@ -15312,7 +15444,7 @@ function getDashboardCrmRowsForBottomPanels() {
 function filterDashboardCrmLeadRowsPorFilaSeleccionada(rows) {
   const selRow = String(programaSeleccionado ?? "").trim();
   if (!selRow) return rows || [];
-  const ckMap = buildCrmKeyToPlanningKeysMap();
+  const ckMap = getCachedCrmKeyToPlanningKeysMap();
   return (rows || []).filter((r) => {
     const ck = crmCampaignKeyFromRow(r);
     const pks = ckMap.get(ck);
@@ -15437,7 +15569,7 @@ function getDashboardCrmVisibleTableRowKeysSet() {
 
 function filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys) {
   if (!visibleKeys || visibleKeys.size === 0) return [];
-  const ckMap = buildCrmKeyToPlanningKeysMap();
+  const ckMap = getCachedCrmKeyToPlanningKeysMap();
   return (rows || []).filter((r) => {
     const ck = crmCampaignKeyFromRow(r);
     const pks = ckMap.get(ck);
@@ -15534,9 +15666,16 @@ function renderDashboardCrmTabla() {
         <td class="dash-grp-col dash-grp-col-mat dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(funnel.metaMatriculados)))}</td>
         <td class="dash-grp-col dash-grp-col-mat dash-grp-col-last dash-crm-num">${escapeHtml(dashFmtLeads(crm.crmMat))}</td>
       </tr>`;
-    })
-    .join("");
-  tbody.innerHTML = rowsHtml || `<tr><td colspan="21" class="dash-empty-mini">Sin filas para los filtros seleccionados.</td></tr>`;
+    });
+  const virtCrm = ensureDashCrmVirtualTable();
+  if (virtCrm && rowsHtml.length) {
+    virtCrm.mount(rowsHtml);
+  } else {
+    tbody.innerHTML =
+      rowsHtml.length > 0
+        ? rowsHtml.join("")
+        : `<tr><td colspan="21" class="dash-empty-mini">Sin filas para los filtros seleccionados.</td></tr>`;
+  }
   const footDif = totals.plat > 0 ? (totals.crm - totals.plat) / totals.plat : null;
   const footAv = totals.metaL > 0 ? totals.crm / totals.metaL : null;
   const footDifCls = dashCrmPctDiffClass(footDif != null ? footDif : NaN);
@@ -15594,6 +15733,16 @@ function renderDashboardCrmCompareChart() {
     plat: platByDay.get(d) || 0,
     crm: crmByDay.get(d) || 0
   }));
+  const svgW = Math.round(svg.getBoundingClientRect().width) || 0;
+  const crmChartFp = createDashSignature([
+    dashboardAnalyticsSignature("crmCompare"),
+    svgW,
+    document.body.classList.contains("dark-mode") ? 1 : 0,
+    dayKeys.join(","),
+    points.map((p) => `${p.plat}:${p.crm}`).join("|")
+  ]);
+  if (dashCrmCompareChartGate.shouldSkip(crmChartFp)) return;
+  dashCrmCompareChartGate.remember(crmChartFp);
   const dm = document.body.classList.contains("dark-mode");
   const chartBg = dm ? "#0f172a" : "#ffffff";
   const gridStroke = dm ? "rgba(148, 163, 184, 0.22)" : "#e8eef5";
@@ -16323,6 +16472,16 @@ function renderDashboardSegmentButtons(containerId, field, values) {
   const box = document.getElementById(containerId);
   if (!box) return;
   const cur = estadoFiltrosDashboard[field];
+  const valuesSig = values.join("\x1f");
+  const cachedSig = box.getAttribute("data-dash-seg-values-sig");
+  if (cachedSig === valuesSig) {
+    box.querySelectorAll(`[data-dash-seg="${field}"]`).forEach((btn) => {
+      const v = btn.getAttribute("data-dash-val") || "";
+      btn.classList.toggle("dash-seg-btn-active", cur === v);
+    });
+    return;
+  }
+  box.setAttribute("data-dash-seg-values-sig", valuesSig);
   box.innerHTML = values
     .map((v) => {
       const active = cur === v ? " dash-seg-btn-active" : "";
@@ -17512,8 +17671,10 @@ function renderDashboardTabla() {
         <td class="dash-col-separador-right dash-grp-col dash-grp-col-gasto dash-grp-col-last">${dashFmtMoney(gastoPendMes)}</td>
       </tr>
     `;
-  }).join("");
-  tbody.innerHTML = rowsHtml;
+  });
+  const virtPlat = ensureDashPlatVirtualTable();
+  if (virtPlat) virtPlat.mount(rowsHtml);
+  else tbody.innerHTML = rowsHtml.join("");
 
   const setText = (id, text) => {
     const el = document.getElementById(id);
@@ -17604,7 +17765,30 @@ function dashboardChartAxisCplFormat(v) {
   return `$${r2.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function dashboardMainChartFingerprint(data) {
+  const range = getDashboardChartDateRange();
+  const svg = document.getElementById("dashboardChart");
+  const w = svg ? Math.round(svg.getBoundingClientRect().width) : 0;
+  let sumL = 0;
+  let sumG = 0;
+  let n = 0;
+  (data || []).forEach((r) => {
+    sumL += Number(r.leads) || 0;
+    sumG += Number(r.gasto) || 0;
+    n += 1;
+  });
+  const dm = document.body.classList.contains("dark-mode") ? 1 : 0;
+  const rs =
+    range && range.startD && range.endD
+      ? `${formatDateInputFromDate(range.startD)}|${formatDateInputFromDate(range.endD)}`
+      : "";
+  return createDashSignature([dashboardAnalyticsSignature("chart"), rs, w, dm, sumL, sumG, n]);
+}
+
 function renderDashboardChart(data) {
+  const fp = dashboardMainChartFingerprint(data);
+  if (dashMainChartGate.shouldSkip(fp)) return;
+  dashMainChartGate.remember(fp);
   const svg = document.getElementById("dashboardChart");
   if (!svg) return;
   const dm = document.body.classList.contains("dark-mode");
@@ -18189,7 +18373,7 @@ function renderDashboardSinData() {
   mostrarFechaActualizacion();
 }
 
-function renderDashboardFromFilters() {
+function renderDashboardFromFiltersNow() {
   programaSeleccionado = null;
   setFechaActualData();
   renderDashboardAllSegmentGroups();
@@ -18226,6 +18410,15 @@ function renderDashboardFromFilters() {
   }
 
   mostrarFechaActualizacion();
+}
+
+/** Repinta dashboard tras cambio de filtros; agrupa en un frame para fluidez. */
+function renderDashboardFromFilters(opts = {}) {
+  if (opts && opts.sync === true) {
+    renderDashboardFromFiltersNow();
+    return;
+  }
+  coalesceDashAnimationFrame("dash-filter-render", renderDashboardFromFiltersNow);
 }
 
 /** KPIs, gráfico evolutivo y paneles laterales Plataforma (p. ej. al seleccionar fila). */
@@ -18303,7 +18496,7 @@ function renderDashboard() {
   updateDashboardMetaGlobalVisibility();
   syncDashboardDateInputsToMonth(false);
   validateDashboardRangoFechas({ silent: true });
-  renderDashboardFromFilters();
+  renderDashboardFromFilters({ sync: true });
 }
 
 function initDashboardModule() {
@@ -18418,25 +18611,26 @@ function initDashboardModule() {
   });
 
   let dashBusquedaProgramaTimer = null;
+  const runDashProgramaSearchRender = () => {
+    requestAnimationFrame(() => {
+      try {
+        renderDashboardTabla();
+        if (getDashboardSubtabVisibility().crm && getDashboardEffectiveSubtab() === "crm") {
+          renderDashboardCrmTabla();
+        }
+        renderDashboardChartsOnly();
+      } catch (err) {
+        console.warn("renderDashboardTabla (búsqueda)", err);
+      }
+    });
+  };
   document.getElementById("dashBusquedaPrograma")?.addEventListener("input", (e) => {
     estadoFiltrosDashboard.busquedaPrograma = e.target.value || "";
     if (dashBusquedaProgramaTimer) clearTimeout(dashBusquedaProgramaTimer);
     dashBusquedaProgramaTimer = setTimeout(() => {
       dashBusquedaProgramaTimer = null;
-      requestAnimationFrame(() => {
-        try {
-          renderDashboardTabla();
-          if (
-            getDashboardSubtabVisibility().crm &&
-            getDashboardEffectiveSubtab() === "crm"
-          )
-            renderDashboardCrmTabla();
-          renderDashboardChartsOnly();
-        } catch (err) {
-          console.warn("renderDashboardTabla (búsqueda)", err);
-        }
-      });
-    }, 48);
+      runDashProgramaSearchRender();
+    }, 250);
   });
 
   document.getElementById("dashIncluirBranding")?.addEventListener("change", (e) => {
@@ -18454,10 +18648,22 @@ function initDashboardModule() {
       if (dashChartRoTimer) clearTimeout(dashChartRoTimer);
       dashChartRoTimer = setTimeout(() => {
         dashChartRoTimer = null;
+        dashMainChartGate.reset();
         if (hasAnyDataLoaded()) renderDashboardChart(getDashboardKpiDataset());
       }, 80);
     });
     dashChartRo.observe(dashChartResizeHost);
+  }
+
+  if (typeof ResizeObserver !== "undefined") {
+    const platScroll = document.querySelector("#dashShellPlataforma .dash-table-scroll");
+    const crmScroll = document.querySelector("#dashShellCrm .dash-table-scroll.table-container");
+    const virtRo = new ResizeObserver(() => {
+      dashPlatVirtualTable?.refreshLayout?.();
+      dashCrmVirtualTable?.refreshLayout?.();
+    });
+    if (platScroll) virtRo.observe(platScroll);
+    if (crmScroll) virtRo.observe(crmScroll);
   }
 
   document.getElementById("dashTabPlataforma")?.addEventListener("click", () => {
@@ -18891,6 +19097,8 @@ function initAppThemeToggle() {
     }
     applyCampatrackThemeToggleUi();
     refreshChartsAfterThemeChange();
+    dashMainChartGate.reset();
+    dashCrmCompareChartGate.reset();
   });
 }
 
