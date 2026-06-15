@@ -2,10 +2,37 @@
  * Parseo de Excel Planning exportado (SheetJS). Solo lectura en memoria; no persiste archivos.
  */
 
+import {
+  PLANNING_CATEGORIAS,
+  inferPlanningCategoriaFromRecord,
+  isValidPlanningCategoriaValue,
+  normalizePlanningCategoria
+} from "./campatrack-planning-categoria.js";
+
 export const PLANNING_IMPORT_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-/** Formato actual: metas manuales + distribuciones (37 columnas). */
+/** Formato actual: metas + Categoría + distribuciones (38 columnas). */
 export const PLANNING_IMPORT_COL = {
+  ID: 0,
+  TIPO: 1,
+  PROGRAMA: 2,
+  CATEGORIA: 3,
+  META_LEADS: 4,
+  META_INTERESADOS: 5,
+  META_POSTULANTES: 6,
+  META_MATRICULADOS: 7,
+  META_CPL: 8,
+  INTAKE: 9,
+  INICIO: 10,
+  FIN: 11,
+  PLATAFORMA: 12,
+  TRACKING: 13,
+  INV_START: 14,
+  LEADS_START: 26
+};
+
+/** Formato sin columna Categoría (37 columnas, export legacy). */
+export const PLANNING_IMPORT_COL_NO_CATEGORIA = {
   ID: 0,
   TIPO: 1,
   PROGRAMA: 2,
@@ -80,11 +107,22 @@ export function parsePlanningImportInteger(v) {
  */
 export function resolvePlanningImportColumnMap(headerRow) {
   const h = (headerRow || []).map((c) => normalizePlanningImportCell(c));
-  const col13 = String(h[13] || "").trim().toLowerCase();
-  if (col13 === "presupuesto") {
-    return { ...PLANNING_IMPORT_COL_LEGACY, _legacy: true };
+  const col13Legacy = String(h[13] || "").trim().toLowerCase();
+  if (col13Legacy === "presupuesto") {
+    return { ...PLANNING_IMPORT_COL_LEGACY, _legacy: true, _hasCategoria: false };
   }
-  return { ...PLANNING_IMPORT_COL, _legacy: false };
+  const col3 = String(h[3] || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (col3 === "categoria" || col3 === "categoría") {
+    return { ...PLANNING_IMPORT_COL, _legacy: false, _hasCategoria: true };
+  }
+  if (col3 === "leads") {
+    return { ...PLANNING_IMPORT_COL_NO_CATEGORIA, _legacy: false, _hasCategoria: false };
+  }
+  return { ...PLANNING_IMPORT_COL, _legacy: false, _hasCategoria: true };
 }
 
 /**
@@ -117,8 +155,30 @@ export function parsePlanningImportDate(raw, fallbackYear) {
 }
 
 /**
+ * Valida valor de categoría en importación Excel.
+ * @param {string} raw
+ * @param {Record<string, unknown>} recordCtx
+ * @returns {{ ok: boolean, value: string, error?: string }}
+ */
+export function resolvePlanningImportCategoria(raw, recordCtx) {
+  const incoming = String(raw ?? "").trim();
+  if (!incoming) {
+    return { ok: true, value: inferPlanningCategoriaFromRecord(recordCtx) };
+  }
+  const normalized = normalizePlanningCategoria(incoming);
+  if (!normalized) {
+    return {
+      ok: false,
+      value: inferPlanningCategoriaFromRecord(recordCtx),
+      error: `Categoría inválida "${incoming}". Use: ${PLANNING_CATEGORIAS.join(", ")}.`
+    };
+  }
+  return { ok: true, value: normalized };
+}
+
+/**
  * @param {unknown[][]} aoa
- * @returns {{ ok: boolean, rows: string[][], errors: string[], warnings: string[], colMap: Record<string, number> & { _legacy?: boolean } }}
+ * @returns {{ ok: boolean, rows: string[][], errors: string[], warnings: string[], colMap: Record<string, number> & { _legacy?: boolean, _hasCategoria?: boolean } }}
  */
 export function parsePlanningExcelMatrix(aoa) {
   const errors = [];
@@ -130,7 +190,9 @@ export function parsePlanningExcelMatrix(aoa) {
   const colMap = resolvePlanningImportColumnMap(header);
   const minCols = colMap._legacy
     ? PLANNING_IMPORT_COL_LEGACY.LEADS_START + 12
-    : PLANNING_IMPORT_MIN_COLS;
+    : colMap._hasCategoria
+      ? PLANNING_IMPORT_MIN_COLS
+      : PLANNING_IMPORT_COL_NO_CATEGORIA.LEADS_START + 12;
 
   if (String(header[colMap.ID] || "").toUpperCase() !== "ID") {
     errors.push('La primera columna debe ser "ID" (usa un Excel exportado desde Planning).');
@@ -145,6 +207,11 @@ export function parsePlanningExcelMatrix(aoa) {
       "Formato Excel legacy detectado: Presupuesto y Leads (configuración) se ignoran; se recalculan desde las distribuciones mensuales."
     );
   }
+  if (!colMap._hasCategoria && !colMap._legacy) {
+    warnings.push(
+      "Formato sin columna Categoría: se inferirá Captación / Informativa / Branding desde tipo, programa y tracking."
+    );
+  }
 
   const rows = [];
   for (let r = 1; r < aoa.length; r += 1) {
@@ -155,6 +222,14 @@ export function parsePlanningExcelMatrix(aoa) {
     const cells = [];
     for (let c = 0; c < Math.max(line.length, minCols); c += 1) {
       cells[c] = normalizePlanningImportCell(line[c]);
+    }
+    if (colMap._hasCategoria && "CATEGORIA" in colMap) {
+      const catRaw = cells[colMap.CATEGORIA];
+      if (catRaw && !isValidPlanningCategoriaValue(catRaw)) {
+        errors.push(
+          `Fila ${r + 1} (ID ${id}): categoría "${catRaw}" inválida. Valores permitidos: ${PLANNING_CATEGORIAS.join(", ")}.`
+        );
+      }
     }
     rows.push(cells);
   }

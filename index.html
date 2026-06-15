@@ -323,9 +323,6 @@
             <option value="DI">DI</option>
             <option value="PE">PE</option>
             <option value="SE">SE</option>
-            <option value="Charla">Charla</option>
-            <option value="Webinar">Webinar</option>
-            <option value="Alcance">Alcance</option>
           </select>
         </label>
         <label class="planning-filter-field">
@@ -389,7 +386,8 @@
           <thead>
             <tr>
               <th class="sticky-col-tipo group-header" rowspan="2">Tipo</th>
-              <th class="sticky-col-program group-header group-end" rowspan="2">Programa</th>
+              <th class="sticky-col-program group-header" rowspan="2">Programa</th>
+              <th class="sticky-col-categoria group-header group-end" rowspan="2">Categoría</th>
               <th class="group-header group-end" colspan="5">METAS PLANNING</th>
               <th class="group-header group-end" colspan="7">CONFIGURACI�N</th>
               <th class="group-header group-end" colspan="12">DISTRIBUCI�N INVERSI�N</th>
@@ -571,65 +569,18 @@
 
   <section id="bitacoraModule" class="hidden bitacora-saas" aria-label="Módulo Bitácora">
     <div class="bitacora-saas-wrap">
-      <section class="bitacora-saas-card bitacora-saas-new" aria-labelledby="bitacoraNewHeading">
-        <div class="bitacora-saas-card-head">
-          <h3 id="bitacoraNewHeading" class="bitacora-saas-section-title">Nueva entrada</h3>
-          <span id="bitacoraFormModeLabel" class="bitacora-saas-mode-label hidden">Editando entrada</span>
-        </div>
-        <div class="bitacora-saas-form-grid">
-          <label class="bitacora-saas-field">
-            <span class="bitacora-saas-label">Fecha y hora</span>
-            <input id="bitacoraFormFecha" class="bitacora-saas-input" type="datetime-local" autocomplete="off" />
-          </label>
-          <label class="bitacora-saas-field">
-            <span class="bitacora-saas-label">Programa / campaña</span>
-            <select id="bitacoraFormPrograma" class="bitacora-saas-input bitacora-saas-select" aria-label="Programa o campaña"></select>
-          </label>
-          <label class="bitacora-saas-field">
-            <span class="bitacora-saas-label">Tipo de cambio</span>
-            <select id="bitacoraFormTipo" class="bitacora-saas-input bitacora-saas-select" aria-label="Tipo de cambio"></select>
-          </label>
-          <label class="bitacora-saas-field">
-            <span class="bitacora-saas-label">Impacto esperado <span class="bitacora-saas-optional">(opcional)</span></span>
-            <select id="bitacoraFormImpacto" class="bitacora-saas-input bitacora-saas-select" aria-label="Impacto esperado">
-              <option value="">Sin especificar</option>
-              <option value="alto">Alto</option>
-              <option value="medio">Medio</option>
-              <option value="bajo">Bajo</option>
+      <section class="bitacora-saas-card bitacora-saas-filters" aria-label="Filtros del historial">
+        <div class="bitacora-saas-filters-grid">
+          <label class="bitacora-saas-field bitacora-saas-field-tipo">
+            <span class="bitacora-saas-label">Tipo de programa</span>
+            <select id="bitacoraFiltroTipo" class="bitacora-saas-input bitacora-saas-select" aria-label="Filtrar por tipo de programa">
+              <option value="">Todos</option>
             </select>
           </label>
-          <label class="bitacora-saas-field bitacora-saas-field-span2">
-            <span class="bitacora-saas-label">Cambio / mejora realizada</span>
-            <textarea id="bitacoraFormCambios" class="bitacora-saas-textarea" rows="5" maxlength="1000" placeholder="Describe el cambio, la hipótesis o el resultado esperado⬦"></textarea>
-            <span id="bitacoraFormCharCount" class="bitacora-saas-char-count" aria-live="polite">0 / 1000</span>
-          </label>
-        </div>
-        <div class="bitacora-saas-form-actions">
-          <label class="bitacora-saas-switch">
-            <input type="checkbox" id="bitacoraFormImportante" />
-            <span class="bitacora-saas-switch-track" aria-hidden="true"></span>
-            <span class="bitacora-saas-switch-label"><i class="fa-solid fa-star" aria-hidden="true"></i> Marcar como importante</span>
-          </label>
-          <div class="bitacora-saas-form-actions-btns">
-            <button type="button" id="bitacoraCancelarEdicionBtn" class="bitacora-saas-btn bitacora-saas-btn--ghost hidden">Cancelar edición</button>
-            <button type="button" id="bitacoraGuardarEntradaBtn" class="bitacora-saas-btn bitacora-saas-btn--primary">
-              <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-              <span id="bitacoraGuardarEntradaLabel">Guardar entrada</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="bitacora-saas-card bitacora-saas-filters" aria-label="Filtros">
-        <div class="bitacora-saas-filters-grid">
           <label class="bitacora-saas-field bitacora-saas-field-programa">
             <span class="bitacora-saas-label">Programa</span>
-            <input id="bitacoraFiltroPrograma" class="bitacora-saas-input" type="search" placeholder="Filtrar por programa⬦" autocomplete="off" />
-          </label>
-          <label class="bitacora-saas-field bitacora-saas-field-tipo">
-            <span class="bitacora-saas-label">Tipo</span>
-            <select id="bitacoraFiltroTipo" class="bitacora-saas-input bitacora-saas-select" aria-label="Filtrar bitácora por tipo">
-              <option value="">Todos</option>
+            <select id="bitacoraFiltroPrograma" class="bitacora-saas-input bitacora-saas-select" aria-label="Filtrar por programa" disabled>
+              <option value="">Selecciona tipo primero</option>
             </select>
           </label>
           <div class="bitacora-saas-field bitacora-saas-field-range">
@@ -640,16 +591,19 @@
           </div>
           <div class="bitacora-saas-field bitacora-saas-field-actions">
             <span class="bitacora-saas-label bitacora-saas-label--phantom" aria-hidden="true">Acciones</span>
-            <div class="bitacora-saas-inline-btns">
+            <div class="bitacora-saas-inline-btns bitacora-saas-inline-btns--toolbar">
               <button type="button" id="bitacoraLimpiarFiltrosBtn" class="bitacora-saas-btn bitacora-saas-btn--ghost bitacora-saas-btn--icon" aria-label="Limpiar filtros" title="Limpiar filtros">
-                <i class="fa-solid fa-filter" aria-hidden="true"></i>
+                <i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i>
+              </button>
+              <button type="button" id="bitacoraRegistrarEntradaBtn" class="bitacora-saas-btn bitacora-saas-btn--primary bitacora-saas-btn--icon" aria-label="Registrar entrada" title="Registrar entrada">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="bitacora-saas-history" aria-labelledby="bitacoraHistHeading">
+      <section class="bitacora-saas-card bitacora-saas-history bitacora-saas-history--main" aria-labelledby="bitacoraHistHeading">
         <div class="bitacora-saas-history-head">
           <h3 id="bitacoraHistHeading" class="bitacora-saas-section-title">Historial de entradas</h3>
           <div class="bitacora-saas-history-actions">
@@ -665,13 +619,23 @@
             </label>
           </div>
         </div>
-        <div id="bitacoraTimelineList" class="bitacora-timeline" role="feed" aria-label="Lista de entradas de bitácora"></div>
+        <div class="bitacora-history-table">
+          <div class="bitacora-history-headrow" aria-hidden="true">
+            <span class="bitacora-history-headcell bitacora-history-headcell--fecha">Fecha</span>
+            <span class="bitacora-history-headcell bitacora-history-headcell--tipo">Tipo</span>
+            <span class="bitacora-history-headcell bitacora-history-headcell--programas">Programa(s)</span>
+            <span class="bitacora-history-headcell bitacora-history-headcell--desc">Descripción</span>
+            <span class="bitacora-history-headcell bitacora-history-headcell--actions">Acciones</span>
+          </div>
+          <div id="bitacoraTimelineList" class="bitacora-history-list" role="feed" aria-label="Lista de entradas de bitácora"></div>
+        </div>
         <footer class="bitacora-saas-pagination" aria-label="Paginación">
           <p id="bitacoraPaginationInfo" class="bitacora-saas-pagination-info">Mostrando 0 de 0 entradas</p>
           <nav id="bitacoraPaginationNav" class="bitacora-saas-pagination-nav" aria-label="Páginas"></nav>
           <label class="bitacora-saas-page-size">
             <span>Registros por página</span>
             <select id="bitacoraPageSizeSelect" class="bitacora-saas-input bitacora-saas-select bitacora-saas-select-compact">
+              <option value="16" selected>16</option>
               <option value="10">10</option>
               <option value="25">25</option>
               <option value="50">50</option>
@@ -681,6 +645,64 @@
       </section>
     </div>
   </section>
+
+  <div id="bitacoraFormModalOverlay" class="bitacora-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="bitacoraModalTitle">
+    <div class="bitacora-modal-panel">
+      <header class="bitacora-modal-header">
+        <div class="bitacora-modal-header-main">
+          <h3 id="bitacoraModalTitle" class="bitacora-modal-title">Registrar entrada</h3>
+          <span id="bitacoraFormModeLabel" class="bitacora-saas-mode-label hidden">Editando entrada</span>
+        </div>
+        <button type="button" id="bitacoraFormModalClose" class="bitacora-modal-close" aria-label="Cerrar formulario">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </header>
+      <div class="bitacora-saas-form-grid">
+        <label class="bitacora-saas-field">
+          <span class="bitacora-saas-label">Fecha y hora</span>
+          <input id="bitacoraFormFecha" class="bitacora-saas-input" type="datetime-local" autocomplete="off" />
+        </label>
+        <label class="bitacora-saas-field">
+          <span class="bitacora-saas-label">Tipo de programa</span>
+          <select id="bitacoraFormTipo" class="bitacora-saas-input bitacora-saas-select" aria-label="Tipo de programa"></select>
+        </label>
+        <div class="bitacora-saas-field bitacora-saas-field-span2">
+          <span class="bitacora-saas-label">Programas afectados</span>
+          <div id="bitacoraFormProgramasWrap" class="bitacora-programas-checklist" role="group" aria-label="Programas afectados">
+            <p class="bitacora-programas-checklist-hint">Selecciona tipo de programa primero</p>
+          </div>
+        </div>
+        <label class="bitacora-saas-field bitacora-saas-field-span2">
+          <span class="bitacora-saas-label">Impacto <span class="bitacora-saas-optional">(opcional)</span></span>
+          <select id="bitacoraFormImpacto" class="bitacora-saas-input bitacora-saas-select" aria-label="Impacto">
+            <option value="">Sin especificar</option>
+            <option value="alto">Alto</option>
+            <option value="medio">Medio</option>
+            <option value="bajo">Bajo</option>
+          </select>
+        </label>
+        <label class="bitacora-saas-field bitacora-saas-field-span2">
+          <span class="bitacora-saas-label">Cambio / mejora realizada</span>
+          <textarea id="bitacoraFormCambios" class="bitacora-saas-textarea" rows="5" maxlength="1000" placeholder="Describe el cambio, la hipótesis o el resultado esperado"></textarea>
+          <span id="bitacoraFormCharCount" class="bitacora-saas-char-count" aria-live="polite">0 / 1000</span>
+        </label>
+      </div>
+      <div class="bitacora-saas-form-actions">
+        <label class="bitacora-saas-switch">
+          <input type="checkbox" id="bitacoraFormImportante" />
+          <span class="bitacora-saas-switch-track" aria-hidden="true"></span>
+          <span class="bitacora-saas-switch-label"><i class="fa-solid fa-star" aria-hidden="true"></i> Marcar como importante</span>
+        </label>
+        <div class="bitacora-saas-form-actions-btns">
+          <button type="button" id="bitacoraCancelarEdicionBtn" class="bitacora-saas-btn bitacora-saas-btn--ghost">Cancelar</button>
+          <button type="button" id="bitacoraGuardarEntradaBtn" class="bitacora-saas-btn bitacora-saas-btn--primary">
+            <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+            <span id="bitacoraGuardarEntradaLabel">Guardar entrada</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <section id="dataModule" class="hidden data-module-saas" aria-label="Módulo DATA">
     <div class="data-wrap data-wrap-saas">
@@ -1272,6 +1294,22 @@
               <select id="crmRelFiltroIntake" class="rel-filter-select" aria-label="Filtrar CRM por intake">
                 <option value="">Todos</option>
               </select>
+            </label>
+            <label class="rel-filter-field">
+              <span class="rel-filter-field-label">Tracking</span>
+              <select id="crmRelFiltroTracking" class="rel-filter-select" aria-label="Filtrar CRM por tracking">
+                <option value="">Todos</option>
+                <option value="leadgen">Leadgen</option>
+                <option value="pixel">Pixel</option>
+                <option value="google">Google</option>
+              </select>
+            </label>
+            <label class="rel-filter-field rel-filter-field--switch">
+              <span class="rel-filter-field-label">Ocultar Branding</span>
+              <span class="rel-filter-switch-wrap">
+                <input id="crmRelOcultarBranding" type="checkbox" class="rel-filter-switch-input" checked aria-label="Ocultar campañas branding" />
+                <span class="rel-filter-switch-label">Ocultar campañas branding</span>
+              </span>
             </label>
           </div>
           <div class="rel-filters-bar-actions">
@@ -2179,6 +2217,21 @@
     </div>
   </div>
 
+  <div id="catalogAdminModalOverlay" class="app-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="catalogAdminModalTitle">
+    <div class="app-dialog app-dialog--wide" role="document">
+      <h3 id="catalogAdminModalTitle" class="app-dialog-heading">Catálogo</h3>
+      <div class="app-dialog-field">
+        <label id="catalogAdminModalLabel" for="catalogAdminModalInput">Valor</label>
+        <input id="catalogAdminModalInput" class="app-dialog-input" type="text" autocomplete="off" />
+      </div>
+      <p id="catalogAdminModalError" class="form-error hidden" role="alert"></p>
+      <div class="app-dialog-actions">
+        <button type="button" id="catalogAdminModalCancel" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+        <button type="button" id="catalogAdminModalOk" class="app-dialog-btn app-dialog-btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="dataClearModalOverlay" class="app-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dataClearModalTitle">
     <div class="app-dialog app-dialog--wide app-dialog-data-clear" role="document">
       <h3 id="dataClearModalTitle" class="app-dialog-heading">Limpiar datos</h3>
@@ -2270,80 +2323,109 @@
       <form id="campaignForm" class="campaign-form campaign-form-modern">
         <div class="campaign-form-planning-full">
         <div class="row-3 campaign-planning-row campaign-planning-row-program">
-          <label class="campaign-field">
-            <span class="campaign-field-label">Tipo de programa</span>
-            <span class="campaign-field-control campaign-field-control--select">
-              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
-            <select id="programType" name="programType" required>
-              <option value="">Seleccionar tipo</option>
-              <option value="MBA">MBA</option>
-              <option value="MA">MA</option>
-              <option value="DO">DO</option>
-              <option value="DI">DI</option>
-              <option value="PE">PE</option>
-              <option value="SE">SE</option>
-              <option value="Charla">Charla</option>
-              <option value="Webinar">Webinar</option>
-              <option value="Alcance">Alcance</option>
-            </select>
-            </span>
-          </label>
-
-          <div class="program-combo">
-            <label class="campaign-field campaign-field--program-combo">
-              <span class="campaign-field-label">Programa</span>
+          <div class="campaign-field-catalog-group">
+            <label class="campaign-field">
+              <span class="campaign-field-label">Tipo de programa</span>
               <span class="campaign-field-control campaign-field-control--select">
-                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></span>
-              <select id="programName" name="programName" required disabled>
-                <option value="">Seleccionar programa</option>
-              </select>
-              <input id="programNameEdit" name="programNameEdit" type="text" class="hidden" placeholder="Escribe nuevo programa" autocomplete="off">
+                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+                <select id="programType" name="programType" required>
+                  <option value="">Seleccionar tipo</option>
+                </select>
               </span>
             </label>
-            <div id="programDropdown" class="dropdown hidden" role="listbox" aria-label="Programas"></div>
+            <div class="campaign-catalog-actions" aria-label="Administrar tipos de programa">
+              <button type="button" class="catalog-admin-btn" data-catalog-key="tipo" data-catalog-action="add" title="Agregar tipo" aria-label="Agregar tipo de programa"><i class="fa-solid fa-plus"></i></button>
+              <button type="button" class="catalog-admin-btn" data-catalog-key="tipo" data-catalog-action="edit" title="Editar tipo" aria-label="Editar tipo de programa"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="catalog-admin-btn catalog-admin-btn--danger" data-catalog-key="tipo" data-catalog-action="delete" title="Eliminar tipo" aria-label="Eliminar tipo de programa"><i class="fa-solid fa-trash"></i></button>
+            </div>
           </div>
 
-          <button id="newProgramBtn" type="button" class="icon-btn campaign-new-program-btn" aria-label="Crear nuevo programa"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
+          <div class="campaign-field-catalog-group campaign-field-catalog-group--program">
+            <div class="program-combo">
+              <label class="campaign-field campaign-field--program-combo">
+                <span class="campaign-field-label">Programa</span>
+                <span class="campaign-field-control campaign-field-control--select">
+                  <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></span>
+                  <select id="programName" name="programName" required disabled>
+                    <option value="">Seleccionar programa</option>
+                  </select>
+                  <input id="programNameEdit" name="programNameEdit" type="text" class="hidden" placeholder="Escribe nuevo programa" autocomplete="off">
+                </span>
+              </label>
+              <div id="programDropdown" class="dropdown hidden" role="listbox" aria-label="Programas"></div>
+            </div>
+            <div class="campaign-catalog-actions" aria-label="Administrar programas">
+              <button id="newProgramBtn" type="button" class="catalog-admin-btn" data-catalog-key="programa" data-catalog-action="add" title="Agregar programa" aria-label="Agregar programa"><i class="fa-solid fa-plus"></i></button>
+              <button type="button" class="catalog-admin-btn" data-catalog-key="programa" data-catalog-action="edit" title="Editar programa" aria-label="Editar programa"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="catalog-admin-btn catalog-admin-btn--danger" data-catalog-key="programa" data-catalog-action="delete" title="Eliminar programa" aria-label="Eliminar programa"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
         </div>
 
-        <div class="row-intake campaign-planning-row-intake">
+        <div class="row-intake campaign-planning-row-config">
           <label class="campaign-field">
-            <span class="campaign-field-label">Tracking</span>
+            <span class="campaign-field-label">Categoría</span>
             <span class="campaign-field-control campaign-field-control--select">
-              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-crosshairs"></i></span>
-            <select id="tracking" name="tracking" required>
-              <option value="">Seleccionar</option>
-              <option value="Leadgen">Leadgen</option>
-              <option value="Pixel">Pixel</option>
-            </select>
+              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-tags"></i></span>
+              <select id="campaignCategoria" name="categoria" required>
+                <option value="">Seleccionar categoría</option>
+                <option value="Captación">Captación</option>
+                <option value="Informativa">Informativa</option>
+                <option value="Branding">Branding</option>
+              </select>
             </span>
           </label>
-          <label class="campaign-field">
-            <span class="campaign-field-label">Plataforma</span>
-            <span class="campaign-field-control campaign-field-control--select">
-              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-display"></i></span>
-            <select id="plataforma" name="plataforma" required>
-              <option value="">Seleccionar</option>
-              <option value="Meta">Meta</option>
-              <option value="Google">Google</option>
-              <option value="TikTok">TikTok</option>
-              <option value="LinkedIn">LinkedIn</option>
-            </select>
-            </span>
-          </label>
-          <label class="campaign-field">
-            <span class="campaign-field-label">Intake</span>
-            <span class="campaign-field-control campaign-field-control--select">
-              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
-            <select id="intake" name="intake" required>
-              <option value="">Seleccionar intake</option>
-              <option value="Intake 1">Intake 1</option>
-              <option value="Intake 2">Intake 2</option>
-              <option value="Intake 3">Intake 3</option>
-              <option value="Intake 4">Intake 4</option>
-            </select>
-            </span>
-          </label>
+
+          <div class="campaign-field-catalog-group">
+            <label class="campaign-field">
+              <span class="campaign-field-label">Tracking</span>
+              <span class="campaign-field-control campaign-field-control--select">
+                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-crosshairs"></i></span>
+                <select id="tracking" name="tracking" required>
+                  <option value="">Seleccionar</option>
+                </select>
+              </span>
+            </label>
+            <div class="campaign-catalog-actions" aria-label="Administrar tracking">
+              <button type="button" class="catalog-admin-btn" data-catalog-key="tracking" data-catalog-action="add" title="Agregar tracking" aria-label="Agregar tracking"><i class="fa-solid fa-plus"></i></button>
+              <button type="button" class="catalog-admin-btn" data-catalog-key="tracking" data-catalog-action="edit" title="Editar tracking" aria-label="Editar tracking"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="catalog-admin-btn catalog-admin-btn--danger" data-catalog-key="tracking" data-catalog-action="delete" title="Eliminar tracking" aria-label="Eliminar tracking"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+
+          <div class="campaign-field-catalog-group">
+            <label class="campaign-field">
+              <span class="campaign-field-label">Plataforma</span>
+              <span class="campaign-field-control campaign-field-control--select">
+                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-display"></i></span>
+                <select id="plataforma" name="plataforma" required>
+                  <option value="">Seleccionar</option>
+                </select>
+              </span>
+            </label>
+            <div class="campaign-catalog-actions" aria-label="Administrar plataforma">
+              <button type="button" class="catalog-admin-btn" data-catalog-key="plataforma" data-catalog-action="add" title="Agregar plataforma" aria-label="Agregar plataforma"><i class="fa-solid fa-plus"></i></button>
+              <button type="button" class="catalog-admin-btn" data-catalog-key="plataforma" data-catalog-action="edit" title="Editar plataforma" aria-label="Editar plataforma"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="catalog-admin-btn catalog-admin-btn--danger" data-catalog-key="plataforma" data-catalog-action="delete" title="Eliminar plataforma" aria-label="Eliminar plataforma"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+
+          <div class="campaign-field-catalog-group">
+            <label class="campaign-field">
+              <span class="campaign-field-label">Intake</span>
+              <span class="campaign-field-control campaign-field-control--select">
+                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+                <select id="intake" name="intake" required>
+                  <option value="">Seleccionar intake</option>
+                </select>
+              </span>
+            </label>
+            <div class="campaign-catalog-actions" aria-label="Administrar intake">
+              <button type="button" class="catalog-admin-btn" data-catalog-key="intake" data-catalog-action="add" title="Agregar intake" aria-label="Agregar intake"><i class="fa-solid fa-plus"></i></button>
+              <button type="button" class="catalog-admin-btn" data-catalog-key="intake" data-catalog-action="edit" title="Editar intake" aria-label="Editar intake"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="catalog-admin-btn catalog-admin-btn--danger" data-catalog-key="intake" data-catalog-action="delete" title="Eliminar intake" aria-label="Eliminar intake"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
         </div>
 
         <div class="row-intake-dates campaign-planning-row-dates">
@@ -2434,15 +2516,22 @@
         </div>
 
         <div class="campaign-form-cc-section campaign-cc-bar">
-          <label class="campaign-field" for="centroCostoSelect">
-            <span class="campaign-field-label">Centro de costo</span>
-            <span class="campaign-field-control campaign-field-control--select">
-              <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></span>
-            <select id="centroCostoSelect" name="centroCosto">
-              <option value="">Sin centro de costo</option>
-            </select>
-            </span>
-          </label>
+          <div class="campaign-field-catalog-group campaign-field-catalog-group--cc">
+            <label class="campaign-field" for="centroCostoSelect">
+              <span class="campaign-field-label">Centro de costo</span>
+              <span class="campaign-field-control campaign-field-control--select">
+                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></span>
+                <select id="centroCostoSelect" name="centroCosto">
+                  <option value="">Sin centro de costo</option>
+                </select>
+              </span>
+            </label>
+            <div class="campaign-catalog-actions" aria-label="Administrar centros de costo">
+              <button type="button" class="catalog-admin-btn" data-catalog-key="centroCosto" data-catalog-action="add" title="Agregar centro de costo" aria-label="Agregar centro de costo"><i class="fa-solid fa-plus"></i></button>
+              <button type="button" class="catalog-admin-btn" data-catalog-key="centroCosto" data-catalog-action="edit" title="Editar centro de costo" aria-label="Editar centro de costo"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="catalog-admin-btn catalog-admin-btn--danger" data-catalog-key="centroCosto" data-catalog-action="delete" title="Eliminar centro de costo" aria-label="Eliminar centro de costo"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
           <p id="centroCostoSaldoHint" class="hint cc-saldo-hint" role="status"></p>
         </div>
 

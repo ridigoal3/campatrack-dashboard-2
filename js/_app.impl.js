@@ -30,8 +30,40 @@ import {
   parsePlanningImportDate,
   parsePlanningImportInteger,
   parsePlanningImportMoney,
-  readPlanningExcelAoAFromBuffer
+  readPlanningExcelAoAFromBuffer,
+  resolvePlanningImportCategoria
 } from "./campatrack-planning-excel-import.js";
+import {
+  PLANNING_CATEGORIA_CAPTACION,
+  PLANNING_CATEGORIA_INFORMATIVA,
+  PLANNING_CATEGORIA_BRANDING,
+  PLANNING_TIPO_SIN_ACADEMICO,
+  ensurePlanningRecordCategoria,
+  inferPlanningCategoriaFromRecord,
+  isPlanningLegacyNonAcademicTipo,
+  isPlanningTipoAcademicCatalogOption,
+  migratePlanningCategoriasInRecords,
+  migratePlanningLegacyNonAcademicTiposInRecords,
+  migratePlanningRecordLegacyNonAcademicTipo,
+  normalizePlanningCategoria,
+  planningCategoriaBadgeClass,
+  planningCategoriaBadgeLabel,
+  planningRecordEsCaptacion,
+  planningRecordEsInformativa,
+  planningRecordRequiresLeadMetrics,
+  purgeNonAcademicTiposFromCatalogList
+} from "./campatrack-planning-categoria.js";
+import {
+  CATALOG_PLANNING_FIELD,
+  CATALOGOS_SISTEMA_KEYS,
+  addToCatalogArray,
+  countPlanningRecords,
+  isValidCatalogLabel,
+  normalizeCatalogLabel,
+  planningKeyFromParts,
+  removeFromCatalogArray,
+  replaceInCatalogArray
+} from "./campatrack-catalogos-admin.js";
 import {
   buildGithubRawDataJsonUrl,
   hasClientGithubConfigComplete,
@@ -72,6 +104,7 @@ import {
   createDashSignature,
   createDashVirtualTbody
 } from "./campatrack-dashboard-perf.js";
+import { createVirtualTbody } from "./campatrack-virtual-table.js";
 
 /**
  * Debe cargarse solo como módulo ES (p. ej. `import "./_app.impl.js"` desde `app.js` con `type="module"`).
@@ -228,6 +261,11 @@ const newCampaignBtn = document.getElementById("newCampaignBtn");
 const editRecordBtn = document.getElementById("editRecordBtn");
 const deleteRecordBtn = document.getElementById("deleteRecordBtn");
 const planningBody = document.getElementById("planningBody");
+/** Instancias de tablas virtualizadas (antes del init planning ~6018). */
+let planningVirtualTable = null;
+let dashPlatVirtualTable = null;
+let dashCrmVirtualTable = null;
+let relacionesVirtualTable = null;
 const campaignModal = document.getElementById("campaignModal");
 const campaignForm = document.getElementById("campaignForm");
 const cancelBtn = document.getElementById("cancelBtn");
@@ -237,6 +275,7 @@ const percentHint = document.getElementById("percentHint");
 const cplTargetInput = document.getElementById("cplTarget");
 const cplHistoricoHint = document.getElementById("cplHistoricoHint");
 const programTypeSelect = document.getElementById("programType");
+const campaignCategoriaSelect = document.getElementById("campaignCategoria");
 const programNameInput = document.getElementById("programName");
 const programNameEditInput = document.getElementById("programNameEdit");
 const programDropdown = document.getElementById("programDropdown");
@@ -257,7 +296,11 @@ const gastoDiarioInput = document.getElementById("gastoDiario");
 const targetLeadsInput = document.getElementById("targetLeads");
 const bitacoraTimelineList = document.getElementById("bitacoraTimelineList");
 const bitacoraFiltroTipoSelect = document.getElementById("bitacoraFiltroTipo");
-const bitacoraFiltroProgramaInput = document.getElementById("bitacoraFiltroPrograma");
+const bitacoraFiltroProgramaSelect = document.getElementById("bitacoraFiltroPrograma");
+const bitacoraRegistrarEntradaBtn = document.getElementById("bitacoraRegistrarEntradaBtn");
+const bitacoraFormModalOverlay = document.getElementById("bitacoraFormModalOverlay");
+const bitacoraFormModalClose = document.getElementById("bitacoraFormModalClose");
+const bitacoraModalTitle = document.getElementById("bitacoraModalTitle");
 const bitacoraFechaRangoInput = document.getElementById("bitacoraFechaRango");
 const bitacoraLimpiarFiltrosBtn = document.getElementById("bitacoraLimpiarFiltrosBtn");
 const bitacoraExportBtn = document.getElementById("bitacoraExportBtn");
@@ -266,7 +309,7 @@ const bitacoraPageSizeSelect = document.getElementById("bitacoraPageSizeSelect")
 const bitacoraPaginationInfo = document.getElementById("bitacoraPaginationInfo");
 const bitacoraPaginationNav = document.getElementById("bitacoraPaginationNav");
 const bitacoraFormFecha = document.getElementById("bitacoraFormFecha");
-const bitacoraFormPrograma = document.getElementById("bitacoraFormPrograma");
+const bitacoraFormProgramasWrap = document.getElementById("bitacoraFormProgramasWrap");
 const bitacoraFormTipo = document.getElementById("bitacoraFormTipo");
 const bitacoraFormImpacto = document.getElementById("bitacoraFormImpacto");
 const bitacoraFormCambios = document.getElementById("bitacoraFormCambios");
@@ -347,6 +390,52 @@ function remapPlanningIdReferences(idMap) {
   }
 }
 
+/** Remapea relaciones Plataforma/CRM cuando cambia el planningKey (p. ej. migración tipo legacy). */
+function remapRelacionesPlanningKeys(keyMap) {
+  if (!keyMap?.size) return 0;
+  let n = 0;
+  for (const rel of ensureRelacionesDraftShape()) {
+    const old = String(rel.planningKey || "").trim();
+    const next = keyMap.get(old);
+    if (next && next !== old) {
+      rel.planningKey = next;
+      n += 1;
+    }
+  }
+  for (const rel of ensureRelacionesCrmDraftShape()) {
+    const old = String(rel.planningKey || "").trim();
+    const next = keyMap.get(old);
+    if (next && next !== old) {
+      rel.planningKey = next;
+      n += 1;
+    }
+  }
+  if (n > 0) {
+    syncRelacionesViewFromDraft();
+    syncRelacionesCrmViewFromDraft();
+    invalidateDashboardQueryCache();
+    invalidateCrmRelPlanningFilterCache();
+  }
+  return n;
+}
+
+function purgeNonAcademicTiposFromCatalogosSistemaInPlace() {
+  ensureCatalogosSistemaShape();
+  const prev = catalogosSistema.tipos.slice();
+  catalogosSistema.tipos = purgeNonAcademicTiposFromCatalogList(catalogosSistema.tipos);
+  return catalogosSistema.tipos.length !== prev.length || prev.some((t, i) => t !== catalogosSistema.tipos[i]);
+}
+
+function migrateProgramsLegacyNonAcademicTiposInPlace() {
+  let changed = false;
+  for (const p of programs) {
+    if (!p || !isPlanningLegacyNonAcademicTipo(p.tipo)) continue;
+    p.tipo = PLANNING_TIPO_SIN_ACADEMICO;
+    changed = true;
+  }
+  return changed;
+}
+
 /**
  * Migra ids legacy → PLN-* en caché merge + borrador; mantiene secuencia estable.
  * @returns {boolean} hubo cambios
@@ -367,6 +456,13 @@ function ensurePlanningStructuredIdsInCollections() {
     remapPlanningIdReferences(idMap);
   }
   if (ensurePlanningArrayStableUniqueIds(merged)) changed = true;
+  const legacyTipo = migratePlanningLegacyNonAcademicTiposInRecords(merged);
+  if (legacyTipo.changed) {
+    changed = true;
+    remapRelacionesPlanningKeys(legacyTipo.keyMap);
+  }
+  if (migratePlanningCategoriasInRecords(merged)) changed = true;
+  if (purgeNonAcademicTiposFromCatalogosSistemaInPlace()) changed = true;
   setPlanningRecordIdSeq(reconcilePlanningRecordIdSeq(merged, getPlanningRecordIdSeq()));
   reloadPlanningWorkingSliceFromCache();
   if (changed) syncConsumoFromRecords();
@@ -406,13 +502,18 @@ const DEFAULT_PROGRAMS = [
   { tipo: "DO", nombre: "Direccion de Operaciones" },
   { tipo: "DI", nombre: "Diseno de Innovacion" },
   { tipo: "PE", nombre: "Programa Ejecutivo Comercial" },
-  { tipo: "SE", nombre: "Seminario Estrategico de Ventas" },
-  { tipo: "Charla", nombre: "Charla" },
-  { tipo: "Webinar", nombre: "Webinar" },
-  { tipo: "Alcance", nombre: "Alcance" }
+  { tipo: "SE", nombre: "Seminario Estrategico de Ventas" }
 ];
 
-/** Tipos de convocatoria: no aplican restricciones de cruce de fechas entre intakes ni fecha mínima encadenada. */
+/** Tipos convocatoria / awareness: no aplican restricciones de cruce de fechas entre intakes. */
+function planningRecordSinRestriccionCruceFechas(rec) {
+  if (!rec || typeof rec !== "object") return false;
+  const cat = normalizePlanningCategoria(rec.categoria);
+  if (cat === PLANNING_CATEGORIA_INFORMATIVA || cat === PLANNING_CATEGORIA_BRANDING) return true;
+  return isPlanningLegacyNonAcademicTipo(rec.tipo);
+}
+
+/** @deprecated usar planningRecordSinRestriccionCruceFechas(rec) */
 function planningTipoSinRestriccionCruceFechas(tipo) {
   const t = String(tipo ?? "").trim();
   return t === "Charla" || t === "Webinar" || t === "Alcance";
@@ -430,14 +531,14 @@ function planningTipoCharlaOWebinar(tipo) {
 }
 
 /**
- * Misma combinación tipo + programa + intake + tracking + plataforma (Charla/Webinar)
+ * Misma combinación programa + intake + tracking + plataforma (Informativa)
  * y rangos de fechas que se cruzan.
  */
-function hasCharlaWebinarMismaConfigSolapeFechas(candidate, excludeId = null) {
-  if (!planningTipoCharlaOWebinar(candidate.tipo)) return false;
+function hasInformativaMismaConfigSolapeFechas(candidate, excludeId = null) {
+  if (!planningRecordEsInformativa(candidate)) return false;
   return planningDraftRecords().some((r) => {
     if (excludeId != null && samePlanningRecordId(r.id, excludeId)) return false;
-    if (r.tipo !== candidate.tipo) return false;
+    if (!planningRecordEsInformativa(r)) return false;
     if (r.programa !== candidate.programa) return false;
     if (r.intake !== candidate.intake) return false;
     if (r.tracking !== candidate.tracking) return false;
@@ -446,30 +547,50 @@ function hasCharlaWebinarMismaConfigSolapeFechas(candidate, excludeId = null) {
   });
 }
 
-/** Ajusta visibilidad y comportamiento del modal de campaña cuando el tipo es Alcance. */
-function updateCampaignFormAlcanceMode() {
+/** @deprecated alias */
+function hasCharlaWebinarMismaConfigSolapeFechas(candidate, excludeId = null) {
+  return hasInformativaMismaConfigSolapeFechas(candidate, excludeId);
+}
+
+/** Ajusta visibilidad del modal según categoría (Captación vs Informativa/Branding). */
+function updateCampaignFormCategoriaMode() {
   if (!campaignForm || !programTypeSelect) return;
-  const tipo = String(programTypeSelect.value || "").trim();
-  const isAlcance = planningTipoAlcance(tipo);
+  const categoria =
+    normalizePlanningCategoria(campaignCategoriaSelect?.value || "") ||
+    inferPlanningCategoriaFromRecord({
+      tipo: programTypeSelect.value,
+      programa: programNameInput?.value || programNameEditInput?.value,
+      tracking: trackingSelect?.value
+    });
+  const isCaptacion = categoria === PLANNING_CATEGORIA_CAPTACION;
   const previewTable = document.querySelector("#campaignModal .preview-table");
-  if (previewTable) previewTable.classList.toggle("preview-table--alcance", isAlcance);
+  const previewToolbar = document.querySelector("#campaignModal .campaign-preview-toolbar");
+  const previewWrap = document.querySelector("#campaignModal .campaign-preview-wrap");
+  const metricsRow = document.querySelector("#campaignModal .campaign-metrics-modern");
+  const gastoDiarioField = document.getElementById("gastoDiario")?.closest(".campaign-field");
+
+  if (previewTable) previewTable.classList.toggle("preview-table--alcance", !isCaptacion);
+  if (previewToolbar) previewToolbar.classList.toggle("hidden", !isCaptacion);
+  if (previewWrap) previewWrap.classList.toggle("hidden", !isCaptacion);
+  if (metricsRow) metricsRow.classList.toggle("hidden", !isCaptacion);
+  if (gastoDiarioField instanceof HTMLElement) gastoDiarioField.classList.toggle("hidden", !isCaptacion);
 
   const cplLabel = document.getElementById("campaignCplTargetLabel");
   const leadsLabel = document.getElementById("campaignTargetLeadsLabel");
-  if (cplLabel) cplLabel.classList.toggle("hidden", isAlcance);
-  if (leadsLabel) leadsLabel.classList.toggle("hidden", isAlcance);
+  if (cplLabel) cplLabel.classList.toggle("hidden", !isCaptacion);
+  if (leadsLabel) leadsLabel.classList.toggle("hidden", !isCaptacion);
 
   if (cplTargetInput) {
-    cplTargetInput.disabled = isAlcance;
+    cplTargetInput.disabled = !isCaptacion;
     cplTargetInput.removeAttribute("required");
   }
   if (targetLeadsInput) {
-    targetLeadsInput.disabled = isAlcance;
-    if (isAlcance) targetLeadsInput.removeAttribute("required");
-    else targetLeadsInput.setAttribute("required", "required");
+    targetLeadsInput.disabled = !isCaptacion;
+    if (isCaptacion) targetLeadsInput.setAttribute("required", "required");
+    else targetLeadsInput.removeAttribute("required");
   }
 
-  if (isAlcance) {
+  if (!isCaptacion) {
     if (cplTargetInput) cplTargetInput.value = "0";
     if (targetLeadsInput) targetLeadsInput.value = "0";
     presupuestoManualMode = true;
@@ -481,9 +602,107 @@ function updateCampaignFormAlcanceMode() {
   }
 
   if (cplHistoricoHint) {
-    cplHistoricoHint.classList.toggle("hidden", isAlcance);
-    if (isAlcance) cplHistoricoHint.textContent = "";
+    cplHistoricoHint.classList.toggle("hidden", !isCaptacion);
+    if (!isCaptacion) cplHistoricoHint.textContent = "";
   }
+}
+
+/** @deprecated alias */
+function updateCampaignFormAlcanceMode() {
+  updateCampaignFormCategoriaMode();
+}
+
+function syncCampaignCategoriaFromFormContext() {
+  if (!campaignCategoriaSelect || editingRecordId != null) return;
+  const inferred = inferPlanningCategoriaFromRecord({
+    tipo: programTypeSelect?.value,
+    programa: programNameInput?.value || programNameEditInput?.value,
+    tracking: trackingSelect?.value
+  });
+  campaignCategoriaSelect.value = inferred;
+}
+
+function campaignFormEsCaptacion() {
+  const cat = normalizePlanningCategoria(campaignCategoriaSelect?.value || "");
+  if (cat) return cat === PLANNING_CATEGORIA_CAPTACION;
+  return !planningTipoAlcance(programTypeSelect?.value || "");
+}
+
+function getPlanningRecordByKey(planningKey) {
+  return getPlanningGroups().find((g) => g.key === planningKey)?.rec || null;
+}
+
+function planningKeyEsCaptacion(planningKey) {
+  const rec = getPlanningRecordByKey(planningKey);
+  if (rec) return planningRecordEsCaptacion(rec);
+  return false;
+}
+
+function filterCaptacionPlanningKeys(pks) {
+  return (pks || []).filter((pk) => planningKeyEsCaptacion(pk));
+}
+
+/** Umbral de coincidencia Planning ↔ campaña DATA (mismo criterio que sugerencias). */
+const REL_DATA_CAPTACION_SCORE_MIN = 70;
+
+/**
+ * Ocultar visualmente en Relaciones (META/CRM). No modifica datos ni relaciones persistidas.
+ */
+function relacionesOcultarNombreCampaniaVisual(nombre) {
+  const n = String(nombre ?? "");
+  return n.includes("Charla") || n.includes("Webinar") || n.includes("Alcance");
+}
+
+function relacionesOcultarPlanningKeyVisual(planningKey) {
+  const k = String(planningKey ?? "");
+  return k.includes("Charla") || k.includes("Webinar") || k.includes("Alcance");
+}
+
+function getCaptacionPlanningGroups() {
+  return getPlanningGroups().filter(({ rec }) => planningRecordEsCaptacion(rec));
+}
+
+function calcularScorePlanningRec(rec, data) {
+  if (!rec) return 0;
+  return calcularScore(
+    {
+      programa: rec.programa,
+      tracking: rec.tracking,
+      intake: rec.intake
+    },
+    data
+  );
+}
+
+/**
+ * Campaña DATA relacionable: vínculo existente a Captación o score fuerte solo contra Planning Captación.
+ * Usa columna categoría del Planning (no filtra por texto Charla/Webinar/Alcance en el nombre).
+ */
+function dataCampaignEsRelacionableCaptacion(dataRow) {
+  const id = String(dataRow?.idCampania ?? "").trim();
+  if (!id) return false;
+
+  const relLinks = getRelacionesPlataforma().filter((r) => String(r.idCampania || "").trim() === id);
+  if (relLinks.length) {
+    return relLinks.some((r) => planningKeyEsCaptacion(r.planningKey));
+  }
+
+  let bestCapt = 0;
+  let bestNon = 0;
+  for (const { rec } of getPlanningGroups()) {
+    const score = calcularScorePlanningRec(rec, dataRow);
+    if (planningRecordEsCaptacion(rec)) bestCapt = Math.max(bestCapt, score);
+    else bestNon = Math.max(bestNon, score);
+  }
+  if (bestNon >= REL_DATA_CAPTACION_SCORE_MIN && bestNon > bestCapt) return false;
+  return bestCapt >= REL_DATA_CAPTACION_SCORE_MIN;
+}
+
+function getRelacionableDataUniqueList() {
+  return getDataUniqueList().filter((u) => {
+    if (relacionesOcultarNombreCampaniaVisual(u.nombre)) return false;
+    return dataCampaignEsRelacionableCaptacion(u);
+  });
 }
 
 const programs = [];
@@ -531,6 +750,9 @@ function hydratarProgramas() {
     }
   } catch (err) {
     console.warn("No se pudo cargar programas", err);
+  }
+  if (migrateProgramsLegacyNonAcademicTiposInPlace()) {
+    persistProgramas();
   }
 }
 
@@ -601,6 +823,9 @@ function syncPlanningMergedCacheFromAppStateDraft() {
     r && typeof r === "object" ? { ...r } : r
   );
   migratePlanningRowsTeamIds(planningMergedRecordsCache);
+  if (migratePlanningCategoriasInRecords(planningMergedRecordsCache)) {
+    reloadPlanningWorkingSliceFromCache();
+  }
   ensurePlanningStructuredIdsInCollections();
 }
 
@@ -1054,10 +1279,10 @@ function mergeConsumoForPersist() {
   syncConsumoFromRecords();
   return {};
 }
-const BITACORA_TIPO_OPTIONS = ["MA", "SE", "PE", "MBA", "DI", "DO", "Charla", "Webinar", "Alcance"];
+const BITACORA_TIPO_OPTIONS = ["MA", "SE", "PE", "MBA", "DI", "DO"];
 
 /** Semillas alineadas con opciones base del HTML (planning); el catálogo en localStorage las amplía con el uso. */
-const CATALOGO_SEMILLA_TIPOS = ["MBA", "MA", "DO", "DI", "PE", "SE", "Charla", "Webinar", "Alcance"];
+const CATALOGO_SEMILLA_TIPOS = ["MBA", "MA", "DO", "DI", "PE", "SE"];
 const CATALOGO_SEMILLA_TRACKING = ["Leadgen", "Pixel", "Google"];
 const CATALOGO_SEMILLA_PLATAFORMAS = ["Meta", "Google", "TikTok", "LinkedIn"];
 const CATALOGO_SEMILLA_INTAKES = ["Intake 1", "Intake 2", "Intake 3", "Intake 4"];
@@ -3222,20 +3447,22 @@ function mergeFuentesEnCatalogosSistema() {
   CATALOGO_SEMILLA_INTAKES.forEach((x) => agregarValorSiNoExiste(catalogosSistema.intakes, x));
 
   programs.forEach((p) => {
-    agregarValorSiNoExiste(catalogosSistema.tipos, p.tipo);
+    if (isPlanningTipoAcademicCatalogOption(p.tipo)) agregarValorSiNoExiste(catalogosSistema.tipos, p.tipo);
     agregarValorSiNoExiste(catalogosSistema.programas, p.nombre);
   });
   planningDraftRecords().forEach((r) => {
-    agregarValorSiNoExiste(catalogosSistema.tipos, r.tipo);
+    if (isPlanningTipoAcademicCatalogOption(r.tipo)) agregarValorSiNoExiste(catalogosSistema.tipos, r.tipo);
     agregarValorSiNoExiste(catalogosSistema.programas, r.programa);
     agregarValorSiNoExiste(catalogosSistema.tracking, r.tracking);
     agregarValorSiNoExiste(catalogosSistema.plataformas, r.plataforma);
     agregarValorSiNoExiste(catalogosSistema.intakes, r.intake);
   });
   bitacoraData.forEach((b) => {
-    agregarValorSiNoExiste(catalogosSistema.tipos, b.tipo);
-    agregarValorSiNoExiste(catalogosSistema.programas, b.programa);
+    if (isPlanningTipoAcademicCatalogOption(b.tipo)) agregarValorSiNoExiste(catalogosSistema.tipos, b.tipo);
+    getBitacoraProgramasAfectados(b).forEach((prog) => agregarValorSiNoExiste(catalogosSistema.programas, prog));
   });
+
+  catalogosSistema.tipos = purgeNonAcademicTiposFromCatalogList(catalogosSistema.tipos);
 
   ordenarCatalogoInPlace(catalogosSistema.tipos);
   ordenarCatalogoInPlace(catalogosSistema.programas);
@@ -3246,6 +3473,7 @@ function mergeFuentesEnCatalogosSistema() {
 
 function syncCatalogosSistemaDesdeMemoria() {
   loadCatalogosSistemaFromStorage();
+  purgeNonAcademicTiposFromCatalogosSistemaInPlace();
   mergeFuentesEnCatalogosSistema();
   saveCatalogosSistema();
 }
@@ -3275,15 +3503,14 @@ function collectProgramNamesForPlanningTipo(tipo) {
   });
   bitacoraData.forEach((b) => {
     if (String(b.tipo || "").trim() !== t) return;
-    const n = String(b.programa || "").trim();
-    if (n) names.add(n);
+    getBitacoraProgramasAfectados(b).forEach((n) => names.add(n));
   });
   (catalogosSistema.programas || []).forEach((raw) => {
     const n = String(raw || "").trim();
     if (!n) return;
     if (programs.some((p) => String(p.tipo) === t && String(p.nombre) === n)) names.add(n);
     if (planningDraftRecords().some((r) => String(r.tipo || "").trim() === t && String(r.programa || "").trim() === n)) names.add(n);
-    if (bitacoraData.some((b) => String(b.tipo || "").trim() === t && String(b.programa || "").trim() === n)) names.add(n);
+    if (bitacoraData.some((b) => String(b.tipo || "").trim() === t && getBitacoraProgramasAfectados(b).includes(n))) names.add(n);
   });
   return Array.from(names).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
 }
@@ -3298,7 +3525,7 @@ function refreshPlanningCampaignFormCombos() {
   fillHtmlSelectFromCatalog(
     programTypeSelect,
     `<option value="">Seleccionar tipo</option>`,
-    catalogosSistema.tipos,
+    purgeNonAcademicTiposFromCatalogList(catalogosSistema.tipos),
     tipoSel
   );
   fillHtmlSelectFromCatalog(trackingSelect, `<option value="">Seleccionar</option>`, catalogosSistema.tracking, trackSel);
@@ -3327,6 +3554,571 @@ function refreshPlanningCatalogUi() {
   refreshPlanningToolbarFilterCombos();
   refreshPlanningCampaignFormCombos();
   updateFilterProgramaState();
+}
+
+/** --- Catálogos administrables (formulario campaña) --- */
+
+function allPlanningRecordsForCatalogDeps() {
+  if (Array.isArray(planningMergedRecordsCache) && planningMergedRecordsCache.length) {
+    return planningMergedRecordsCache;
+  }
+  return planningDraftRecords();
+}
+
+function countProgramaCampaignDependencies(tipo, programa) {
+  const t = normalizeCatalogLabel(tipo);
+  const p = normalizeCatalogLabel(programa);
+  return countPlanningRecords(allPlanningRecordsForCatalogDeps(), (rec) => {
+    return normalizeCatalogLabel(rec.tipo) === t && normalizeCatalogLabel(rec.programa) === p;
+  });
+}
+
+function countPlanningFieldUsage(field, value) {
+  const v = normalizeCatalogLabel(value);
+  return countPlanningRecords(allPlanningRecordsForCatalogDeps(), (rec) => normalizeCatalogLabel(rec[field]) === v);
+}
+
+function renamePlanningFieldGlobally(field, oldValue, newValue, recordFilter = null) {
+  const oldV = normalizeCatalogLabel(oldValue);
+  const newV = normalizeCatalogLabel(newValue);
+  if (!oldV || !newV || oldV === newV) return { updated: 0, keyMap: new Map() };
+  recomputePlanningMergedCacheFromRecords();
+  const rows = planningMergedRecordsCache || planningDraftRecords();
+  const keyMap = new Map();
+  let updated = 0;
+  for (const rec of rows) {
+    if (!rec || typeof rec !== "object") continue;
+    if (normalizeCatalogLabel(rec[field]) !== oldV) continue;
+    if (recordFilter && !recordFilter(rec)) continue;
+    const oldKey = planningKeyFromRecord(rec);
+    rec[field] = newV;
+    updated += 1;
+    const newKey = planningKeyFromRecord(rec);
+    if (oldKey !== newKey) keyMap.set(oldKey, newKey);
+  }
+  if (keyMap.size) remapRelacionesPlanningKeys(keyMap);
+  if (updated > 0) {
+    reloadPlanningWorkingSliceFromCache();
+    rebuildPlanningTable();
+    persistPlanningData();
+    REGENERAR_MODELO();
+    registerUnpublishedDraftMutation();
+  }
+  return { updated, keyMap };
+}
+
+function renameProgramaGlobally(tipo, oldPrograma, newPrograma) {
+  const t = normalizeCatalogLabel(tipo);
+  const oldP = normalizeCatalogLabel(oldPrograma);
+  const newP = normalizeCatalogLabel(newPrograma);
+  if (!t || !oldP || !newP || oldP === newP) return false;
+
+  for (const p of programs) {
+    if (normalizeCatalogLabel(p.tipo) === t && normalizeCatalogLabel(p.nombre) === oldP) {
+      p.nombre = newP;
+    }
+  }
+
+  ensureCatalogosSistemaShape();
+  replaceInCatalogArray(catalogosSistema.programas, oldP, newP);
+
+  for (const b of bitacoraData) {
+    if (normalizeCatalogLabel(b.tipo) !== t) continue;
+    const progs = getBitacoraProgramasAfectados(b);
+    let changed = false;
+    const updated = progs.map((p) => {
+      if (normalizeCatalogLabel(p) === oldP) {
+        changed = true;
+        return newP;
+      }
+      return p;
+    });
+    if (changed) {
+      b.programas_afectados = updated;
+      b.programa = updated[0] || "";
+    }
+  }
+
+  renamePlanningFieldGlobally("programa", oldP, newP, (rec) => normalizeCatalogLabel(rec.tipo) === t);
+
+  persistProgramas();
+  persistBitacoraData();
+  saveCatalogosSistema();
+  syncCatalogosSistemaDesdeMemoria();
+  refreshPlanningCatalogUi();
+  if (programTypeSelect?.value === t) renderProgramDropdown(t, newP);
+  registerUnpublishedDraftMutation();
+  return true;
+}
+
+function deleteProgramaFromCatalog(tipo, programa) {
+  const t = normalizeCatalogLabel(tipo);
+  const p = normalizeCatalogLabel(programa);
+  if (!t || !p) return false;
+  const idx = programs.findIndex(
+    (item) => normalizeCatalogLabel(item.tipo) === t && normalizeCatalogLabel(item.nombre) === p
+  );
+  if (idx >= 0) programs.splice(idx, 1);
+  ensureCatalogosSistemaShape();
+  removeFromCatalogArray(catalogosSistema.programas, p);
+  persistProgramas();
+  saveCatalogosSistema();
+  syncCatalogosSistemaDesdeMemoria();
+  refreshPlanningCatalogUi();
+  registerUnpublishedDraftMutation();
+  if (programTypeSelect?.value === t) renderProgramDropdown(t, "");
+  return true;
+}
+
+function renameSimpleCatalogGlobally(catalogKey, oldValue, newValue) {
+  const oldV = normalizeCatalogLabel(oldValue);
+  const newV = normalizeCatalogLabel(newValue);
+  if (!oldV || !newV || oldV === newV) return false;
+
+  ensureCatalogosSistemaShape();
+  replaceInCatalogArray(catalogosSistema[catalogKey], oldV, newV);
+
+  const planningField = CATALOG_PLANNING_FIELD[catalogKey];
+  if (planningField === "tipo") {
+    for (const p of programs) {
+      if (normalizeCatalogLabel(p.tipo) === oldV) p.tipo = newV;
+    }
+    for (const b of bitacoraData) {
+      if (normalizeCatalogLabel(b.tipo) === oldV) b.tipo = newV;
+    }
+    persistProgramas();
+    persistBitacoraData();
+  }
+
+  if (planningField) {
+    renamePlanningFieldGlobally(planningField, oldV, newV);
+  }
+
+  saveCatalogosSistema();
+  syncCatalogosSistemaDesdeMemoria();
+  refreshPlanningCatalogUi();
+  registerUnpublishedDraftMutation();
+  return true;
+}
+
+function deleteSimpleCatalogValue(catalogKey, value) {
+  const v = normalizeCatalogLabel(value);
+  if (!v) return false;
+  ensureCatalogosSistemaShape();
+  removeFromCatalogArray(catalogosSistema[catalogKey], v);
+  saveCatalogosSistema();
+  syncCatalogosSistemaDesdeMemoria();
+  refreshPlanningCatalogUi();
+  registerUnpublishedDraftMutation();
+  return true;
+}
+
+function addSimpleCatalogValue(catalogKey, value) {
+  const v = normalizeCatalogLabel(value);
+  if (!v) return false;
+  ensureCatalogosSistemaShape();
+  const added = addToCatalogArray(catalogosSistema[catalogKey], v);
+  if (!added) return false;
+  saveCatalogosSistema();
+  syncCatalogosSistemaDesdeMemoria();
+  refreshPlanningCatalogUi();
+  registerUnpublishedDraftMutation();
+  return true;
+}
+
+function addProgramaToCatalog(tipo, nombre) {
+  const t = normalizeCatalogLabel(tipo);
+  const n = normalizeCatalogLabel(nombre);
+  if (!t || !n) return false;
+  if (!programs.some((p) => normalizeCatalogLabel(p.tipo) === t && normalizeCatalogLabel(p.nombre) === n)) {
+    programs.push({ tipo: t, nombre: n });
+  }
+  ensureCatalogosSistemaShape();
+  addToCatalogArray(catalogosSistema.programas, n);
+  if (isPlanningTipoAcademicCatalogOption(t)) addToCatalogArray(catalogosSistema.tipos, t);
+  persistProgramas();
+  saveCatalogosSistema();
+  syncCatalogosSistemaDesdeMemoria();
+  refreshPlanningCatalogUi();
+  renderProgramDropdown(t, n);
+  if (programNameInput) programNameInput.value = n;
+  registerUnpublishedDraftMutation();
+  return true;
+}
+
+function countTipoCatalogDependencies(tipo) {
+  const t = normalizeCatalogLabel(tipo);
+  const campaigns = countPlanningFieldUsage("tipo", t);
+  const programas = programs.filter((p) => normalizeCatalogLabel(p.tipo) === t).length;
+  return { campaigns, programas, total: campaigns + programas };
+}
+
+function getCatalogSelectForKey(catalogKey) {
+  switch (catalogKey) {
+    case "tipo":
+      return programTypeSelect;
+    case "programa":
+      return programNameInput;
+    case "tracking":
+      return trackingSelect;
+    case "plataforma":
+      return plataformaSelect;
+    case "intake":
+      return intakeSelect;
+    case "centroCosto":
+      return document.getElementById("centroCostoSelect");
+    default:
+      return null;
+  }
+}
+
+function getCurrentCatalogValue(catalogKey) {
+  const sel = getCatalogSelectForKey(catalogKey);
+  if (!(sel instanceof HTMLSelectElement)) return "";
+  return normalizeCatalogLabel(sel.value);
+}
+
+function showCatalogTextPrompt(opts) {
+  const overlay = document.getElementById("catalogAdminModalOverlay");
+  const titleEl = document.getElementById("catalogAdminModalTitle");
+  const labelEl = document.getElementById("catalogAdminModalLabel");
+  const inputEl = document.getElementById("catalogAdminModalInput");
+  const errEl = document.getElementById("catalogAdminModalError");
+  const okBtn = document.getElementById("catalogAdminModalOk");
+  const cancelBtn = document.getElementById("catalogAdminModalCancel");
+  if (!overlay || !titleEl || !inputEl || !okBtn || !cancelBtn) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    titleEl.textContent = String(opts.title || "Catálogo");
+    if (labelEl) labelEl.textContent = String(opts.label || "Valor");
+    inputEl.value = String(opts.defaultValue || "");
+    if (errEl) {
+      errEl.textContent = "";
+      errEl.classList.add("hidden");
+    }
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      overlay.classList.add("hidden");
+      overlay.removeEventListener("click", onOverlay);
+      document.removeEventListener("keydown", onKey);
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      inputEl.onkeydown = null;
+      resolve(val);
+    };
+    const onOverlay = (e) => {
+      if (e.target === overlay) finish(null);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        finish(null);
+      }
+    };
+    okBtn.onclick = () => {
+      const v = normalizeCatalogLabel(inputEl.value);
+      if (!isValidCatalogLabel(v)) {
+        if (errEl) {
+          errEl.textContent = "Ingresa un valor válido.";
+          errEl.classList.remove("hidden");
+        }
+        return;
+      }
+      finish(v);
+    };
+    cancelBtn.onclick = () => finish(null);
+    inputEl.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        okBtn.click();
+      }
+    };
+    overlay.addEventListener("click", onOverlay);
+    document.addEventListener("keydown", onKey);
+    overlay.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      inputEl.focus();
+      inputEl.select();
+    });
+  });
+}
+
+async function handleCatalogAdminAction(catalogKey, action) {
+  if (catalogKey === "programa") {
+    const tipo = normalizeCatalogLabel(programTypeSelect?.value);
+    if (!tipo && action !== "add") {
+      void showAppDialog({
+        message: "Selecciona primero un tipo de programa.",
+        primaryText: "Entendido",
+        showSecondary: false
+      });
+      return;
+    }
+    const current = normalizeCatalogLabel(programNameInput?.value);
+
+    if (action === "add") {
+      if (!tipo) {
+        void showAppDialog({
+          message: "Selecciona primero un tipo de programa.",
+          primaryText: "Entendido",
+          showSecondary: false
+        });
+        return;
+      }
+      const nombre = await showCatalogTextPrompt({
+        title: "Agregar programa",
+        label: "Nombre del programa",
+        defaultValue: ""
+      });
+      if (!nombre) return;
+      addProgramaToCatalog(tipo, nombre);
+      showCampatrackToast(`Programa «${nombre}» agregado al catálogo.`, "success");
+      return;
+    }
+
+    if (action === "edit") {
+      if (!current) {
+        void showAppDialog({
+          message: "Selecciona un programa para renombrar.",
+          primaryText: "Entendido",
+          showSecondary: false
+        });
+        return;
+      }
+      const nuevo = await showCatalogTextPrompt({
+        title: "Editar programa",
+        label: "Nuevo nombre (renombre global)",
+        defaultValue: current
+      });
+      if (!nuevo || nuevo === current) return;
+      renameProgramaGlobally(tipo, current, nuevo);
+      showCampatrackToast(`Programa renombrado globalmente a «${nuevo}».`, "success");
+      return;
+    }
+
+    if (action === "delete") {
+      if (!current) {
+        void showAppDialog({
+          message: "Selecciona un programa para eliminar.",
+          primaryText: "Entendido",
+          showSecondary: false
+        });
+        return;
+      }
+      const deps = countProgramaCampaignDependencies(tipo, current);
+      if (deps > 0) {
+        void showAppDialog({
+          message: `No es posible eliminar el programa porque existen campañas registradas asociadas a él.\n\nPrograma: ${current}\nCampañas asociadas: ${deps}`,
+          primaryText: "Entendido",
+          showSecondary: false
+        });
+        return;
+      }
+      const ok = await showAppDialog({
+        message: "¿Desea eliminar este programa?",
+        primaryText: "Sí",
+        secondaryText: "No",
+        showSecondary: true
+      });
+      if (!ok) return;
+      deleteProgramaFromCatalog(tipo, current);
+      showCampatrackToast(`Programa «${current}» eliminado del catálogo.`, "success");
+    }
+    return;
+  }
+
+  if (catalogKey === "centroCosto") {
+    const sel = document.getElementById("centroCostoSelect");
+    const ccId = sel instanceof HTMLSelectElement ? normalizeCentroCostoSelectionValue(sel.value) : "";
+    if (action === "add") {
+      const tid = String(getCurrentTeamId()).trim();
+      if (!tid) return;
+      const id = `cc_${centroCostoIdSeq++}`;
+      const nombre = await showCatalogTextPrompt({
+        title: "Agregar centro de costo",
+        label: "Nombre del centro de costo",
+        defaultValue: ""
+      });
+      if (!nombre) return;
+      centrosCostos.push(
+        normalizeCentroCostoRow({
+          id,
+          teamId: tid,
+          nombre,
+          agrupador: nombre,
+          inversionTotal: 0,
+          estado: "Activo"
+        })
+      );
+      persistCentrosCostos();
+      populateCentroCostoSelect();
+      if (sel instanceof HTMLSelectElement) sel.value = id;
+      updateCentroCostoSaldoHint();
+      registerUnpublishedDraftMutation();
+      showCampatrackToast(`Centro de costo «${nombre}» creado.`, "success");
+      return;
+    }
+    if (!ccId) {
+      void showAppDialog({
+        message: "Selecciona un centro de costo.",
+        primaryText: "Entendido",
+        showSecondary: false
+      });
+      return;
+    }
+    const cc = centrosCostos.find((c) => String(c.id) === ccId);
+    if (!cc) return;
+    if (action === "edit") {
+      const nuevo = await showCatalogTextPrompt({
+        title: "Editar centro de costo",
+        label: "Nuevo nombre",
+        defaultValue: getCentroCostoDisplayName(cc)
+      });
+      if (!nuevo) return;
+      cc.nombre = nuevo;
+      cc.agrupador = nuevo;
+      persistCentrosCostos();
+      populateCentroCostoSelect();
+      if (sel instanceof HTMLSelectElement) sel.value = ccId;
+      registerUnpublishedDraftMutation();
+      showCampatrackToast("Centro de costo actualizado.", "success");
+      return;
+    }
+    if (action === "delete") {
+      const linked = getRecordsLinkedToCentroCostoRow(cc);
+      if (linked.length > 0) {
+        void showAppDialog({
+          message: `No es posible eliminar el centro de costo porque existen campañas registradas asociadas a él.\n\nCentro: ${getCentroCostoDisplayName(cc)}\nCampañas asociadas: ${linked.length}`,
+          primaryText: "Entendido",
+          showSecondary: false
+        });
+        return;
+      }
+      const ok = await showAppDialog({
+        message: "¿Desea eliminar este centro de costo?",
+        primaryText: "Sí",
+        secondaryText: "No",
+        showSecondary: true,
+        primaryDanger: true
+      });
+      if (!ok) return;
+      finalizeDeleteCentroCostoRow(cc.id);
+      populateCentroCostoSelect();
+      showCampatrackToast("Centro de costo eliminado.", "success");
+    }
+    return;
+  }
+
+  const sysKey = CATALOGOS_SISTEMA_KEYS[catalogKey];
+  if (!sysKey) return;
+  const current = getCurrentCatalogValue(catalogKey);
+
+  if (action === "add") {
+    const val = await showCatalogTextPrompt({
+      title: `Agregar ${catalogKey}`,
+      label: "Nuevo valor",
+      defaultValue: ""
+    });
+    if (!val) return;
+    if (catalogKey === "tipo" && !isPlanningTipoAcademicCatalogOption(val)) {
+      void showAppDialog({
+        message: "Tipo de programa no válido para el catálogo académico.",
+        primaryText: "Entendido",
+        showSecondary: false
+      });
+      return;
+    }
+    addSimpleCatalogValue(sysKey, val);
+    const sel = getCatalogSelectForKey(catalogKey);
+    if (sel instanceof HTMLSelectElement) sel.value = val;
+    showCampatrackToast(`Valor «${val}» agregado.`, "success");
+    return;
+  }
+
+  if (!current) {
+    void showAppDialog({
+      message: "Selecciona un valor del catálogo.",
+      primaryText: "Entendido",
+      showSecondary: false
+    });
+    return;
+  }
+
+  if (action === "edit") {
+    const nuevo = await showCatalogTextPrompt({
+      title: `Editar ${catalogKey}`,
+      label: "Nuevo valor (renombre global)",
+      defaultValue: current
+    });
+    if (!nuevo || nuevo === current) return;
+    if (catalogKey === "tipo" && !isPlanningTipoAcademicCatalogOption(nuevo)) {
+      void showAppDialog({
+        message: "Tipo de programa no válido.",
+        primaryText: "Entendido",
+        showSecondary: false
+      });
+      return;
+    }
+    renameSimpleCatalogGlobally(sysKey, current, nuevo);
+    const sel = getCatalogSelectForKey(catalogKey);
+    if (sel instanceof HTMLSelectElement) sel.value = nuevo;
+    showCampatrackToast(`Renombrado global: «${current}» → «${nuevo}».`, "success");
+    return;
+  }
+
+  if (action === "delete") {
+    const field = CATALOG_PLANNING_FIELD[sysKey];
+    let deps = field ? countPlanningFieldUsage(field, current) : 0;
+    if (catalogKey === "tipo") {
+      const tipoDeps = countTipoCatalogDependencies(current);
+      deps = tipoDeps.campaigns;
+      if (tipoDeps.programas > 0 && deps === 0) {
+        void showAppDialog({
+          message: `No es posible eliminar el tipo porque existen programas asociados en el catálogo.\n\nTipo: ${current}\nProgramas asociados: ${tipoDeps.programas}`,
+          primaryText: "Entendido",
+          showSecondary: false
+        });
+        return;
+      }
+    }
+    if (deps > 0) {
+      void showAppDialog({
+        message: `No es posible eliminar el valor porque existen campañas registradas asociadas a él.\n\nValor: ${current}\nCampañas asociadas: ${deps}`,
+        primaryText: "Entendido",
+        showSecondary: false
+      });
+      return;
+    }
+    const ok = await showAppDialog({
+      message: "¿Desea eliminar este valor del catálogo?",
+      primaryText: "Sí",
+      secondaryText: "No",
+      showSecondary: true,
+      primaryDanger: true
+    });
+    if (!ok) return;
+    deleteSimpleCatalogValue(sysKey, current);
+    showCampatrackToast(`«${current}» eliminado del catálogo.`, "success");
+  }
+}
+
+function initCampaignCatalogAdminUi() {
+  document.querySelectorAll("[data-catalog-key][data-catalog-action]").forEach((btn) => {
+    if (btn instanceof HTMLButtonElement && btn.dataset.campatrackCatalogBound === "1") return;
+    if (btn instanceof HTMLButtonElement) {
+      btn.dataset.campatrackCatalogBound = "1";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const key = String(btn.getAttribute("data-catalog-key") || "").trim();
+        const action = String(btn.getAttribute("data-catalog-action") || "").trim();
+        if (!key || !action) return;
+        void handleCatalogAdminAction(key, action);
+      });
+    }
+  });
 }
 
 let percentWeights = Array.from({ length: 12 }, () => 0);
@@ -3387,10 +4179,10 @@ function dateRangesOverlap(fi1, ff1, fi2, ff2) {
 }
 
 function hasIntakeDateOverlap(candidate, excludeId = null) {
-  if (planningTipoSinRestriccionCruceFechas(candidate.tipo)) return false;
+  if (planningRecordSinRestriccionCruceFechas(candidate)) return false;
   return planningDraftRecords().some((r) => {
     if (excludeId != null && samePlanningRecordId(r.id, excludeId)) return false;
-    if (planningTipoSinRestriccionCruceFechas(r.tipo)) return false;
+    if (planningRecordSinRestriccionCruceFechas(r)) return false;
     if (
       r.tipo !== candidate.tipo ||
       r.programa !== candidate.programa ||
@@ -3411,7 +4203,8 @@ function computeMinFechaInicioForForm(excludeId = null) {
   const tracking = trackingSelect?.value || "";
   const plataforma = plataformaSelect?.value || "";
   if (!tipo || !programa || !tracking || !plataforma) return null;
-  if (planningTipoSinRestriccionCruceFechas(tipo)) return null;
+  const categoria = normalizePlanningCategoria(campaignCategoriaSelect?.value || "");
+  if (planningRecordSinRestriccionCruceFechas({ tipo, categoria })) return null;
   let maxEnd = null;
   for (const r of planningDraftRecords()) {
     if (excludeId != null && samePlanningRecordId(r.id, excludeId)) continue;
@@ -3752,6 +4545,7 @@ function computeMonthlyArraysForRecordWithOverrides(record, year) {
 }
 
 function buildRecordRow(record) {
+  ensurePlanningRecordCategoria(record);
   syncRecordDerivedTotalsFromDistribution(record);
   const midx = findPlanningRecordIndexInMerged(record.id);
   if (midx >= 0) syncRecordDerivedTotalsFromDistribution(planningMergedRecordsCache[midx]);
@@ -3816,13 +4610,14 @@ function buildRecordRow(record) {
     .join("");
   row.innerHTML = `
     <td class="sticky-col-tipo planning-sticky-tipo planning-cell-readonly" data-record-id="${rid}"><span class="${planningTipoBadgeClassFromTipo(record.tipo)}">${t(record.tipo)}</span></td>
-    <td class="sticky-col-program group-end planning-sticky-program planning-cell-readonly" data-record-id="${rid}">
+    <td class="sticky-col-program planning-sticky-program planning-cell-readonly" data-record-id="${rid}">
       <span class="planning-campaign-name planning-campaign-name--only">${t(record.programa)}</span>${
         planningExcelModifiedRecordIds.has(rid)
           ? `<span class="planning-excel-import-badge" title="Actualizado desde Excel — cambios pendientes de publicar">Excel</span>`
           : ""
       }
     </td>
+    <td class="sticky-col-categoria group-end planning-sticky-categoria planning-cell-readonly" data-record-id="${rid}"><span class="${planningCategoriaBadgeClass(record.categoria)}">${t(planningCategoriaBadgeLabel(record.categoria))}</span></td>
     ${metaCells}
     ${configCells}
     ${invCells}${leadCells}${cplCells}`;
@@ -4232,38 +5027,83 @@ function scheduleRefreshPlanningStickyColumnWidths() {
   });
 }
 
-function refreshPlanningProgramGroupBands() {
-  if (!planningBody) return;
-  const records = getFilteredRecords();
-  const idToProg = new Map(records.map((r) => [String(r.id), String(r.programa ?? "").trim()]));
-  const rows = [...planningBody.querySelectorAll("tr[data-record-id]")];
+function computePlanningGroupToneByRecordId(records) {
+  const map = new Map();
   let prevKey = null;
   let groupCounter = -1;
-  rows.forEach((tr) => {
-    const id = tr.getAttribute("data-record-id");
-    const key = idToProg.get(String(id)) ?? "";
+  for (const r of records) {
+    const key = String(r.programa ?? "").trim();
     if (prevKey !== key) {
-      groupCounter++;
+      groupCounter += 1;
       prevKey = key;
     }
-    const toneIx = groupCounter % PLANNING_GROUP_TONE_COUNT;
-    for (let k = 0; k < PLANNING_GROUP_TONE_COUNT; k += 1) {
-      tr.classList.remove(`${PLANNING_GROUP_TONE_CLASS_PREFIX}${k}`);
-    }
-    tr.classList.remove("planning-row-group-soft", "planning-row-group-base");
-    tr.classList.add(`${PLANNING_GROUP_TONE_CLASS_PREFIX}${toneIx}`);
+    map.set(String(r.id), groupCounter % PLANNING_GROUP_TONE_COUNT);
+  }
+  return map;
+}
+
+function applyPlanningGroupToneToRow(tr, toneIx) {
+  for (let k = 0; k < PLANNING_GROUP_TONE_COUNT; k += 1) {
+    tr.classList.remove(`${PLANNING_GROUP_TONE_CLASS_PREFIX}${k}`);
+  }
+  tr.classList.remove("planning-row-group-soft", "planning-row-group-base");
+  tr.classList.add(`${PLANNING_GROUP_TONE_CLASS_PREFIX}${toneIx}`);
+}
+
+function refreshPlanningProgramGroupBands() {
+  if (!planningBody) return;
+  if (planningVirtualTable?.isVirtualized?.()) return;
+  const records = getFilteredRecords();
+  const toneById = computePlanningGroupToneByRecordId(records);
+  planningBody.querySelectorAll("tr[data-record-id]").forEach((tr) => {
+    const id = tr.getAttribute("data-record-id");
+    const toneIx = toneById.get(String(id));
+    if (toneIx !== undefined) applyPlanningGroupToneToRow(tr, toneIx);
   });
+}
+
+function planningTableMountFingerprint(records) {
+  const tipo = filterTipo?.value || "";
+  const programaQ =
+    filterPrograma && !filterPrograma.disabled ? (filterPrograma.value || "").trim().toLowerCase() : "";
+  const intake = filterIntake?.value || "";
+  const platEl = document.getElementById("filterPlataformaPlanning");
+  const plat = platEl instanceof HTMLSelectElement ? String(platEl.value || "").trim() : "";
+  const estEl = document.getElementById("filterEstadoPlanning");
+  const estadoFiltro = estEl instanceof HTMLSelectElement ? String(estEl.value || "").trim() : "";
+  const qEl = document.getElementById("planningToolbarSearch");
+  const q = qEl instanceof HTMLInputElement ? String(qEl.value || "").trim().toLowerCase() : "";
+  let sample = "";
+  const step = records.length > 120 ? Math.ceil(records.length / 48) : 1;
+  for (let i = 0; i < records.length; i += step) {
+    const r = records[i];
+    sample += `${r.id}:${r.presupuesto}:${r.leads}:${r.fechaInicio}:${r.fechaFin};`;
+  }
+  return createDashSignature([
+    records.length,
+    selectedRecordId,
+    tipo,
+    programaQ,
+    intake,
+    plat,
+    estadoFiltro,
+    q,
+    sample
+  ]);
 }
 
 function rebuildPlanningTable() {
   if (!planningBody) return;
   console.log("Estado actual planning:", appState.dataDraft.planning.records);
-  planningBody.innerHTML = "";
   updateFilterProgramaState();
   syncSelectionToFilter();
+  const records = getFilteredRecords();
+  const toneById = computePlanningGroupToneByRecordId(records);
   let planningSelectionMarked = false;
-  getFilteredRecords().forEach((record) => {
+  const rowNodes = records.map((record) => {
     const row = buildRecordRow(record);
+    const toneIx = toneById.get(String(record.id));
+    if (toneIx !== undefined) applyPlanningGroupToneToRow(row, toneIx);
     if (
       selectedRecordId != null &&
       !planningSelectionMarked &&
@@ -4272,9 +5112,15 @@ function rebuildPlanningTable() {
       row.classList.add("row-selected");
       planningSelectionMarked = true;
     }
-    planningBody.appendChild(row);
+    return row;
   });
-  refreshPlanningProgramGroupBands();
+  const virt = ensurePlanningVirtualTable();
+  if (virt) {
+    virt.mount(rowNodes, planningTableMountFingerprint(records));
+  } else {
+    planningBody.innerHTML = "";
+    rowNodes.forEach((row) => planningBody.appendChild(row));
+  }
   scheduleRefreshPlanningStickyColumnWidths();
   updateTotalInversion();
   updateActionButtons();
@@ -4283,6 +5129,10 @@ function rebuildPlanningTable() {
 /** Sustituye una sola fila del planning (evita re-render completo tras edición en celda). */
 function replacePlanningRowElement(record) {
   if (!planningBody || !record) return;
+  if (planningVirtualTable?.isVirtualized?.()) {
+    rebuildPlanningTable();
+    return;
+  }
   const oldRow = [...planningBody.querySelectorAll("tr[data-record-id]")].find((tr) =>
     samePlanningRecordId(tr.getAttribute("data-record-id"), record.id)
   );
@@ -4303,9 +5153,17 @@ function getFormValues() {
   const formData = new FormData(campaignForm);
   const centroCostoRaw = String(formData.get("centroCosto") || "").trim();
   const programType = String((programTypeSelect?.value ?? formData.get("programType")) || "").trim();
-  const isAlcance = planningTipoAlcance(programType);
+  const categoria =
+    normalizePlanningCategoria(campaignCategoriaSelect?.value ?? formData.get("categoria")) ||
+    inferPlanningCategoriaFromRecord({
+      tipo: programType,
+      programa: String(formData.get("programName") || "").trim(),
+      tracking: String(formData.get("tracking") || "").trim()
+    });
+  const isCaptacion = categoria === PLANNING_CATEGORIA_CAPTACION;
   return {
     programType,
+    categoria,
     programName: String(formData.get("programName") || "").trim(),
     intake: String(formData.get("intake") || "").trim(),
     tracking: String(formData.get("tracking") || "").trim(),
@@ -4313,8 +5171,8 @@ function getFormValues() {
     startDateValue: String(formData.get("startDate") || ""),
     endDateValue: String(formData.get("endDate") || ""),
     totalBudget: Number(formData.get("totalBudget") || 0),
-    cplTarget: isAlcance ? 0 : Number(formData.get("cplTarget") || 0),
-    targetLeads: isAlcance ? 0 : Math.max(0, Math.round(Number(formData.get("targetLeads") || 0))),
+    cplTarget: isCaptacion ? Number(formData.get("cplTarget") || 0) : 0,
+    targetLeads: isCaptacion ? Math.max(0, Math.round(Number(formData.get("targetLeads") || 0))) : 0,
     centroCosto: normalizeCentroCostoSelectionValue(centroCostoRaw)
   };
 }
@@ -4326,7 +5184,7 @@ function setPresupuestoInputReadonly(readonly) {
 }
 
 function syncPresupuestoFromLeadsCpl() {
-  if (planningTipoAlcance(programTypeSelect?.value || "")) return;
+  if (!campaignFormEsCaptacion()) return;
   if (presupuestoManualMode || !totalBudgetInput || !targetLeadsInput || !cplTargetInput) return;
   const leads = Math.max(0, Math.round(Number(targetLeadsInput.value) || 0));
   const cpl = Number(cplTargetInput.value) || 0;
@@ -4352,7 +5210,7 @@ function updateGastoDiarioDisplay() {
 }
 
 function syncCplFromPresupuestoLeads() {
-  if (planningTipoAlcance(programTypeSelect?.value || "")) return;
+  if (!campaignFormEsCaptacion()) return;
   if (!cplTargetInput || !totalBudgetInput || !targetLeadsInput) return;
   const leads = Math.max(0, Math.round(Number(targetLeadsInput.value) || 0));
   const budget = Number(totalBudgetInput.value) || 0;
@@ -4395,10 +5253,10 @@ function getPlanningRecordIntegrityConflictMessage(candidate, excludeId = null) 
   const s = parseDateInput(candidate.fechaInicio);
   const e = parseDateInput(candidate.fechaFin);
 
-  if (planningTipoCharlaOWebinar(t)) {
+  if (planningRecordEsInformativa(candidate)) {
     if (!s || !e) return "";
-    if (hasCharlaWebinarMismaConfigSolapeFechas(candidate, excludeId)) {
-      return "Ya existe una campaña Charla/Webinar con la misma configuración y un rango de fechas que se solapa.";
+    if (hasInformativaMismaConfigSolapeFechas(candidate, excludeId)) {
+      return "Ya existe una campaña informativa con la misma configuración y un rango de fechas que se solapa.";
     }
     return "";
   }
@@ -4416,7 +5274,7 @@ function getPlanningRecordIntegrityConflictMessage(candidate, excludeId = null) 
       return "Ya existe una campaña idéntica (misma configuración y mismas fechas de inicio y fin).";
     }
 
-    if (!planningTipoAlcance(t) && dateRangesOverlap(candidate.fechaInicio, candidate.fechaFin, r.fechaInicio, r.fechaFin)) {
+    if (!planningRecordSinRestriccionCruceFechas(candidate) && dateRangesOverlap(candidate.fechaInicio, candidate.fechaFin, r.fechaInicio, r.fechaFin)) {
       return "El rango de fechas se cruza con otra campaña equivalente (mismo tipo, programa, plataforma, intake y tracking). Separa los periodos o diferencia algún campo clave.";
     }
   }
@@ -4517,7 +5375,7 @@ function applyManualRedistribution(monthlyDays, editedIndex = null, editedValue 
 }
 
 function recalcFromPercents(values, monthlyDays) {
-  if (planningTipoAlcance(values.programType)) {
+  if (values.categoria && values.categoria !== PLANNING_CATEGORIA_CAPTACION) {
     const weights = percentWeights.map((p, idx) => (monthlyDays[idx] > 0 ? p : 0));
     let monthlyInvestment = distributeBudget(values.totalBudget, weights);
     if (formPreviewInvOverride.some((x) => x != null && x !== undefined)) {
@@ -4683,7 +5541,7 @@ function hydrateEditPreviewFromRecord(record) {
   const monthlyInvestment = calc.monthlyInvestment.map((x) => Number(x) || 0);
   let monthlyLeads = calc.monthlyLeads.map((x) => Math.max(0, Math.round(Number(x) || 0)));
   let monthlyCpl = calc.monthlyCpl.slice();
-  if (planningTipoAlcance(record.tipo)) {
+  if (!planningRecordRequiresLeadMetrics(record)) {
     monthlyLeads = Array.from({ length: 12 }, () => 0);
     monthlyCpl = Array.from({ length: 12 }, () => 0);
     formPreviewLeadsOverride = Array.from({ length: 12 }, () => null);
@@ -4702,7 +5560,13 @@ function hydrateEditPreviewFromRecord(record) {
     monthlyLeads,
     monthlyCpl
   };
-  renderPreview(monthlyDays, visibleMonths, monthlyInvestment, monthlyLeads, planningTipoAlcance(record.tipo));
+  renderPreview(
+    monthlyDays,
+    visibleMonths,
+    monthlyInvestment,
+    monthlyLeads,
+    !planningRecordRequiresLeadMetrics(record)
+  );
   setPercentHint();
   updateCentroCostoSaldoHint();
   editCampaignBaselineDates = {
@@ -4799,7 +5663,7 @@ function updatePreview(options = {}) {
     visibleMonths,
     calc.monthlyInvestment,
     calc.monthlyLeads,
-    planningTipoAlcance(values.programType)
+    values.categoria !== PLANNING_CATEGORIA_CAPTACION
   );
   if (syncBudgetFromPreview && totalBudgetInput) {
     const totalDistribuido = Math.round(
@@ -4909,8 +5773,9 @@ function openModal() {
   const selCc = document.getElementById("centroCostoSelect");
   if (selCc) selCc.value = "";
   updateCentroCostoSaldoHint();
+  if (campaignCategoriaSelect) campaignCategoriaSelect.value = PLANNING_CATEGORIA_CAPTACION;
   updatePreview({ resetAll: true });
-  updateCampaignFormAlcanceMode();
+  updateCampaignFormCategoriaMode();
   syncPresupuestoFromLeadsCpl();
 }
 
@@ -5297,7 +6162,8 @@ programTypeSelect?.addEventListener("change", () => {
     }
   }
   if (tipo) renderProgramDropdown(tipo, "");
-  updateCampaignFormAlcanceMode();
+  syncCampaignCategoriaFromFormContext();
+  updateCampaignFormCategoriaMode();
   if (editingRecordId != null) {
     updatePreview();
   } else {
@@ -5306,17 +6172,16 @@ programTypeSelect?.addEventListener("change", () => {
   updateCplHistoricoPlanningForm();
 });
 
-trackingSelect?.addEventListener("change", () => updateCplHistoricoPlanningForm());
+trackingSelect?.addEventListener("change", () => {
+  syncCampaignCategoriaFromFormContext();
+  updateCampaignFormCategoriaMode();
+  updateCplHistoricoPlanningForm();
+});
 plataformaSelect?.addEventListener("change", () => updateCplHistoricoPlanningForm());
-
-newProgramBtn?.addEventListener("click", () => {
-  const tipo = programTypeSelect?.value || "";
-  if (!tipo) return;
-  if (!programEditMode) {
-    enterProgramEditMode();
-    return;
-  }
-  commitProgramDraftFromEditor();
+campaignCategoriaSelect?.addEventListener("change", () => {
+  updateCampaignFormCategoriaMode();
+  if (editingRecordId != null) updatePreview();
+  else updatePreview({ resetAll: true });
 });
 
 programNameInput?.addEventListener("change", () => {
@@ -5444,12 +6309,12 @@ campaignForm?.addEventListener("submit", (event) => {
 
     const { values } = lastPreview;
 
-    if (!values.programType || !values.programName || !values.intake || !values.tracking || !values.plataforma) {
+    if (!values.programType || !values.programName || !values.intake || !values.tracking || !values.plataforma || !values.categoria) {
       showFormError("Completa todos los campos obligatorios.");
       return;
     }
 
-    if (planningTipoAlcance(values.programType)) {
+    if (values.categoria !== PLANNING_CATEGORIA_CAPTACION) {
       if (!(Number.isFinite(values.totalBudget) && values.totalBudget > 0)) {
         showFormError("Indica un presupuesto total mayor que 0.");
         return;
@@ -5458,6 +6323,7 @@ campaignForm?.addEventListener("submit", (event) => {
 
     const candidate = {
       tipo: values.programType,
+      categoria: values.categoria,
       programa: values.programName,
       intake: values.intake,
       fechaInicio: values.startDateValue,
@@ -5487,6 +6353,7 @@ campaignForm?.addEventListener("submit", (event) => {
       id: newPlanningRecordId(),
       teamId: getCurrentTeamId(),
       tipo: candidate.tipo,
+      categoria: values.categoria,
       programa: candidate.programa,
       intake: candidate.intake,
       fechaInicio: candidate.fechaInicio,
@@ -5496,7 +6363,7 @@ campaignForm?.addEventListener("submit", (event) => {
       centroCosto: normalizeCentroCostoSelectionValue(values.centroCosto || ""),
       centroCostoId: normalizeCentroCostoSelectionValue(values.centroCosto || ""),
       presupuesto: values.totalBudget,
-      leads: planningTipoAlcance(candidate.tipo) ? 0 : values.targetLeads,
+      leads: values.categoria === PLANNING_CATEGORIA_CAPTACION ? values.targetLeads : 0,
       metas: {
         leads: "",
         interesados: "",
@@ -5523,6 +6390,7 @@ campaignForm?.addEventListener("submit", (event) => {
 
     campaignForm.reset();
     if (programTypeSelect) programTypeSelect.value = "";
+    if (campaignCategoriaSelect) campaignCategoriaSelect.value = "";
     if (programNameInput) {
       programNameInput.value = "";
       programNameInput.disabled = true;
@@ -5619,7 +6487,7 @@ function initCampaignPreviewBudgetEdit() {
   previewBody?.addEventListener("dblclick", (e) => {
     const td = e.target.closest(".preview-leads-cell");
     if (!td || !(td instanceof HTMLTableCellElement)) return;
-    if (planningTipoAlcance(programTypeSelect?.value || "")) return;
+    if (!campaignFormEsCaptacion()) return;
     if (td.querySelector("input")) return;
     if (!lastPreview) return;
     const monthIdx = Number(td.getAttribute("data-preview-month-lead"));
@@ -5697,12 +6565,12 @@ planningBody?.addEventListener("click", (event) => {
   if (idAttr == null || idAttr === "") return;
   if (samePlanningRecordId(selectedRecordId, idAttr)) {
     selectedRecordId = null;
-    planningBody.querySelectorAll("tr[data-record-id]").forEach((row) => {
+    planningBody.querySelectorAll("tr[data-record-id].row-selected").forEach((row) => {
       row.classList.remove("row-selected");
     });
   } else {
     selectedRecordId = idAttr;
-    planningBody.querySelectorAll("tr[data-record-id]").forEach((row) => {
+    planningBody.querySelectorAll("tr[data-record-id].row-selected").forEach((row) => {
       row.classList.remove("row-selected");
     });
     tr.classList.add("row-selected");
@@ -5987,6 +6855,7 @@ function createBitacoraRow() {
     fecha: bitacoraNowDatetimeLocalValue(),
     tipo: "",
     programa: "",
+    programas_afectados: [],
     cambios: "",
     observaciones: "",
     titulo: "",
@@ -5994,6 +6863,15 @@ function createBitacoraRow() {
     importante: false,
     teamId: String(getCurrentTeamId() || "").trim()
   });
+}
+
+function getBitacoraProgramasAfectados(row) {
+  const fromArray = Array.isArray(row?.programas_afectados)
+    ? row.programas_afectados.map((x) => String(x || "").trim()).filter(Boolean)
+    : [];
+  if (fromArray.length) return [...new Set(fromArray)];
+  const legacy = String(row?.programa || "").trim();
+  return legacy ? [legacy] : [];
 }
 
 function normalizeBitacoraRow(row) {
@@ -6014,11 +6892,20 @@ function normalizeBitacoraRow(row) {
       .trim() === "true";
   const tidRaw = row?.teamId != null ? String(row.teamId).trim() : "";
   const teamId = tidRaw ? resolveCampatrackTeamId(tidRaw) || tidRaw : "";
+  let programasAfectados = Array.isArray(row?.programas_afectados)
+    ? [...new Set(row.programas_afectados.map((x) => String(x || "").trim()).filter(Boolean))]
+    : [];
+  const legacyPrograma = String(row?.programa || "").trim();
+  if (!programasAfectados.length && legacyPrograma) {
+    programasAfectados = [legacyPrograma];
+  }
+  const programa = programasAfectados[0] || legacyPrograma || "";
   return {
     id: safeId,
     fecha: String(row?.fecha || ""),
     tipo: String(row?.tipo || ""),
-    programa: String(row?.programa || ""),
+    programa,
+    programas_afectados: programasAfectados,
     cambios: String(row?.cambios || ""),
     observaciones: String(row?.observaciones || ""),
     titulo: String(row?.titulo || "").trim(),
@@ -6037,10 +6924,14 @@ function bitacoraRowDateYmd(row) {
 function bitacoraDisplayTitulo(row) {
   const t = String(row?.titulo || "").trim();
   if (t) return t;
-  const prog = String(row?.programa || "").trim();
+  const progs = getBitacoraProgramasAfectados(row);
   const tipo = String(row?.tipo || "").trim();
-  if (prog && tipo) return `${prog} – ${tipo}`;
-  return prog || tipo || "Sin título";
+  if (progs.length && tipo) {
+    const progLabel = progs.length > 1 ? progs.join(", ") : progs[0];
+    return `${progLabel} – ${tipo}`;
+  }
+  if (progs.length) return progs.length > 1 ? progs.join(", ") : progs[0];
+  return tipo || "Sin título";
 }
 
 function bitacoraImpactoLabel(code) {
@@ -6092,19 +6983,26 @@ function hydratarBitacoraData() {
   }
 }
 
-function getBitacoraProgramOptions() {
+function getBitacoraProgramasByTipo(tipo) {
+  const t = String(tipo || "").trim();
+  if (!t) return [];
   const unique = new Set();
-  (catalogosSistema.programas || []).forEach((x) => {
-    const value = String(x || "").trim();
-    if (value) unique.add(value);
-  });
   programs.forEach((p) => {
-    const value = String(p?.nombre || "").trim();
-    if (value) unique.add(value);
+    if (String(p?.tipo || "").trim() === t) {
+      const n = String(p?.nombre || "").trim();
+      if (n) unique.add(n);
+    }
   });
   planningDraftRecords().forEach((r) => {
-    const value = String(r?.programa || "").trim();
-    if (value) unique.add(value);
+    if (String(r?.tipo || "").trim() === t) {
+      const n = String(r?.programa || "").trim();
+      if (n) unique.add(n);
+    }
+  });
+  bitacoraData.forEach((row) => {
+    if (String(row?.tipo || "").trim() === t) {
+      getBitacoraProgramasAfectados(row).forEach((n) => unique.add(n));
+    }
   });
   return Array.from(unique).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
 }
@@ -6132,8 +7030,10 @@ function bitacoraRowPasaFiltros(row) {
   )
     return false;
   if (bitacoraFiltros.tipo && String(row?.tipo || "") !== bitacoraFiltros.tipo) return false;
-  const qProg = String(bitacoraFiltros.programa || "").trim().toLowerCase();
-  if (qProg && !String(row?.programa || "").toLowerCase().includes(qProg)) return false;
+  if (bitacoraFiltros.programa) {
+    const progs = getBitacoraProgramasAfectados(row);
+    if (!progs.includes(bitacoraFiltros.programa)) return false;
+  }
   const ymd = bitacoraRowDateYmd(row);
   const fecha = parseDateInput(ymd);
   if (bitacoraFiltros.fechaInicio) {
@@ -6147,6 +7047,19 @@ function bitacoraRowPasaFiltros(row) {
   return true;
 }
 
+function renderBitacoraFiltroProgramaSelect() {
+  if (!(bitacoraFiltroProgramaSelect instanceof HTMLSelectElement)) return;
+  const tipo = String(bitacoraFiltros.tipo || "").trim();
+  bitacoraFiltroProgramaSelect.disabled = !tipo;
+  const current = String(bitacoraFiltros.programa || "").trim();
+  const opts = tipo ? getBitacoraProgramasByTipo(tipo) : [];
+  bitacoraFiltroProgramaSelect.innerHTML = `<option value="">${tipo ? "Todos los programas" : "Selecciona tipo primero"}</option>${opts
+    .map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`)
+    .join("")}`;
+  if (current && !opts.includes(current)) bitacoraFiltros.programa = "";
+  bitacoraFiltroProgramaSelect.value = bitacoraFiltros.programa || "";
+}
+
 function renderBitacoraTipoSelect() {
   if (!bitacoraFiltroTipoSelect) return;
   const options = getBitacoraTipoOptions();
@@ -6157,6 +7070,7 @@ function renderBitacoraTipoSelect() {
       .join("")}`;
   bitacoraFiltroTipoSelect.value = options.includes(current) ? current : "";
   refreshBitacoraFormTipoOptions();
+  renderBitacoraFiltroProgramaSelect();
 }
 
 function initBitacoraDateRangePicker() {
@@ -6258,13 +7172,11 @@ function formatBitacoraRangeInputValue(start, end) {
 
 function formatearFechaBitacora(fecha) {
   const raw = String(fecha || "").trim();
-  const m = raw.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{1,2}):(\d{2})/);
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
   if (m) {
     const d = parseDateInput(m[1]);
     if (d) {
-      const hh = String(m[2]).padStart(2, "0");
-      const mm = String(m[3]).padStart(2, "0");
-      return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${hh}:${mm}`;
+      return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
     }
   }
   const f = parseDateInput(raw);
@@ -6293,14 +7205,63 @@ function refreshBitacoraFormTipoOptions() {
   bitacoraFormTipo.value = opts.includes(current) ? current : "";
 }
 
-function refreshBitacoraFormProgramaOptions() {
-  if (!(bitacoraFormPrograma instanceof HTMLSelectElement)) return;
-  const current = String(bitacoraFormPrograma.value || "").trim();
-  const opts = getBitacoraProgramOptions();
-  bitacoraFormPrograma.innerHTML = `<option value="">Selecciona programa</option>${opts
-    .map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`)
-    .join("")}`;
-  bitacoraFormPrograma.value = opts.includes(current) ? current : "";
+function getBitacoraFormProgramasSeleccionados() {
+  if (!bitacoraFormProgramasWrap) return [];
+  return [...bitacoraFormProgramasWrap.querySelectorAll(".bitacora-programas-check-input:checked")]
+    .map((el) => String(el.value || "").trim())
+    .filter(Boolean);
+}
+
+function refreshBitacoraFormProgramasChecklist(selectedProgramas = null) {
+  if (!bitacoraFormProgramasWrap) return;
+  const tipo = bitacoraFormTipo instanceof HTMLSelectElement ? String(bitacoraFormTipo.value || "").trim() : "";
+  const selectedSet =
+    selectedProgramas === null
+      ? new Set(getBitacoraFormProgramasSeleccionados())
+      : new Set(selectedProgramas.map((p) => String(p || "").trim()).filter(Boolean));
+  if (!tipo) {
+    bitacoraFormProgramasWrap.innerHTML =
+      `<p class="bitacora-programas-checklist-hint">Selecciona tipo de programa primero</p>`;
+    return;
+  }
+  const opts = getBitacoraProgramasByTipo(tipo);
+  if (!opts.length) {
+    bitacoraFormProgramasWrap.innerHTML = `<p class="bitacora-programas-checklist-hint">No hay programas para este tipo</p>`;
+    return;
+  }
+  bitacoraFormProgramasWrap.innerHTML = opts
+    .map((p, i) => {
+      const checked = selectedSet.has(p) ? " checked" : "";
+      return `<label class="bitacora-programas-check-item"><input type="checkbox" class="bitacora-programas-check-input" id="bitacoraFormProg_${i}" value="${escapeHtml(p)}"${checked} /><span>${escapeHtml(p)}</span></label>`;
+    })
+    .join("");
+}
+
+function renderBitacoraRowProgramasHtml(progs) {
+  if (!progs.length) return `<span class="bitacora-row-programas bitacora-row-programas--empty">—</span>`;
+  if (progs.length === 1) {
+    return `<span class="bitacora-row-programas bitacora-row-programas--single">${escapeHtml(progs[0])}</span>`;
+  }
+  return `<div class="bitacora-row-programas bitacora-row-programas--multi">${progs
+    .map((p) => `<span class="bitacora-chip bitacora-chip--programa">${escapeHtml(p)}</span>`)
+    .join("")}</div>`;
+}
+
+function openBitacoraFormModal(isEdit = false) {
+  if (bitacoraModalTitle) bitacoraModalTitle.textContent = isEdit ? "Editar entrada" : "Registrar entrada";
+  bitacoraFormModalOverlay?.classList.remove("hidden");
+  document.body.classList.add("bitacora-modal-open");
+  if (bitacoraFormFecha instanceof HTMLInputElement && !isEdit) {
+    bitacoraFormFecha.focus();
+  } else {
+    bitacoraFormCambios?.focus();
+  }
+}
+
+function closeBitacoraFormModal() {
+  bitacoraFormModalOverlay?.classList.add("hidden");
+  document.body.classList.remove("bitacora-modal-open");
+  resetBitacoraEntryForm();
 }
 
 function updateBitacoraCharCount() {
@@ -6312,16 +7273,14 @@ function updateBitacoraCharCount() {
 function resetBitacoraEntryForm() {
   bitacoraEditingId = null;
   if (bitacoraFormFecha instanceof HTMLInputElement) bitacoraFormFecha.value = bitacoraNowDatetimeLocalValue();
-  if (bitacoraFormPrograma instanceof HTMLSelectElement) bitacoraFormPrograma.value = "";
   if (bitacoraFormTipo instanceof HTMLSelectElement) bitacoraFormTipo.value = "";
   if (bitacoraFormImpacto instanceof HTMLSelectElement) bitacoraFormImpacto.value = "";
   if (bitacoraFormCambios instanceof HTMLTextAreaElement) bitacoraFormCambios.value = "";
   if (bitacoraFormImportante instanceof HTMLInputElement) bitacoraFormImportante.checked = false;
   if (bitacoraGuardarEntradaLabel) bitacoraGuardarEntradaLabel.textContent = "Guardar entrada";
-  bitacoraCancelarEdicionBtn?.classList.add("hidden");
   bitacoraFormModeLabel?.classList.add("hidden");
   refreshBitacoraFormTipoOptions();
-  refreshBitacoraFormProgramaOptions();
+  refreshBitacoraFormProgramasChecklist([]);
   updateBitacoraCharCount();
 }
 
@@ -6337,18 +7296,16 @@ function fillBitacoraEntryFormFromRow(rowId) {
     if (d) dtVal = `${formatDateInputFromDate(d)}T12:00`;
   }
   if (bitacoraFormFecha instanceof HTMLInputElement) bitacoraFormFecha.value = dtVal.slice(0, 16);
-  refreshBitacoraFormProgramaOptions();
   refreshBitacoraFormTipoOptions();
-  if (bitacoraFormPrograma instanceof HTMLSelectElement) bitacoraFormPrograma.value = String(row.programa || "");
   if (bitacoraFormTipo instanceof HTMLSelectElement) bitacoraFormTipo.value = String(row.tipo || "");
+  refreshBitacoraFormProgramasChecklist(getBitacoraProgramasAfectados(row));
   if (bitacoraFormImpacto instanceof HTMLSelectElement) bitacoraFormImpacto.value = String(row.impacto || "");
   if (bitacoraFormCambios instanceof HTMLTextAreaElement) bitacoraFormCambios.value = String(row.cambios || "");
   if (bitacoraFormImportante instanceof HTMLInputElement) bitacoraFormImportante.checked = Boolean(row.importante);
   if (bitacoraGuardarEntradaLabel) bitacoraGuardarEntradaLabel.textContent = "Actualizar entrada";
-  bitacoraCancelarEdicionBtn?.classList.remove("hidden");
   bitacoraFormModeLabel?.classList.remove("hidden");
   updateBitacoraCharCount();
-  bitacoraFormCambios?.focus();
+  openBitacoraFormModal(true);
 }
 
 function guardarBitacoraDesdeFormulario() {
@@ -6359,7 +7316,7 @@ function guardarBitacoraDesdeFormulario() {
     return;
   }
   const fecha = String(bitacoraFormFecha.value || "").trim();
-  const programa = bitacoraFormPrograma instanceof HTMLSelectElement ? String(bitacoraFormPrograma.value || "").trim() : "";
+  const programasAfectados = getBitacoraFormProgramasSeleccionados();
   const tipo = bitacoraFormTipo instanceof HTMLSelectElement ? String(bitacoraFormTipo.value || "").trim() : "";
   const impacto = bitacoraFormImpacto instanceof HTMLSelectElement ? String(bitacoraFormImpacto.value || "").trim() : "";
   const cambios = bitacoraFormCambios instanceof HTMLTextAreaElement ? String(bitacoraFormCambios.value || "") : "";
@@ -6369,19 +7326,25 @@ function guardarBitacoraDesdeFormulario() {
     return;
   }
   if (!tipo) {
-    void showAppDialog({ message: "Selecciona el tipo de cambio.", primaryText: "Entendido", showSecondary: false });
+    void showAppDialog({ message: "Selecciona el tipo de programa.", primaryText: "Entendido", showSecondary: false });
+    return;
+  }
+  if (!programasAfectados.length) {
+    void showAppDialog({ message: "Selecciona al menos un programa afectado.", primaryText: "Entendido", showSecondary: false });
     return;
   }
   if (!String(cambios).trim()) {
     void showAppDialog({ message: "Describe el cambio o mejora realizada.", primaryText: "Entendido", showSecondary: false });
     return;
   }
-  const titulo = programa && tipo ? `${programa} – ${tipo}` : programa || tipo || "";
+  const progLabel = programasAfectados.length > 1 ? programasAfectados.join(", ") : programasAfectados[0];
+  const titulo = progLabel && tipo ? `${progLabel} – ${tipo}` : progLabel || tipo || "";
   const payload = normalizeBitacoraRow({
     id: bitacoraEditingId || `bit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
     fecha,
     tipo,
-    programa,
+    programa: programasAfectados[0] || "",
+    programas_afectados: programasAfectados,
     cambios: cambios.slice(0, BITACORA_CAMBIOS_MAX),
     observaciones: "",
     titulo,
@@ -6407,13 +7370,20 @@ function guardarBitacoraDesdeFormulario() {
   }
   sortBitacoraRowsNewestFirst(bitacoraData);
   persistBitacoraData();
-  resetBitacoraEntryForm();
+  closeBitacoraFormModal();
   bitacoraPageIndex = 1;
   renderBitacoraTable();
 }
 
 function exportarBitacoraJsonFiltrado() {
-  const rows = bitacoraData.filter(bitacoraRowPasaFiltros).map((r) => ({ ...r }));
+  const rows = bitacoraData.filter(bitacoraRowPasaFiltros).map((r) => {
+    const normalized = normalizeBitacoraRow(r);
+    const progs = getBitacoraProgramasAfectados(normalized);
+    return {
+      ...normalized,
+      programas_export: progs.join("; ")
+    };
+  });
   const blob = new Blob([JSON.stringify({ bitacora_data: rows }, null, 2)], { type: "application/json;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -6464,14 +7434,14 @@ function renderBitacoraTable() {
   renderBitacoraTipoSelect();
   const filtered = bitacoraData.filter(bitacoraRowPasaFiltros);
   const sorted = ordenarBitacoraRowsParaVista(filtered);
-  const pageSize = Math.max(1, Math.min(100, Number(bitacoraPageSizeSelect?.value) || 10));
+  const pageSize = Math.max(1, Math.min(100, Number(bitacoraPageSizeSelect?.value) || 16));
   const total = sorted.length;
   renderBitacoraPagination(total, pageSize);
   const start = (bitacoraPageIndex - 1) * pageSize;
   const pageRows = sorted.slice(start, start + pageSize);
 
   if (!bitacoraData.length) {
-    bitacoraTimelineList.innerHTML = `<div class="bitacora-timeline-empty">Sin entradas aún. Completa el formulario superior y pulsa <strong>Guardar entrada</strong>.</div>`;
+    bitacoraTimelineList.innerHTML = `<div class="bitacora-timeline-empty">Sin entradas aún. Pulsa <strong>Registrar entrada</strong> para documentar un cambio o mejora.</div>`;
     return;
   }
   if (!filtered.length) {
@@ -6482,10 +7452,11 @@ function renderBitacoraTable() {
   bitacoraTimelineList.innerHTML = pageRows
     .map((row, i) => {
       const id = escapeHtml(row.id);
-      const titulo = escapeHtml(bitacoraDisplayTitulo(row));
       const fechaStr = escapeHtml(formatearFechaBitacora(row.fecha));
+      const fechaIso = escapeHtml(String(row.fecha || "").trim());
+      const progs = getBitacoraProgramasAfectados(row);
+      const programasHtml = renderBitacoraRowProgramasHtml(progs);
       const tipo = escapeHtml(row.tipo || "");
-      const prog = escapeHtml(row.programa || "");
       const descRaw = [row.cambios, row.observaciones].filter(Boolean).join("\n\n");
       const descHtml = escapeHtml(descRaw).replaceAll("\n", "<br>");
       const imp = String(row.impacto || "").toLowerCase();
@@ -6495,24 +7466,21 @@ function renderBitacoraTable() {
           ? `<span class="bitacora-chip bitacora-chip--impacto bitacora-chip--impacto-${escapeHtml(imp)}">${escapeHtml(impLabel)}</span>`
           : "";
       const impBadge = row.importante ? `<span class="bitacora-badge-importante"><i class="fa-solid fa-star" aria-hidden="true"></i> Importante</span>` : "";
-      const tipoChip = tipo ? `<span class="bitacora-chip bitacora-chip--tipo">${tipo}</span>` : "";
-      const progChip = prog ? `<span class="bitacora-chip bitacora-chip--programa">${prog}</span>` : "";
+      const metaHtml = [impBadge, impChip].filter(Boolean).join("");
+      const tipoCell = tipo ? `<span class="bitacora-row-tipo-code">${tipo}</span>` : `<span class="bitacora-row-tipo-code bitacora-row-tipo-code--empty">—</span>`;
       const delay = Math.min(320, 40 + i * 36);
       return `
-      <article class="bitacora-card bitacora-card-enter" style="--bitacora-card-delay:${delay}ms" data-bitacora-card-id="${id}">
-        <div class="bitacora-card-track" aria-hidden="true"><span class="bitacora-card-node"></span></div>
-        <div class="bitacora-card-time">${fechaStr}</div>
-        <div class="bitacora-card-main">
-          <div class="bitacora-card-headrow">
-            <h4 class="bitacora-card-title">${titulo}</h4>
-            <div class="bitacora-card-actions">
-              <button type="button" class="bitacora-card-icon-btn" data-bitacora-edit-id="${id}" title="Editar" aria-label="Editar entrada"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
-              <button type="button" class="bitacora-card-icon-btn bitacora-card-icon-btn--danger" data-bitacora-delete-id="${id}" title="Eliminar" aria-label="Eliminar entrada"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
-            </div>
-          </div>
-          ${impBadge ? `<div class="bitacora-card-badges-top">${impBadge}</div>` : ""}
-          <div class="bitacora-card-desc">${descHtml || "&nbsp;"}</div>
-          <div class="bitacora-card-chips">${tipoChip}${progChip}${impChip}</div>
+      <article class="bitacora-row bitacora-row-enter" style="--bitacora-row-delay:${delay}ms" data-bitacora-row-id="${id}">
+        <time class="bitacora-row-fecha" datetime="${fechaIso}">${fechaStr}</time>
+        <div class="bitacora-row-col-tipo">${tipoCell}</div>
+        <div class="bitacora-row-col-programas">${programasHtml}</div>
+        <div class="bitacora-row-col-desc">
+          <div class="bitacora-row-desc">${descHtml || "&nbsp;"}</div>
+          ${metaHtml ? `<div class="bitacora-row-meta">${metaHtml}</div>` : ""}
+        </div>
+        <div class="bitacora-row-actions">
+          <button type="button" class="bitacora-row-icon-btn" data-bitacora-edit-id="${id}" title="Editar" aria-label="Editar entrada"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
+          <button type="button" class="bitacora-row-icon-btn bitacora-row-icon-btn--danger" data-bitacora-delete-id="${id}" title="Eliminar" aria-label="Eliminar entrada"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
         </div>
       </article>`;
     })
@@ -6530,19 +7498,34 @@ try {
 function initBitacoraModule() {
   hydratarBitacoraData();
   initBitacoraDateRangePicker();
-  if (bitacoraFiltroProgramaInput) bitacoraFiltroProgramaInput.value = bitacoraFiltros.programa;
+  renderBitacoraFiltroProgramaSelect();
   if (bitacoraFechaRangoPicker && bitacoraFiltros.fechaInicio && bitacoraFiltros.fechaFin) {
     bitacoraFechaRangoPicker.setDate([bitacoraFiltros.fechaInicio, bitacoraFiltros.fechaFin], true, "Y-m-d");
   } else if (bitacoraFechaRangoInput) {
     bitacoraFechaRangoInput.value = formatBitacoraRangeInputValue(bitacoraFiltros.fechaInicio, bitacoraFiltros.fechaFin);
   }
-  resetBitacoraEntryForm();
-  refreshBitacoraFormProgramaOptions();
   renderBitacoraTable();
 
+  bitacoraRegistrarEntradaBtn?.addEventListener("click", () => {
+    resetBitacoraEntryForm();
+    openBitacoraFormModal(false);
+  });
+  bitacoraFormModalClose?.addEventListener("click", () => closeBitacoraFormModal());
+  bitacoraFormModalOverlay?.addEventListener("click", (e) => {
+    if (e.target === bitacoraFormModalOverlay) closeBitacoraFormModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!bitacoraFormModalOverlay || bitacoraFormModalOverlay.classList.contains("hidden")) return;
+    closeBitacoraFormModal();
+  });
+
   bitacoraGuardarEntradaBtn?.addEventListener("click", () => guardarBitacoraDesdeFormulario());
-  bitacoraCancelarEdicionBtn?.addEventListener("click", () => resetBitacoraEntryForm());
+  bitacoraCancelarEdicionBtn?.addEventListener("click", () => closeBitacoraFormModal());
   bitacoraFormCambios?.addEventListener("input", () => updateBitacoraCharCount());
+  bitacoraFormTipo?.addEventListener("change", () => {
+    refreshBitacoraFormProgramasChecklist([]);
+  });
 
   bitacoraTimelineList?.addEventListener("click", (event) => {
     const editBtn = event.target.closest("[data-bitacora-edit-id]");
@@ -6558,7 +7541,7 @@ function initBitacoraModule() {
       const rowIndex = findBitacoraRowIndex(rowId);
       if (rowIndex < 0) return;
       bitacoraData.splice(rowIndex, 1);
-      if (String(bitacoraEditingId || "") === String(rowId)) resetBitacoraEntryForm();
+      if (String(bitacoraEditingId || "") === String(rowId)) closeBitacoraFormModal();
       persistBitacoraData();
       renderBitacoraTable();
     }
@@ -6579,7 +7562,11 @@ function initBitacoraModule() {
     bitacoraFiltros.fechaInicio = "";
     bitacoraFiltros.fechaFin = "";
     if (bitacoraFiltroTipoSelect instanceof HTMLSelectElement) bitacoraFiltroTipoSelect.value = "";
-    if (bitacoraFiltroProgramaInput instanceof HTMLInputElement) bitacoraFiltroProgramaInput.value = "";
+    if (bitacoraFiltroProgramaSelect instanceof HTMLSelectElement) {
+      bitacoraFiltroProgramaSelect.value = "";
+      bitacoraFiltroProgramaSelect.disabled = true;
+    }
+    renderBitacoraFiltroProgramaSelect();
     if (bitacoraFechaRangoPicker) bitacoraFechaRangoPicker.clear();
     else if (bitacoraFechaRangoInput) bitacoraFechaRangoInput.value = "";
     bitacoraPageIndex = 1;
@@ -6598,14 +7585,16 @@ function initBitacoraModule() {
     renderBitacoraTable();
   });
 
-  bitacoraFiltroProgramaInput?.addEventListener("input", (event) => {
-    bitacoraFiltros.programa = event.target instanceof HTMLInputElement ? event.target.value : "";
+  bitacoraFiltroProgramaSelect?.addEventListener("change", (event) => {
+    bitacoraFiltros.programa = event.target instanceof HTMLSelectElement ? event.target.value : "";
     bitacoraPageIndex = 1;
     renderBitacoraTable();
   });
 
   bitacoraFiltroTipoSelect?.addEventListener("change", (event) => {
     bitacoraFiltros.tipo = event.target instanceof HTMLSelectElement ? event.target.value : "";
+    bitacoraFiltros.programa = "";
+    renderBitacoraFiltroProgramaSelect();
     bitacoraPageIndex = 1;
     renderBitacoraTable();
   });
@@ -6767,7 +7756,7 @@ function renderCplHistoricoHintTable(monthLabels, cpls, prom) {
 
 function updateCplHistoricoPlanningForm() {
   if (!cplHistoricoHint) return;
-  if (planningTipoAlcance(programTypeSelect?.value || "")) {
+  if (!campaignFormEsCaptacion()) {
     renderCplHistoricoHintMessage("");
     return;
   }
@@ -6986,6 +7975,12 @@ let crmRelacionesSearchQuery = "";
 let crmRelFiltroPlataforma = "";
 let crmRelFiltroEstadoRel = "";
 let crmRelFiltroIntake = "";
+let crmRelFiltroTracking = "";
+/** Ocultar Alcance/Charla/Webinar/Brand/Competence_Search_Tráfico en lista Planning CRM (solo vista). */
+let crmRelOcultarBranding = true;
+let crmRelFilteredPlanningCache = null;
+const SS_CRM_REL_OCULTAR_BRANDING = "crm_rel_ocultar_branding";
+const SS_CRM_REL_FILTRO_TRACKING = "crm_rel_filtro_tracking";
 let relKpiSessionBaseline = null;
 let modeloAnalitico = [];
 let estadoFiltros = { tipo: null, programa: null, intake: null, tracking: null };
@@ -7015,10 +8010,6 @@ let dashCrmPkMapCache = null;
 let dashCrmPkMapRelLen = -1;
 const dashMainChartGate = createDashRenderGate();
 const dashCrmCompareChartGate = createDashRenderGate();
-/** @type {ReturnType<createDashVirtualTbody> | null} */
-let dashPlatVirtualTable = null;
-/** @type {ReturnType<createDashVirtualTbody> | null} */
-let dashCrmVirtualTable = null;
 
 function invalidateDashboardQueryCache() {
   dashModeloIndexGen += 1;
@@ -7082,7 +8073,15 @@ function ensureDashPlatVirtualTable() {
   const scrollEl = document.querySelector("#dashShellPlataforma .dash-table-scroll");
   if (!tbody) return null;
   if (!dashPlatVirtualTable || dashPlatVirtualTable._tbody !== tbody) {
-    dashPlatVirtualTable = createDashVirtualTbody({ scrollEl, tbody, rowHeight: 36, threshold: 64 });
+    dashPlatVirtualTable = createVirtualTbody({
+      scrollEl,
+      tbody,
+      rowHeight: 36,
+      overscan: 12,
+      threshold: 40,
+      colspan: 60,
+      uid: "dash-plat"
+    });
     dashPlatVirtualTable._tbody = tbody;
   }
   return dashPlatVirtualTable;
@@ -7093,10 +8092,55 @@ function ensureDashCrmVirtualTable() {
   const scrollEl = document.querySelector("#dashShellCrm .dash-table-scroll.table-container");
   if (!tbody) return null;
   if (!dashCrmVirtualTable || dashCrmVirtualTable._tbody !== tbody) {
-    dashCrmVirtualTable = createDashVirtualTbody({ scrollEl, tbody, rowHeight: 36, threshold: 48 });
+    dashCrmVirtualTable = createVirtualTbody({
+      scrollEl,
+      tbody,
+      rowHeight: 36,
+      overscan: 12,
+      threshold: 40,
+      colspan: 24,
+      uid: "dash-crm"
+    });
     dashCrmVirtualTable._tbody = tbody;
   }
   return dashCrmVirtualTable;
+}
+
+function ensurePlanningVirtualTable() {
+  if (!planningBody) return null;
+  const scrollEl = planningBody.closest(".table-scroll");
+  if (!planningVirtualTable) {
+    planningVirtualTable = createVirtualTbody({
+      scrollEl,
+      tbody: planningBody,
+      rowHeight: 38,
+      overscan: 14,
+      threshold: 50,
+      colspan: 56,
+      uid: "planning"
+    });
+  }
+  return planningVirtualTable;
+}
+
+function ensureRelacionesVirtualTable() {
+  const tbody = document.getElementById("relacionesTbody");
+  if (!tbody) return null;
+  const scrollEl =
+    tbody.closest(".rel-table-outer-scroll") || tbody.closest(".table-scroll") || tbody.closest(".rel-table-scroll");
+  if (!relacionesVirtualTable || relacionesVirtualTable._tbody !== tbody) {
+    relacionesVirtualTable = createVirtualTbody({
+      scrollEl,
+      tbody,
+      rowHeight: 40,
+      overscan: 10,
+      threshold: 50,
+      colspan: 8,
+      uid: "relaciones"
+    });
+    relacionesVirtualTable._tbody = tbody;
+  }
+  return relacionesVirtualTable;
 }
 
 function syncDashboardTableRowDomSelectionHighlight() {
@@ -10517,7 +11561,9 @@ function applyRelacionesHeaderSubtabsNavVisibility() {
 }
 
 function refreshRelacionesModuleView() {
+  migratePlanningCategoriasInRecords(planningDraftRecords());
   if (relActiveSubtab === "crm") {
+    syncCrmRelFiltersToUi();
     refreshCrmRelFilterSelects();
     renderCrmRelPlanningList();
     renderCrmRelCrmList();
@@ -12542,6 +13588,10 @@ function getCrmUniqueCampaignList() {
   return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
+function getRelacionableCrmUniqueCampaignList() {
+  return getCrmUniqueCampaignList().filter((u) => !relacionesOcultarNombreCampaniaVisual(u.nombre));
+}
+
 let selectedCrmRelPlanningKeys = new Set();
 let selectedCrmRelCrmKeys = new Set();
 
@@ -12559,26 +13609,122 @@ function crmRelMatchesIntakeFilter(intakeVal, intakeNorm) {
   return n === intakeNorm || n.includes(intakeNorm);
 }
 
+/** Tipos/nombres branding en Planning CRM (solo filtro visual). */
+function crmRelPlanningKeyEsBranding(planningKey) {
+  const parsed = parsePlanningKey(planningKey);
+  if (esTipoBrandingConvocatoriaDashboard(parsed.tipo)) return true;
+  const blob = normalizarTexto(
+    `${planningKey} ${parsed.tipo} ${parsed.programa} ${parsed.tracking}`
+  );
+  if (blob.includes("alcance")) return true;
+  if (blob.includes("charla")) return true;
+  if (blob.includes("webinar")) return true;
+  if (/\bbrand\b/.test(blob) || blob.includes(" branding")) return true;
+  if (blob.includes("competence search trafico") || blob.includes("competence search traffic")) return true;
+  return false;
+}
+
+function crmRelMatchesTrackingFilter(trackingVal, filterKey) {
+  const f = normalizarTexto(filterKey);
+  if (!f) return true;
+  const t = normalizarTexto(trackingVal);
+  if (f === "leadgen") return t.includes("leadgen");
+  if (f === "pixel") return t.includes("pixel");
+  if (f === "google") return t.includes("google");
+  return t.includes(f);
+}
+
+function crmRelPlanningFiltersSignature() {
+  return createDashSignature([
+    crmRelacionesSearchQuery,
+    crmRelPlanningListQuery,
+    crmRelFiltroPlataforma,
+    crmRelFiltroEstadoRel,
+    crmRelFiltroIntake,
+    crmRelFiltroTracking,
+    crmRelOcultarBranding ? 1 : 0,
+    getPlanningGroups().length,
+    relacionesCrm.length
+  ]);
+}
+
+function invalidateCrmRelPlanningFilterCache() {
+  crmRelFilteredPlanningCache = null;
+}
+
+function persistCrmRelFiltersToSession() {
+  try {
+    appMemorySession.setItem(SS_CRM_REL_FILTRO_TRACKING, crmRelFiltroTracking);
+    appMemorySession.setItem(SS_CRM_REL_OCULTAR_BRANDING, crmRelOcultarBranding ? "1" : "0");
+  } catch (_) {}
+}
+
+function syncCrmRelFiltersToUi() {
+  const tr = document.getElementById("crmRelFiltroTracking");
+  const br = document.getElementById("crmRelOcultarBranding");
+  if (tr instanceof HTMLSelectElement) {
+    const v = String(crmRelFiltroTracking || "");
+    if (["", "leadgen", "pixel", "google"].includes(v)) tr.value = v;
+  }
+  if (br instanceof HTMLInputElement) br.checked = crmRelOcultarBranding !== false;
+}
+
+function restoreCrmRelFiltersFromSession() {
+  try {
+    const t = appMemorySession.getItem(SS_CRM_REL_FILTRO_TRACKING);
+    if (t != null) crmRelFiltroTracking = String(t).trim();
+    const b = appMemorySession.getItem(SS_CRM_REL_OCULTAR_BRANDING);
+    if (b === "0") crmRelOcultarBranding = false;
+    else if (b === "1") crmRelOcultarBranding = true;
+  } catch (_) {}
+  syncCrmRelFiltersToUi();
+}
+
+function readCrmRelBarFiltersFromUi() {
+  const p = document.getElementById("crmRelFiltroPlataforma");
+  const e = document.getElementById("crmRelFiltroEstadoRel");
+  const i = document.getElementById("crmRelFiltroIntake");
+  const tr = document.getElementById("crmRelFiltroTracking");
+  const br = document.getElementById("crmRelOcultarBranding");
+  crmRelFiltroPlataforma = p instanceof HTMLSelectElement ? String(p.value || "").trim() : "";
+  crmRelFiltroEstadoRel = e instanceof HTMLSelectElement ? String(e.value || "").trim() : "";
+  crmRelFiltroIntake = i instanceof HTMLSelectElement ? String(i.value || "").trim() : "";
+  crmRelFiltroTracking = tr instanceof HTMLSelectElement ? String(tr.value || "").trim() : "";
+  crmRelOcultarBranding = !(br instanceof HTMLInputElement) || br.checked;
+  persistCrmRelFiltersToSession();
+  invalidateCrmRelPlanningFilterCache();
+}
+
 function getFilteredCrmRelPlanningKeys() {
+  const sig = crmRelPlanningFiltersSignature();
+  if (crmRelFilteredPlanningCache && crmRelFilteredPlanningCache.sig === sig) {
+    return crmRelFilteredPlanningCache.keys;
+  }
   const linked = getCrmRelLinkedPlanningSet();
   const gq = normalizarTexto(crmRelacionesSearchQuery);
   const pq = normalizarTexto(crmRelPlanningListQuery);
   const plat = normalizarTexto(crmRelFiltroPlataforma);
   const est = crmRelFiltroEstadoRel;
   const intakeF = normalizarTexto(crmRelFiltroIntake);
-  return getPlanningGroups()
+  const trackingF = String(crmRelFiltroTracking || "").trim();
+  const keys = getCaptacionPlanningGroups()
     .map((x) => x.key)
     .filter((k) => {
+      if (relacionesOcultarPlanningKeyVisual(k)) return false;
       if (gq && !normalizarTexto(k).includes(gq)) return false;
       if (pq && !normalizarTexto(k).includes(pq)) return false;
       const parsed = parsePlanningKey(k);
-      if (plat && normalizarTexto(parsed.plataforma) !== plat && !normalizarTexto(parsed.plataforma).includes(plat)) return false;
+      if (plat && normalizarTexto(parsed.plataforma) !== plat && !normalizarTexto(parsed.plataforma).includes(plat))
+        return false;
       if (!crmRelMatchesIntakeFilter(parsed.intake, intakeF)) return false;
+      if (!crmRelMatchesTrackingFilter(parsed.tracking, trackingF)) return false;
       if (est === "con" && !linked.has(k)) return false;
       if (est === "sin" && linked.has(k)) return false;
       return true;
     })
     .sort((a, b) => a.localeCompare(b, "es"));
+  crmRelFilteredPlanningCache = { sig, keys };
+  return keys;
 }
 
 function getFilteredCrmRelCampaignList() {
@@ -12588,7 +13734,7 @@ function getFilteredCrmRelCampaignList() {
   const plat = normalizarTexto(crmRelFiltroPlataforma);
   const est = crmRelFiltroEstadoRel;
   const intakeF = normalizarTexto(crmRelFiltroIntake);
-  return getCrmUniqueCampaignList().filter((u) => {
+  return getRelacionableCrmUniqueCampaignList().filter((u) => {
     const text = `${u.crmKey} ${u.nombre}`;
     if (gq && !normalizarTexto(text).includes(gq)) return false;
     if (cq && !normalizarTexto(text).includes(cq)) return false;
@@ -12641,7 +13787,7 @@ function renderCrmRelPlanningList() {
   if (!host) return;
   const linked = getCrmRelLinkedPlanningSet();
   const keys = getFilteredCrmRelPlanningKeys();
-  const totalPlanning = getPlanningGroups().length;
+  const totalPlanning = getCaptacionPlanningGroups().length;
   const selCount = document.getElementById("crmRelPlanningSelectedCount");
   const badge = document.getElementById("crmRelPlanningBadgeTotal");
   if (selCount) selCount.textContent = String(selectedCrmRelPlanningKeys.size);
@@ -12678,7 +13824,7 @@ function renderCrmRelCrmList() {
   if (!host) return;
   const linked = getCrmRelLinkedCrmSet();
   const items = getFilteredCrmRelCampaignList();
-  const totalCrm = getCrmUniqueCampaignList().length;
+  const totalCrm = getRelacionableCrmUniqueCampaignList().length;
   crmDebugLeadsCount("render crm panel dataset", {
     origen: "renderCrmRelCrmList",
     runtime_crmLeads: crmLeads.length,
@@ -12729,10 +13875,14 @@ function renderCrmRelacionesTabla() {
   const platF = normalizarTexto(crmRelFiltroPlataforma);
   const intakeF = normalizarTexto(crmRelFiltroIntake);
   const estF = crmRelFiltroEstadoRel;
+  const trackingF = String(crmRelFiltroTracking || "").trim();
   const allRows = ensureRelacionesCrmDraftShape();
   const rows = allRows
     .map((rel, idx) => ({ rel, idx }))
     .filter(({ rel }) => {
+      if (!planningKeyEsCaptacion(rel.planningKey)) return false;
+      if (relacionesOcultarNombreCampaniaVisual(rel.nombre)) return false;
+      if (relacionesOcultarPlanningKeyVisual(rel.planningKey)) return false;
       if (estF === "sin") return false;
       if (q) {
         const planningTxt = normalizarTexto(String(rel.planningKey ?? ""));
@@ -12741,8 +13891,10 @@ function renderCrmRelacionesTabla() {
         if (!planningTxt.includes(q) && !crmTxt.includes(q) && !keyTxt.includes(q)) return false;
       }
       const parsed = parsePlanningKey(rel.planningKey);
-      if (platF && !normalizarTexto(parsed.plataforma).includes(platF) && normalizarTexto(parsed.plataforma) !== platF) return false;
+      if (platF && !normalizarTexto(parsed.plataforma).includes(platF) && normalizarTexto(parsed.plataforma) !== platF)
+        return false;
       if (!crmRelMatchesIntakeFilter(parsed.intake, intakeF)) return false;
+      if (!crmRelMatchesTrackingFilter(parsed.tracking, trackingF)) return false;
       return true;
     });
   if (count) count.textContent = String(rows.length);
@@ -12778,6 +13930,10 @@ function renderCrmRelacionesTabla() {
 function vincularCrmPlanning() {
   if (selectedCrmRelPlanningKeys.size !== 1 || selectedCrmRelCrmKeys.size !== 1) return;
   const planningKey = [...selectedCrmRelPlanningKeys][0];
+  if (!planningKeyEsCaptacion(planningKey)) {
+    showCampatrackToast("Solo se pueden vincular campañas de categoría Captación.", "error");
+    return;
+  }
   const crmKey = [...selectedCrmRelCrmKeys][0];
   const crmItem = getCrmUniqueCampaignList().find((u) => u.crmKey === crmKey);
   const row = {
@@ -12806,27 +13962,36 @@ function vincularCrmPlanning() {
 }
 
 function initCrmRelacionesModule() {
+  restoreCrmRelFiltersFromSession();
   const crmRelacionesSearchInput = document.getElementById("crmRelacionesSearch");
+  let crmRelGlobalSearchTimer = null;
   crmRelacionesSearchInput?.addEventListener("input", () => {
     crmRelacionesSearchQuery = String(crmRelacionesSearchInput.value || "").trim();
+    invalidateCrmRelPlanningFilterCache();
+    if (crmRelGlobalSearchTimer) clearTimeout(crmRelGlobalSearchTimer);
+    crmRelGlobalSearchTimer = setTimeout(() => {
+      crmRelGlobalSearchTimer = null;
+      renderCrmRelPlanningList();
+      renderCrmRelCrmList();
+      renderCrmRelacionesTabla();
+    }, 220);
+  });
+  const onCrmBarFilterChange = () => {
+    readCrmRelBarFiltersFromUi();
     renderCrmRelPlanningList();
     renderCrmRelCrmList();
     renderCrmRelacionesTabla();
-  });
-  const onCrmBarFilterChange = () => {
-    const p = document.getElementById("crmRelFiltroPlataforma");
-    const e = document.getElementById("crmRelFiltroEstadoRel");
-    const i = document.getElementById("crmRelFiltroIntake");
-    crmRelFiltroPlataforma = p instanceof HTMLSelectElement ? String(p.value || "").trim() : "";
-    crmRelFiltroEstadoRel = e instanceof HTMLSelectElement ? String(e.value || "").trim() : "";
-    crmRelFiltroIntake = i instanceof HTMLSelectElement ? String(i.value || "").trim() : "";
+  };
+  const onCrmPlanningOnlyFilterChange = () => {
+    readCrmRelBarFiltersFromUi();
     renderCrmRelPlanningList();
-    renderCrmRelCrmList();
     renderCrmRelacionesTabla();
   };
   document.getElementById("crmRelFiltroPlataforma")?.addEventListener("change", onCrmBarFilterChange);
   document.getElementById("crmRelFiltroEstadoRel")?.addEventListener("change", onCrmBarFilterChange);
   document.getElementById("crmRelFiltroIntake")?.addEventListener("change", onCrmBarFilterChange);
+  document.getElementById("crmRelFiltroTracking")?.addEventListener("change", onCrmPlanningOnlyFilterChange);
+  document.getElementById("crmRelOcultarBranding")?.addEventListener("change", onCrmPlanningOnlyFilterChange);
   document.getElementById("crmRelLimpiarFiltrosBtn")?.addEventListener("click", () => {
     crmRelacionesSearchQuery = "";
     crmRelPlanningListQuery = "";
@@ -12834,6 +13999,10 @@ function initCrmRelacionesModule() {
     crmRelFiltroPlataforma = "";
     crmRelFiltroEstadoRel = "";
     crmRelFiltroIntake = "";
+    crmRelFiltroTracking = "";
+    crmRelOcultarBranding = true;
+    invalidateCrmRelPlanningFilterCache();
+    persistCrmRelFiltersToSession();
     if (crmRelacionesSearchInput instanceof HTMLInputElement) crmRelacionesSearchInput.value = "";
     const ps = document.getElementById("crmRelPlanningSearch");
     const cs = document.getElementById("crmRelCrmSearch");
@@ -12842,17 +14011,27 @@ function initCrmRelacionesModule() {
     const p = document.getElementById("crmRelFiltroPlataforma");
     const e = document.getElementById("crmRelFiltroEstadoRel");
     const i = document.getElementById("crmRelFiltroIntake");
+    const tr = document.getElementById("crmRelFiltroTracking");
+    const br = document.getElementById("crmRelOcultarBranding");
     if (p instanceof HTMLSelectElement) p.value = "";
     if (e instanceof HTMLSelectElement) e.value = "";
     if (i instanceof HTMLSelectElement) i.value = "";
+    if (tr instanceof HTMLSelectElement) tr.value = "";
+    if (br instanceof HTMLInputElement) br.checked = true;
     renderCrmRelPlanningList();
     renderCrmRelCrmList();
     renderCrmRelacionesTabla();
   });
+  let crmRelPlanningSearchTimer = null;
   document.getElementById("crmRelPlanningSearch")?.addEventListener("input", (ev) => {
     const t = ev.target;
     crmRelPlanningListQuery = t instanceof HTMLInputElement ? String(t.value || "").trim() : "";
-    renderCrmRelPlanningList();
+    invalidateCrmRelPlanningFilterCache();
+    if (crmRelPlanningSearchTimer) clearTimeout(crmRelPlanningSearchTimer);
+    crmRelPlanningSearchTimer = setTimeout(() => {
+      crmRelPlanningSearchTimer = null;
+      renderCrmRelPlanningList();
+    }, 220);
   });
   document.getElementById("crmRelCrmSearch")?.addEventListener("input", (ev) => {
     const t = ev.target;
@@ -13042,9 +14221,10 @@ function getFilteredPlanningKeys() {
   const plat = normalizarTexto(relFiltroPlataforma);
   const est = relFiltroEstadoRel;
   const tipoF = normalizarTexto(relFiltroTipo);
-  return getPlanningGroups()
+  return getCaptacionPlanningGroups()
     .map((x) => x.key)
     .filter((k) => {
+      if (relacionesOcultarPlanningKeyVisual(k)) return false;
       if (gq && !normalizarTexto(k).includes(gq)) return false;
       if (pq && !normalizarTexto(k).includes(pq)) return false;
       const parsed = parsePlanningKey(k);
@@ -13064,7 +14244,7 @@ function getFilteredDataUniqueList() {
   const plat = normalizarTexto(relFiltroPlataforma);
   const est = relFiltroEstadoRel;
   const tipoF = normalizarTexto(relFiltroTipo);
-  return getDataUniqueList().filter((u) => {
+  return getRelacionableDataUniqueList().filter((u) => {
     const text = `${u.idCampania} ${u.nombre}`;
     if (gq && !normalizarTexto(text).includes(gq)) return false;
     if (dq && !normalizarTexto(text).includes(dq)) return false;
@@ -13152,11 +14332,11 @@ function exportRelacionesJsonFile() {
 
 function renderRelacionesEstado() {
   syncRelacionesViewFromDraft();
-  const planningGroups = getPlanningGroups();
-  const dataUnique = getDataUniqueList();
+  const planningGroups = getCaptacionPlanningGroups();
+  const dataUnique = getRelacionableDataUniqueList();
   const totalPlanning = planningGroups.length;
   const totalData = dataUnique.length;
-  const totalCrm = getCrmUniqueCampaignList().length;
+  const totalCrm = getRelacionableCrmUniqueCampaignList().length;
 
   const planningIdsRelacionados = new Set(relaciones.map((r) => r.planningKey));
   const planningVinculadas = planningGroups.filter((p) => planningIdsRelacionados.has(p.key)).length;
@@ -13292,6 +14472,9 @@ function renderRelacionesTabla() {
   const rows = relaciones
     .map((rel, idx) => ({ rel, idx }))
     .filter(({ rel }) => {
+      if (!planningKeyEsCaptacion(rel.planningKey)) return false;
+      if (relacionesOcultarNombreCampaniaVisual(rel.nombre)) return false;
+      if (relacionesOcultarPlanningKeyVisual(rel.planningKey)) return false;
       if (estF === "sin") return false;
       if (!q) {
         /* ok */
@@ -13307,10 +14490,11 @@ function renderRelacionesTabla() {
       return true;
     });
   if (!rows.length) {
+    relacionesVirtualTable?.unbind?.();
     tbody.innerHTML = `<tr><td colspan="5" class="dash-empty-mini">Sin relaciones para la búsqueda actual</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map(({ rel, idx }) => {
+  const rowsHtml = rows.map(({ rel, idx }) => {
     const parsed = parsePlanningKey(rel.planningKey);
     const platLabel = String(parsed.plataforma || "—").trim() || "—";
     const badgePlat = relPlataformaBadgeClass(parsed.plataforma);
@@ -13328,7 +14512,18 @@ function renderRelacionesTabla() {
         </div>
       </td>
     </tr>`;
-  }).join("");
+  });
+  const relFp = createDashSignature([
+    rows.length,
+    relacionesSearchQuery,
+    relFiltroPlataforma,
+    relFiltroTipo,
+    relFiltroEstadoRel,
+    relaciones.length
+  ]);
+  const virtRel = ensureRelacionesVirtualTable();
+  if (virtRel) virtRel.mount(rowsHtml, relFp);
+  else tbody.innerHTML = rowsHtml.join("");
 }
 
 function generarModeloAnalitico() {
@@ -13367,6 +14562,7 @@ function generarModeloAnalitico() {
         out.push({
           teamId: getCurrentTeamId(),
           tipo: planning.tipo,
+          categoria: normalizePlanningCategoria(planning.categoria) || inferPlanningCategoriaFromRecord(planning),
           programa: planning.programa,
           intake: planning.intake,
           plataforma: planning.plataforma,
@@ -14071,6 +15267,7 @@ function vincularCampanias() {
   const latestNameById = getLatestCampaignNameMap(getAllCampaignRows());
   const fechaRelacion = formatDateInputFromDate(new Date());
   selectedPlanningKeys.forEach((planningKey) => {
+    if (!planningKeyEsCaptacion(planningKey)) return;
     selectedDataCampaignKeys.forEach((key) => {
       const idCampania = String(key || "").trim();
       if (!idCampania) return;
@@ -14081,9 +15278,9 @@ function vincularCampanias() {
           String(r.idCampania || "").trim() === idCampania
       );
       if (exists) return;
-      const planningRec = getPlanningGroups().find((g) => g.key === planningKey)?.rec;
+      const planningRec = getPlanningRecordByKey(planningKey);
       const dataRow = getDataUniqueList().find((d) => String(d.idCampania) === idCampania);
-      const coincidencia = planningRec && dataRow ? calcularScore(planningRec, dataRow) : null;
+      const coincidencia = planningRec && dataRow ? calcularScorePlanningRec(planningRec, dataRow) : null;
       ensureRelacionesDraftShape().push({
         planningKey,
         idCampania,
@@ -14104,13 +15301,13 @@ function vincularCampanias() {
 }
 
 function sugerirRelaciones() {
-  const planningGroups = getPlanningGroups();
-  const dataUnique = getDataUniqueList();
+  const planningGroups = getCaptacionPlanningGroups();
+  const dataUnique = getRelacionableDataUniqueList();
 
   sugerenciasRelaciones = planningGroups.map((p) => {
     const planning = parsePlanningKey(p.key);
     const matches = dataUnique
-      .map((d) => ({ ...d, score: calcularScore(planning, d) }))
+      .map((d) => ({ ...d, score: calcularScorePlanningRec(p.rec, d) }))
       .filter((d) => d.score >= 70)
       .sort((a, b) => b.score - a.score);
     return { planningKey: p.key, matches };
@@ -14155,7 +15352,7 @@ function aplicarSugerencia(idx) {
   const checks = tbody.querySelectorAll(`input[data-sug-idx="${idx}"][data-sug-data]:checked`);
   const latestNameById = getLatestCampaignNameMap(getAllCampaignRows());
   const fechaRelacion = formatDateInputFromDate(new Date());
-  const planningRec = getPlanningGroups().find((g) => g.key === sug.planningKey)?.rec;
+  const planningRec = getPlanningRecordByKey(sug.planningKey);
   checks.forEach((c) => {
     const key = c.getAttribute("data-sug-data");
     if (!key) return;
@@ -14169,7 +15366,7 @@ function aplicarSugerencia(idx) {
     );
     if (!exists) {
       const dataRow = getDataUniqueList().find((d) => String(d.idCampania) === idCampania);
-      const coincidencia = planningRec && dataRow ? calcularScore(planningRec, dataRow) : null;
+      const coincidencia = planningRec && dataRow ? calcularScorePlanningRec(planningRec, dataRow) : null;
       ensureRelacionesDraftShape().push({
         planningKey: sug.planningKey,
         idCampania,
@@ -15015,48 +16212,51 @@ function esTipoBrandingConvocatoriaDashboard(tipo) {
   return t === "Charla" || t === "Webinar" || t === "Alcance";
 }
 
-function filtrarDashboardSinBranding(rows) {
+function modeloRowEsCaptacion(r) {
+  if (r?.categoria) return planningRecordEsCaptacion(r);
+  return !esNombreCampaniaBranding(r.nombre) && !esTipoBrandingConvocatoriaDashboard(r.tipo);
+}
+
+/** Excluye Informativa/Branding de KPIs de captación (leads, CPL, embudos). */
+function filtrarDashboardSoloCaptacion(rows) {
   if (!rows || !rows.length) return [];
-  return rows.filter((r) => !esNombreCampaniaBranding(r.nombre) && !esTipoBrandingConvocatoriaDashboard(r.tipo));
+  return rows.filter((r) => modeloRowEsCaptacion(r));
+}
+
+/** @deprecated alias — usa categoría Planning cuando está disponible. */
+function filtrarDashboardSinBranding(rows) {
+  return filtrarDashboardSoloCaptacion(rows);
 }
 
 function aplicarFiltroBrandingTarjetas(rows) {
   if (!rows || !rows.length) return [];
-  if (incluirBrandingDashboard) return rows.slice();
-  return filtrarDashboardSinBranding(rows);
+  return rows.slice();
 }
 
 function getDashboardSegmentTiposComerciales() {
-  return uniqueVals("tipo").filter((t) => !esTipoBrandingConvocatoriaDashboard(t));
-}
-
-/** Dataset para gasto y totales de inversión (incluye C/W/A si el check está activo). */
-function aplicarFiltroBrandingModeloGasto(rows) {
-  if (!rows || !rows.length) return [];
-  if (incluirBrandingDashboard) return rows.slice();
-  return rows.filter((r) => !esNombreCampaniaBranding(r.nombre) && !esTipoBrandingConvocatoriaDashboard(r.tipo));
-}
-
-/**
- * Dataset para leads, CPL, CTR, demográficos, etc.
- * Con check activo: filas tipo C/W/A mantienen gasto pero leads/clics/impresiones en 0.
- */
-function aplicarFiltroBrandingModeloPerformance(rows) {
-  if (!rows || !rows.length) return [];
-  if (!incluirBrandingDashboard) {
-    return rows.filter((r) => !esNombreCampaniaBranding(r.nombre) && !esTipoBrandingConvocatoriaDashboard(r.tipo));
-  }
-  return rows.map((r) => {
-    if (esTipoBrandingConvocatoriaDashboard(r.tipo)) {
-      return { ...r, leads: 0, clics: 0, impresiones: 0 };
-    }
-    return r;
+  return uniqueVals("tipo").filter((t) => {
+    const sample = modeloAnalitico.find((r) => String(r.tipo) === String(t));
+    if (sample?.categoria) return planningRecordEsCaptacion(sample);
+    return !esTipoBrandingConvocatoriaDashboard(t);
   });
 }
 
-function dashPlanningMetaOcultarLeadsSiTipoBranding(pm, planningRows) {
+/** Dataset para gasto e inversión total (Captación + Informativa + Branding). */
+function aplicarFiltroBrandingModeloGasto(rows) {
+  if (!rows || !rows.length) return [];
+  return rows.slice();
+}
+
+/**
+ * Dataset para leads, CPL, CTR, demográficos, etc. (solo Captación).
+ */
+function aplicarFiltroBrandingModeloPerformance(rows) {
+  return filtrarDashboardSoloCaptacion(rows);
+}
+
+function dashPlanningMetaOcultarLeadsSiNonCaptacion(pm, planningRows) {
   if (!pm || !planningRows?.length) return pm;
-  if (!esTipoBrandingConvocatoriaDashboard(planningRows[0].tipo)) return pm;
+  if (planningRows.every((rec) => planningRecordEsCaptacion(rec))) return pm;
   return {
     ...pm,
     metaLeadsPeriod: 0,
@@ -15064,6 +16264,11 @@ function dashPlanningMetaOcultarLeadsSiTipoBranding(pm, planningRows) {
     metaLeadsDiarioPeriod: 0,
     metaCplPeriod: 0
   };
+}
+
+/** @deprecated alias */
+function dashPlanningMetaOcultarLeadsSiTipoBranding(pm, planningRows) {
+  return dashPlanningMetaOcultarLeadsSiNonCaptacion(pm, planningRows);
 }
 
 function getDashboardMetaTriplet() {
@@ -15076,7 +16281,7 @@ function getDashboardMetaTriplet() {
       row.plataforma,
       row.tipo
     );
-    const pm = dashPlanningMetaOcultarLeadsSiTipoBranding(
+    const pm = dashPlanningMetaOcultarLeadsSiNonCaptacion(
       computeDashboardPlanningPeriodMeta(planningRows),
       planningRows
     );
@@ -15086,12 +16291,13 @@ function getDashboardMetaTriplet() {
       metaCpl: pm.metaCplPeriod
     };
   }
-  const keys = new Set(
-    filtrarDashboardSinBranding(getDashboardFilteredData()).map((r) => dashboardRowKeyFromModelo(r))
+  const keysCaptacion = new Set(
+    filtrarDashboardSoloCaptacion(getDashboardFilteredData()).map((r) => dashboardRowKeyFromModelo(r))
   );
+  const keysInversion = new Set(getDashboardFilteredData().map((r) => dashboardRowKeyFromModelo(r)));
   let metaPresupuesto = 0;
   let metaLeads = 0;
-  keys.forEach((k) => {
+  keysInversion.forEach((k) => {
     const row = parseDashboardRowKey(k);
     const planningRows = getPlanningByProgIntakeTrackPlat(
       row.programa,
@@ -15100,11 +16306,22 @@ function getDashboardMetaTriplet() {
       row.plataforma,
       row.tipo
     );
-    const pm = dashPlanningMetaOcultarLeadsSiTipoBranding(
+    const pm = computeDashboardPlanningPeriodMeta(planningRows);
+    metaPresupuesto += pm.presupuestoPeriod;
+  });
+  keysCaptacion.forEach((k) => {
+    const row = parseDashboardRowKey(k);
+    const planningRows = getPlanningByProgIntakeTrackPlat(
+      row.programa,
+      row.intake,
+      row.tracking,
+      row.plataforma,
+      row.tipo
+    );
+    const pm = dashPlanningMetaOcultarLeadsSiNonCaptacion(
       computeDashboardPlanningPeriodMeta(planningRows),
       planningRows
     );
-    metaPresupuesto += pm.presupuestoPeriod;
     metaLeads += pm.metaLeadsPeriod;
   });
   const metaCpl = metaLeads > 0 ? metaPresupuesto / metaLeads : 0;
@@ -15376,7 +16593,7 @@ function aggregateDashboardCrmMetricsByRowKey() {
     if (!ck) return;
     const pks = ckMap.get(ck);
     if (!pks?.length) return;
-    for (const pk of pks) {
+    for (const pk of filterCaptacionPlanningKeys(pks)) {
       const rowKey = planningKeyToDashboardRowKey(pk);
       if (!dashboardRowKeyMatchesDashboardSegmentFilters(rowKey)) continue;
       if (busq && !dashboardRowSearchHaystackFromKey(rowKey).includes(busq)) continue;
@@ -15429,7 +16646,7 @@ function getDashboardCrmRowsForBottomPanels() {
     const pks = ckMap.get(ck);
     if (!pks?.length) return;
     let ok = false;
-    for (const pk of pks) {
+    for (const pk of filterCaptacionPlanningKeys(pks)) {
       const rowKey = planningKeyToDashboardRowKey(pk);
       if (!dashboardRowKeyMatchesDashboardSegmentFilters(rowKey)) continue;
       if (busq && !dashboardRowSearchHaystackFromKey(rowKey).includes(busq)) continue;
@@ -15449,7 +16666,7 @@ function filterDashboardCrmLeadRowsPorFilaSeleccionada(rows) {
     const ck = crmCampaignKeyFromRow(r);
     const pks = ckMap.get(ck);
     if (!pks?.length) return false;
-    return pks.some((pk) => planningKeyToDashboardRowKey(pk) === selRow);
+    return filterCaptacionPlanningKeys(pks).some((pk) => planningKeyToDashboardRowKey(pk) === selRow);
   });
 }
 
@@ -15611,7 +16828,7 @@ function renderDashboardCrmTabla() {
     .map((rowKey) => {
       const row = parseDashboardRowKey(rowKey);
       const planningRows = getPlanningByProgIntakeTrackPlat(row.programa, row.intake, row.tracking, row.plataforma, row.tipo);
-      const planningRowsOperativas = planningRows.filter((rec) => !esTipoBrandingConvocatoriaDashboard(rec.tipo));
+      const planningRowsOperativas = planningRows.filter((rec) => planningRecordEsCaptacion(rec));
       const cal = dashboardPlanningCalendarFromRows(planningRowsOperativas);
       const pmGlobal = dashPlanningMetaOcultarLeadsSiTipoBranding(
         computeDashboardPlanningGlobalMeta(planningRowsOperativas),
@@ -15667,9 +16884,10 @@ function renderDashboardCrmTabla() {
         <td class="dash-grp-col dash-grp-col-mat dash-grp-col-last dash-crm-num">${escapeHtml(dashFmtLeads(crm.crmMat))}</td>
       </tr>`;
     });
+  const crmFp = dashboardAnalyticsSignature(`crmTabla|${rowsHtml.length}`);
   const virtCrm = ensureDashCrmVirtualTable();
   if (virtCrm && rowsHtml.length) {
-    virtCrm.mount(rowsHtml);
+    virtCrm.mount(rowsHtml, crmFp);
   } else {
     tbody.innerHTML =
       rowsHtml.length > 0
@@ -16411,7 +17629,7 @@ function dashboardPlanningRecordContainsMonth(rec, monthKey) {
 }
 
 function getDashboardKpiDataset() {
-  const base = aplicarFiltroBrandingTarjetas(getDashboardFilteredData());
+  const base = aplicarFiltroBrandingModeloPerformance(getDashboardFilteredData());
   if (!programaSeleccionado) return base;
   const row = parseDashboardRowKey(programaSeleccionado);
   return base.filter(
@@ -16952,6 +18170,7 @@ function planningExportHeadersRow() {
     "ID",
     "Tipo",
     "Programa",
+    "Categoría",
     "Leads",
     "Interesados",
     "Postulantes",
@@ -16983,6 +18202,7 @@ function planningRecordToExportRow(record) {
     String(record.id ?? ""),
     String(record.tipo ?? ""),
     String(record.programa ?? ""),
+    String(normalizePlanningCategoria(record.categoria) || inferPlanningCategoriaFromRecord(record)),
     planningExportMetaCellValue(metas, "leads"),
     planningExportMetaCellValue(metas, "interesados"),
     planningExportMetaCellValue(metas, "postulantes"),
@@ -17039,6 +18259,20 @@ function applyPlanningImportCellsToRecord(record, cells, colMap = PLANNING_IMPOR
   const intake = String(cells[colMap.INTAKE] ?? "").trim();
   if (intake && !planningImportCellEquals(intake, out.intake)) {
     out.intake = intake;
+    changed = true;
+  }
+
+  if (colMap._hasCategoria && "CATEGORIA" in colMap) {
+    const catRes = resolvePlanningImportCategoria(cells[colMap.CATEGORIA], out);
+    if (catRes.error) {
+      /* validado en parsePlanningExcelMatrix */
+    }
+    if (!planningImportCellEquals(catRes.value, out.categoria)) {
+      out.categoria = catRes.value;
+      changed = true;
+    }
+  } else if (!normalizePlanningCategoria(out.categoria)) {
+    out.categoria = inferPlanningCategoriaFromRecord(out);
     changed = true;
   }
 
@@ -17543,7 +18777,7 @@ function renderDashboardTabla() {
     const rowsGlobal = filtrarDashboardSinBranding(winCamp);
     const gastoRealGlobal = rowsGlobalAll.reduce((a, r) => a + (Number(r.gasto) || 0), 0);
     const leadsRealGlobal = rowsGlobal.reduce((a, r) => a + (Number(r.leads) || 0), 0);
-    const planningRowsOperativas = planningRows.filter((rec) => !esTipoBrandingConvocatoriaDashboard(rec.tipo));
+    const planningRowsOperativas = planningRows.filter((rec) => planningRecordEsCaptacion(rec));
     let pmGlobal = computeDashboardPlanningGlobalMeta(planningRowsOperativas);
     let pmMes = computeDashboardPlanningPeriodMeta(planningRowsOperativas);
 
@@ -17672,8 +18906,9 @@ function renderDashboardTabla() {
       </tr>
     `;
   });
+  const platFp = dashboardAnalyticsSignature(`platTabla|${rowsHtml.length}|${mostrarMetaGlobal ? 1 : 0}`);
   const virtPlat = ensureDashPlatVirtualTable();
-  if (virtPlat) virtPlat.mount(rowsHtml);
+  if (virtPlat) virtPlat.mount(rowsHtml, platFp);
   else tbody.innerHTML = rowsHtml.join("");
 
   const setText = (id, text) => {
@@ -18084,7 +19319,7 @@ function dashboardInsightDonutSlice(cx, cy, rout, rin, a0, a1) {
 function collectDashboardInsightsCampaignRows() {
   const dataMesRaw = getDashboardFilteredDataPeriodOnly();
   const dataMesGasto = dataMesRaw;
-  const dataMesPerf = dataMesRaw;
+  const dataMesPerf = filtrarDashboardSoloCaptacion(dataMesRaw);
   const mapMes = new Map();
   dataMesPerf.forEach((r) => {
     const key = dashboardRowKeyFromModelo(r) || "|||";
@@ -18108,7 +19343,7 @@ function collectDashboardInsightsCampaignRows() {
     const planningRows = getPlanningByProgIntakeTrackPlat(row.programa, row.intake, row.tracking, row.plataforma, row.tipo);
     const nombrePrograma = dashboardRowProgramaNombreFromKey(rowKey);
     const tipo = row.tipo || "—";
-    const planningRowsOperativas = planningRows.filter((rec) => !esTipoBrandingConvocatoriaDashboard(rec.tipo));
+    const planningRowsOperativas = planningRows.filter((rec) => planningRecordEsCaptacion(rec));
     const pmMes = computeDashboardPlanningPeriodMeta(planningRowsOperativas);
     const cplRealMes = leadsRealMes > 0 ? gastoRealMes / leadsRealMes : 0;
     out.push({
@@ -18661,9 +19896,15 @@ function initDashboardModule() {
     const virtRo = new ResizeObserver(() => {
       dashPlatVirtualTable?.refreshLayout?.();
       dashCrmVirtualTable?.refreshLayout?.();
+      planningVirtualTable?.refreshLayout?.();
+      relacionesVirtualTable?.refreshLayout?.();
     });
     if (platScroll) virtRo.observe(platScroll);
     if (crmScroll) virtRo.observe(crmScroll);
+    const planScroll = document.querySelector("#planningModule .table-scroll");
+    const relScroll = document.querySelector(".rel-table-outer-scroll");
+    if (planScroll) virtRo.observe(planScroll);
+    if (relScroll) virtRo.observe(relScroll);
   }
 
   document.getElementById("dashTabPlataforma")?.addEventListener("click", () => {
@@ -21159,7 +22400,7 @@ function initTabs() {
       syncDashboardCrmHeaderBadges();
     }
     if (isBitacora) {
-      if (typeof refreshBitacoraFormProgramaOptions === "function") refreshBitacoraFormProgramaOptions();
+      if (typeof refreshBitacoraFormProgramasChecklist === "function") refreshBitacoraFormProgramasChecklist();
       if (typeof renderBitacoraTable === "function") renderBitacoraTable();
     }
     if (safeModule === "relaciones") {
@@ -21442,6 +22683,7 @@ function campatrackBootDeferredModules() {
   initBitacoraModule();
   initExportImportDatos();
   initCampaignPreviewBudgetEdit();
+  initCampaignCatalogAdminUi();
   initDataSubTabs();
   initDataLoadModal();
   initDataErrorModal();
