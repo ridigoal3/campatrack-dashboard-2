@@ -105,6 +105,25 @@ import {
   createDashVirtualTbody
 } from "./campatrack-dashboard-perf.js";
 import { createVirtualTbody } from "./campatrack-virtual-table.js";
+/* PERF_AUDIT — import temporal; eliminar al concluir auditoría */
+import {
+  perfAuditEnabled,
+  perfMeasureStart,
+  perfBeginInteraction,
+  perfEndInteraction,
+  perfTrackFilterChange,
+  perfTrackModuleLoad,
+  perfAuditSnapshotMemory,
+  perfArrayOp,
+  perfAuditRegisterContext,
+  perfAuditRegisterProductionRunner,
+  perfAuditRegisterWalkthroughRunner,
+  perfAuditCaptureSessionStart,
+  perfAuditCaptureSessionEnd,
+  perfAuditReset,
+  perfAuditExportJson,
+  perfAuditScheduleAutoRunAfterHydrate
+} from "./campatrack-perf-audit.js";
 
 /**
  * Debe cargarse solo como módulo ES (p. ej. `import "./_app.impl.js"` desde `app.js` con `type="module"`).
@@ -310,6 +329,9 @@ const bitacoraPaginationInfo = document.getElementById("bitacoraPaginationInfo")
 const bitacoraPaginationNav = document.getElementById("bitacoraPaginationNav");
 const bitacoraFormFecha = document.getElementById("bitacoraFormFecha");
 const bitacoraFormProgramasWrap = document.getElementById("bitacoraFormProgramasWrap");
+const bitacoraFormProgramasSearch = document.getElementById("bitacoraFormProgramasSearch");
+const bitacoraFormProgramasCount = document.getElementById("bitacoraFormProgramasCount");
+const bitacoraFormProgramasLimpiarBtn = document.getElementById("bitacoraFormProgramasLimpiarBtn");
 const bitacoraFormTipo = document.getElementById("bitacoraFormTipo");
 const bitacoraFormImpacto = document.getElementById("bitacoraFormImpacto");
 const bitacoraFormCambios = document.getElementById("bitacoraFormCambios");
@@ -7212,6 +7234,28 @@ function getBitacoraFormProgramasSeleccionados() {
     .filter(Boolean);
 }
 
+function updateBitacoraFormProgramasSeleccionadosCount() {
+  const n = getBitacoraFormProgramasSeleccionados().length;
+  if (bitacoraFormProgramasCount) bitacoraFormProgramasCount.textContent = `Seleccionados: ${n}`;
+}
+
+function applyBitacoraFormProgramasSearchFilter() {
+  if (!bitacoraFormProgramasWrap) return;
+  const q =
+    bitacoraFormProgramasSearch instanceof HTMLInputElement
+      ? normalizarTexto(bitacoraFormProgramasSearch.value.trim())
+      : "";
+  let visible = 0;
+  bitacoraFormProgramasWrap.querySelectorAll(".bitacora-programas-check-item").forEach((el) => {
+    const name = el.getAttribute("data-bitacora-prog") || "";
+    const match = !q || normalizarTexto(name).includes(q);
+    el.classList.toggle("bitacora-programas-check-item--hidden", !match);
+    if (match) visible += 1;
+  });
+  const emptyEl = bitacoraFormProgramasWrap.querySelector(".bitacora-programas-checklist-empty-search");
+  if (emptyEl) emptyEl.classList.toggle("hidden", !q || visible > 0);
+}
+
 function refreshBitacoraFormProgramasChecklist(selectedProgramas = null) {
   if (!bitacoraFormProgramasWrap) return;
   const tipo = bitacoraFormTipo instanceof HTMLSelectElement ? String(bitacoraFormTipo.value || "").trim() : "";
@@ -7222,19 +7266,25 @@ function refreshBitacoraFormProgramasChecklist(selectedProgramas = null) {
   if (!tipo) {
     bitacoraFormProgramasWrap.innerHTML =
       `<p class="bitacora-programas-checklist-hint">Selecciona tipo de programa primero</p>`;
+    updateBitacoraFormProgramasSeleccionadosCount();
     return;
   }
   const opts = getBitacoraProgramasByTipo(tipo);
   if (!opts.length) {
     bitacoraFormProgramasWrap.innerHTML = `<p class="bitacora-programas-checklist-hint">No hay programas para este tipo</p>`;
+    updateBitacoraFormProgramasSeleccionadosCount();
     return;
   }
-  bitacoraFormProgramasWrap.innerHTML = opts
-    .map((p, i) => {
-      const checked = selectedSet.has(p) ? " checked" : "";
-      return `<label class="bitacora-programas-check-item"><input type="checkbox" class="bitacora-programas-check-input" id="bitacoraFormProg_${i}" value="${escapeHtml(p)}"${checked} /><span>${escapeHtml(p)}</span></label>`;
-    })
-    .join("");
+  bitacoraFormProgramasWrap.innerHTML =
+    `<p class="bitacora-programas-checklist-empty-search hidden">No hay programas que coincidan con la búsqueda</p>` +
+    opts
+      .map((p, i) => {
+        const checked = selectedSet.has(p) ? " checked" : "";
+        return `<label class="bitacora-programas-check-item" data-bitacora-prog="${escapeHtml(p)}"><input type="checkbox" class="bitacora-programas-check-input" id="bitacoraFormProg_${i}" value="${escapeHtml(p)}"${checked} /><span>${escapeHtml(p)}</span></label>`;
+      })
+      .join("");
+  applyBitacoraFormProgramasSearchFilter();
+  updateBitacoraFormProgramasSeleccionadosCount();
 }
 
 function renderBitacoraRowProgramasHtml(progs) {
@@ -7277,6 +7327,7 @@ function resetBitacoraEntryForm() {
   if (bitacoraFormImpacto instanceof HTMLSelectElement) bitacoraFormImpacto.value = "";
   if (bitacoraFormCambios instanceof HTMLTextAreaElement) bitacoraFormCambios.value = "";
   if (bitacoraFormImportante instanceof HTMLInputElement) bitacoraFormImportante.checked = false;
+  if (bitacoraFormProgramasSearch instanceof HTMLInputElement) bitacoraFormProgramasSearch.value = "";
   if (bitacoraGuardarEntradaLabel) bitacoraGuardarEntradaLabel.textContent = "Guardar entrada";
   bitacoraFormModeLabel?.classList.add("hidden");
   refreshBitacoraFormTipoOptions();
@@ -7430,7 +7481,11 @@ function ordenarBitacoraRowsParaVista(rows) {
 }
 
 function renderBitacoraTable() {
-  if (!bitacoraTimelineList) return;
+  const end = perfMeasureStart("render:BitacoraTable", "table");
+  if (!bitacoraTimelineList) {
+    end({ skipped: true });
+    return;
+  }
   renderBitacoraTipoSelect();
   const filtered = bitacoraData.filter(bitacoraRowPasaFiltros);
   const sorted = ordenarBitacoraRowsParaVista(filtered);
@@ -7442,10 +7497,12 @@ function renderBitacoraTable() {
 
   if (!bitacoraData.length) {
     bitacoraTimelineList.innerHTML = `<div class="bitacora-timeline-empty">Sin entradas aún. Pulsa <strong>Registrar entrada</strong> para documentar un cambio o mejora.</div>`;
+    end({ rows: 0, total: 0, empty: true });
     return;
   }
   if (!filtered.length) {
     bitacoraTimelineList.innerHTML = `<div class="bitacora-timeline-empty">No hay entradas que coincidan con los filtros. Prueba a limpiar filtros o ajustar la búsqueda.</div>`;
+    end({ rows: 0, total, filtered: 0 });
     return;
   }
 
@@ -7485,6 +7542,7 @@ function renderBitacoraTable() {
       </article>`;
     })
     .join("");
+  end({ rows: pageRows.length, total, filtered: filtered.length, pageSize });
 }
 
 try {
@@ -7524,7 +7582,21 @@ function initBitacoraModule() {
   bitacoraCancelarEdicionBtn?.addEventListener("click", () => closeBitacoraFormModal());
   bitacoraFormCambios?.addEventListener("input", () => updateBitacoraCharCount());
   bitacoraFormTipo?.addEventListener("change", () => {
+    if (bitacoraFormProgramasSearch instanceof HTMLInputElement) bitacoraFormProgramasSearch.value = "";
     refreshBitacoraFormProgramasChecklist([]);
+  });
+  bitacoraFormProgramasSearch?.addEventListener("input", () => applyBitacoraFormProgramasSearchFilter());
+  bitacoraFormProgramasWrap?.addEventListener("change", (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.classList.contains("bitacora-programas-check-input")) {
+      updateBitacoraFormProgramasSeleccionadosCount();
+    }
+  });
+  bitacoraFormProgramasLimpiarBtn?.addEventListener("click", () => {
+    if (!bitacoraFormProgramasWrap) return;
+    bitacoraFormProgramasWrap.querySelectorAll(".bitacora-programas-check-input:checked").forEach((el) => {
+      el.checked = false;
+    });
+    updateBitacoraFormProgramasSeleccionadosCount();
   });
 
   bitacoraTimelineList?.addEventListener("click", (event) => {
@@ -8008,6 +8080,10 @@ let dashModeloIndex = null;
 const dashQueryMemo = createDashMemoStore();
 let dashCrmPkMapCache = null;
 let dashCrmPkMapRelLen = -1;
+let dashPlanningByRowKeyCache = null;
+let dashPlanningByRowKeyGen = -1;
+/** Último RenderContext de paneles inferiores (misma firma de filtros → resize/rAF sin re-scan). */
+let dashCrmLastBottomRenderContext = null;
 const dashMainChartGate = createDashRenderGate();
 const dashCrmCompareChartGate = createDashRenderGate();
 
@@ -8017,6 +8093,9 @@ function invalidateDashboardQueryCache() {
   dashQueryMemo.clear();
   dashCrmPkMapCache = null;
   dashCrmPkMapRelLen = -1;
+  dashPlanningByRowKeyCache = null;
+  dashPlanningByRowKeyGen = -1;
+  dashCrmLastBottomRenderContext = null;
   dashMainChartGate.reset();
   dashCrmCompareChartGate.reset();
   document
@@ -8158,8 +8237,9 @@ function syncDashboardTableRowDomSelectionHighlight() {
 }
 
 /**
- * Si es false: excluye campañas por nombre heurístico y tipos Charla / Webinar / Alcance.
- * Si es true: incluye gasto y presupuesto de esos tipos; leads/CPL/rendimiento de esos tipos siguen en 0.
+ * Si es false: gasto comercial vía modelo; campañas Charla_/Webinar_/Alcance_ (DATA) excluidas del gasto.
+ * Si es true: suma además el gasto DATA de Charla_/Webinar_/Alcance_ (sin Planning ni Relaciones).
+ * Leads/CPL/embudo comercial no cambian.
  */
 let incluirBrandingDashboard = false;
 const LS_DASH_MOSTRAR_META_GLOBAL = "dashboard_mostrar_meta_global";
@@ -8172,6 +8252,8 @@ let dashboardCrmBottomMode = "platVsCrm";
 let dashboardCrmIntervaloPeriodScope = "total";
 /** Tab operativa CRM activa (preparado para filtrar motivos de no interés). */
 let dashboardCrmOperActiveTab = "gestionados";
+/** PERF_AUDIT — recorridos completos de crmLeads por ciclo BottomPanels (Sprint 2). */
+let dashCrmLeadScanCount = 0;
 let mostrarMetaGlobal = true;
 try {
   const rawMostrarMetaGlobal = appMemoryKV.getItem(LS_DASH_MOSTRAR_META_GLOBAL);
@@ -9399,6 +9481,9 @@ function campatrackCompletePostLoginPipeline(bundlePayload) {
   campatrackApplyFetchedBundleToRuntime(bundlePayload, { deferSecondaryRenders: true });
   if (campatrackIsLiteMode()) campatrackGateOnDataReady();
   bootstrapCampatrackAuthShell();
+  if (perfAuditEnabled()) {
+    void campatrackYieldToPaint().then(() => perfAuditScheduleAutoRunAfterHydrate());
+  }
 }
 
 /**
@@ -15779,6 +15864,9 @@ function formatearPlataforma(plataforma) {
 }
 
 function getPlanningByProgIntakeTrackPlat(programa, intake, tracking, plataforma, tipo = "") {
+  const rowKey = `${String(tipo ?? "")}|||${String(programa ?? "")}|||${String(intake ?? "")}|||${String(tracking ?? "")}|||${String(plataforma ?? "")}`;
+  const bucket = ensureDashPlanningByRowKeyIndex().get(rowKey);
+  if (bucket) return bucket;
   return planningDraftRecords().filter(
     (r) =>
       (!tipo || String(r.tipo) === String(tipo)) &&
@@ -15787,6 +15875,25 @@ function getPlanningByProgIntakeTrackPlat(programa, intake, tracking, plataforma
       String(r.tracking) === String(tracking) &&
       String(r.plataforma) === String(plataforma)
   );
+}
+
+function dashboardRowKeyFromPlanningRec(rec) {
+  return `${String(rec?.tipo ?? "")}|||${String(rec?.programa ?? "")}|||${String(rec?.intake ?? "")}|||${String(rec?.tracking ?? "")}|||${String(rec?.plataforma ?? "")}`;
+}
+
+function ensureDashPlanningByRowKeyIndex() {
+  if (dashPlanningByRowKeyCache && dashPlanningByRowKeyGen === dashModeloIndexGen) {
+    return dashPlanningByRowKeyCache;
+  }
+  const map = new Map();
+  for (const rec of planningDraftRecords()) {
+    const rowKey = dashboardRowKeyFromPlanningRec(rec);
+    if (!map.has(rowKey)) map.set(rowKey, []);
+    map.get(rowKey).push(rec);
+  }
+  dashPlanningByRowKeyCache = map;
+  dashPlanningByRowKeyGen = dashModeloIndexGen;
+  return map;
 }
 
 /** Rango del filtro dashboard (mes / fechas). */
@@ -16206,6 +16313,16 @@ function esNombreCampaniaBranding(nombre) {
   return n.includes("alcance") || n.includes("webinar") || n.includes("charla");
 }
 
+/** Campañas informativas detectadas por prefijo en DATA (Charla_ / Webinar_ / Alcance_). */
+const DATA_AUTO_INFORMATIVA_PREFIXES = ["Charla_", "Webinar_", "Alcance_"];
+
+function isDataCampaignAutoInformativa(nombre) {
+  const n = String(nombre ?? "").trim();
+  if (!n) return false;
+  const lower = n.toLowerCase();
+  return DATA_AUTO_INFORMATIVA_PREFIXES.some((pfx) => lower.startsWith(pfx.toLowerCase()));
+}
+
 /** Tipos convocatoria / awareness: nunca aparecen en el segmentador TIPO. */
 function esTipoBrandingConvocatoriaDashboard(tipo) {
   const t = String(tipo ?? "").trim();
@@ -16402,9 +16519,13 @@ function dashboardModeloFiltroSegmentos(r) {
  * Orden de filtros: 1) mes, 2) rango de fechas (inclusive), 3) segmentadores (tipo, intake, etc.).
  */
 function getDashboardFilteredData() {
+  const end = perfMeasureStart("data:getDashboardFilteredData", "data");
   const sig = dashboardAnalyticsSignature("filteredData");
   const hit = dashQueryMemo.get("filteredData");
-  if (hit && hit.sig === sig) return hit.val;
+  if (hit && hit.sig === sig) {
+    end({ records: hit.val?.length ?? 0, cacheHit: true });
+    return hit.val;
+  }
   if (!estadoFiltrosDashboard.mes) {
     const now = new Date();
     estadoFiltrosDashboard.mes = formatMonthYearData(now);
@@ -16424,6 +16545,7 @@ function getDashboardFilteredData() {
   }
   const val = pool.filter((r) => dashboardModeloFiltroSegmentos(r));
   dashQueryMemo.set("filteredData", { sig, val });
+  end(perfAuditMeta({ records: val.length, cacheHit: false, poolSize: pool.length }));
   return val;
 }
 
@@ -16477,14 +16599,21 @@ function dashboardRowKeyMatchesDashboardSegmentFilters(rowKey) {
 
 /** Modelo dashboard Comercial CRM: segmentadores sí; mes y rango de fechas NO acotan plataforma/CRM aquí. */
 function getDashboardFilteredModeloParaComercialCrm() {
+  const end = perfMeasureStart("data:getDashboardFilteredModeloParaComercialCrm", "data");
   const sig = dashboardAnalyticsSignature("crmModeloSeg");
   const hit = dashQueryMemo.get("crmModeloSeg");
-  if (hit && hit.sig === sig) return hit.val;
-  const val = modeloAnalitico.filter((r) => {
-    if (!(r.fecha instanceof Date) || !String(r.idCampania ?? "").trim()) return false;
-    return dashboardModeloFiltroSegmentos(r);
-  });
+  if (hit && hit.sig === sig) {
+    end({ records: hit.val?.length ?? 0, cacheHit: true });
+    return hit.val;
+  }
+  const val = perfArrayOp("filter", "crmModeloSeg", modeloAnalitico, () =>
+    modeloAnalitico.filter((r) => {
+      if (!(r.fecha instanceof Date) || !String(r.idCampania ?? "").trim()) return false;
+      return dashboardModeloFiltroSegmentos(r);
+    })
+  );
   dashQueryMemo.set("crmModeloSeg", { sig, val });
+  end({ records: val.length, cacheHit: false, sourceSize: modeloAnalitico.length });
   return val;
 }
 
@@ -16567,9 +16696,13 @@ function dashboardCrmIntervaloLeadPassesScopeFilter(r) {
 
 /** Suma leads plataforma por fila — tab Comercial CRM (global por segmentadores, sin mes ni rango). */
 function getDashboardPlatformLeadsByRowKeyForCrm() {
+  const end = perfMeasureStart("data:getDashboardPlatformLeadsByRowKeyForCrm", "data");
   const sig = dashboardAnalyticsSignature("platLeadsByRow");
   const hit = dashQueryMemo.get("platLeadsByRow");
-  if (hit && hit.sig === sig) return hit.val;
+  if (hit && hit.sig === sig) {
+    end({ records: hit.val?.size ?? 0, cacheHit: true });
+    return hit.val;
+  }
   const dataGlob = filtrarDashboardSinBranding(getDashboardFilteredModeloParaComercialCrm());
   const map = new Map();
   dataGlob.forEach((r) => {
@@ -16577,38 +16710,167 @@ function getDashboardPlatformLeadsByRowKeyForCrm() {
     map.set(key, (map.get(key) || 0) + (Number(r.leads) || 0));
   });
   dashQueryMemo.set("platLeadsByRow", { sig, val: map });
+  end({ records: dataGlob.length, rowKeys: map.size, cacheHit: false });
   return map;
 }
 
-function aggregateDashboardCrmMetricsByRowKey() {
-  const sig = dashboardAnalyticsSignature("crmAggByRow");
-  const hit = dashQueryMemo.get("crmAggByRow");
-  if (hit && hit.sig === sig) return hit.val;
-  const ckMap = getCachedCrmKeyToPlanningKeysMap();
-  const agg = new Map();
-  const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
-  crmLeads.forEach((r) => {
-    if (!dashboardComercialCrmLeadRowPassesGlobalFilter(r)) return;
-    const ck = crmCampaignKeyFromRow(r);
-    if (!ck) return;
-    const pks = ckMap.get(ck);
-    if (!pks?.length) return;
-    for (const pk of filterCaptacionPlanningKeys(pks)) {
-      const rowKey = planningKeyToDashboardRowKey(pk);
-      if (!dashboardRowKeyMatchesDashboardSegmentFilters(rowKey)) continue;
-      if (busq && !dashboardRowSearchHaystackFromKey(rowKey).includes(busq)) continue;
-      if (!agg.has(rowKey)) {
-        agg.set(rowKey, { crmLeads: 0, crmInt: 0, crmPost: 0, crmMat: 0 });
-      }
-      const slot = agg.get(rowKey);
-      slot.crmLeads += Number(r.leads) || 0;
-      if (r.esInteresado) slot.crmInt += 1;
-      if (r.esPostulante) slot.crmPost += 1;
-      if (r.esMatriculado) slot.crmMat += 1;
+function dashCrmLeadsBundleSignature(mode) {
+  return dashboardAnalyticsSignature(`crmLeadsBundle|${mode}|${dashboardCrmIntervaloPeriodScope}`);
+}
+
+function dashCrmRenderContextParityEnabled() {
+  if (!perfAuditEnabled()) return false;
+  try {
+    return (
+      new URLSearchParams(window.location.search).get("perf_definitive") === "1" ||
+      localStorage.getItem("campatrack_perf_definitive") === "1"
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+function dashCrmVisibleRowKeysFromAggAndPlat(agg, platMap, busq) {
+  const keys = new Set([...platMap.keys(), ...agg.keys()]);
+  let list = [...keys].filter((k) => {
+    const p = platMap.get(k) || 0;
+    const c = agg.get(k);
+    const cL = c?.crmLeads || 0;
+    if (!(p > 0 || cL > 0 || (c?.crmInt || c?.crmPost || c?.crmMat))) return false;
+    return dashboardRowKeyMatchesDashboardSegmentFilters(k);
+  });
+  if (busq) {
+    list = list.filter((k) => dashboardRowSearchHaystackFromKey(k).includes(busq));
+  }
+  return list;
+}
+
+function dashCrmDeriveBottomPanelSlices(bottomPanelRows, visibleRowKeysSet, ckMap, selRow, mode, mesSel) {
+  const chartCrmRows = [];
+  const intervaloRows = [];
+  const pivotRows = [];
+  bottomPanelRows.forEach((r) => {
+    const passesFila = dashboardCrmLeadMatchesSelectedProgramRow(r, selRow, ckMap);
+    if (passesFila && dashboardCrmIntervaloLeadPassesScopeFilter(r)) {
+      intervaloRows.push(r);
+    }
+    if (
+      passesFila &&
+      dashboardCrmLeadMatchesVisibleTableRowKeys(r, visibleRowKeysSet, ckMap) &&
+      dashboardCrmLeadPassesChartPeriodFilter(r)
+    ) {
+      chartCrmRows.push(r);
+    }
+    if (mode === "fuente" && passesFila && formatMonthYearData(r.fecha) === mesSel) {
+      pivotRows.push(r);
     }
   });
-  dashQueryMemo.set("crmAggByRow", { sig, val: agg });
-  return agg;
+  return { chartCrmRows, intervaloRows, pivotRows };
+}
+
+/**
+ * Un solo recorrido de crmLeads: agregados CRM + datasets de paneles inferiores (memoizado).
+ * @param {string} [mode]
+ */
+function ensureDashboardCrmLeadsBundle(mode = dashboardCrmBottomMode) {
+  const sig = dashCrmLeadsBundleSignature(mode);
+  const hit = dashQueryMemo.get("crmLeadsBundle");
+  if (hit && hit.sig === sig) return hit.val;
+
+  const ckMap = getCachedCrmKeyToPlanningKeysMap();
+  const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
+  const selRow = String(programaSeleccionado ?? "").trim();
+  if (!estadoFiltrosDashboard.mes) {
+    estadoFiltrosDashboard.mes = formatMonthYearData(new Date());
+  }
+  const mesSel = estadoFiltrosDashboard.mes;
+
+  const agg = new Map();
+  const bottomPanelRows = [];
+
+  const runScan = () => {
+    crmLeads.forEach((r) => {
+      if (!dashboardComercialCrmLeadRowPassesGlobalFilter(r)) return;
+      const ck = crmCampaignKeyFromRow(r);
+      if (!ck) return;
+      const pks = ckMap.get(ck);
+      if (!pks?.length) return;
+
+      let bottomIncluded = false;
+      for (const pk of filterCaptacionPlanningKeys(pks)) {
+        const rowKey = planningKeyToDashboardRowKey(pk);
+        if (!dashboardRowKeyMatchesDashboardSegmentFilters(rowKey)) continue;
+        if (busq && !dashboardRowSearchHaystackFromKey(rowKey).includes(busq)) continue;
+
+        bottomIncluded = true;
+        if (!agg.has(rowKey)) {
+          agg.set(rowKey, { crmLeads: 0, crmInt: 0, crmPost: 0, crmMat: 0 });
+        }
+        const slot = agg.get(rowKey);
+        slot.crmLeads += Number(r.leads) || 0;
+        if (r.esInteresado) slot.crmInt += 1;
+        if (r.esPostulante) slot.crmPost += 1;
+        if (r.esMatriculado) slot.crmMat += 1;
+      }
+      if (bottomIncluded) bottomPanelRows.push(r);
+    });
+  };
+
+  dashCrmPerfTrackCrmLeadsScan("crmLeadsBundle");
+  if (perfAuditEnabled()) {
+    perfArrayOp("forEach", "crmLeadsBundle:crmLeads", crmLeads, runScan);
+  } else {
+    runScan();
+  }
+
+  const aggSig = dashboardAnalyticsSignature("crmAggByRow");
+  dashQueryMemo.set("crmAggByRow", { sig: aggSig, val: agg });
+
+  const platMap = getDashboardPlatformLeadsByRowKeyForCrm();
+  const visibleRowKeys = dashCrmVisibleRowKeysFromAggAndPlat(agg, platMap, busq);
+  const visibleRowKeysSet = new Set(visibleRowKeys);
+  const { chartCrmRows, intervaloRows, pivotRows } = dashCrmDeriveBottomPanelSlices(
+    bottomPanelRows,
+    visibleRowKeysSet,
+    ckMap,
+    selRow,
+    mode,
+    mesSel
+  );
+
+  const bundle = {
+    agg,
+    bottomPanelRows,
+    chartCrmRows,
+    intervaloRows,
+    pivotRows,
+    visibleRowKeys,
+    visibleRowKeysSet,
+    mode
+  };
+  dashQueryMemo.set("crmLeadsBundle", { sig, val: bundle });
+  return bundle;
+}
+
+function aggregateDashboardCrmMetricsByRowKey() {
+  const end = perfMeasureStart("data:aggregateDashboardCrmMetricsByRowKey", "data");
+  const sig = dashboardAnalyticsSignature("crmAggByRow");
+  const hit = dashQueryMemo.get("crmAggByRow");
+  if (hit && hit.sig === sig) {
+    end({ records: crmLeads.length, rowKeys: hit.val?.size ?? 0, cacheHit: true });
+    return hit.val;
+  }
+  const bundle = ensureDashboardCrmLeadsBundle(dashboardCrmBottomMode);
+  end({
+    records: crmLeads.length,
+    rowKeys: bundle.agg.size,
+    cacheHit: false,
+    fromBundle: true,
+    planningRows: planningDraftRecords().length,
+    relacionesMeta: relaciones.length,
+    relacionesCrm: relacionesCrm.length
+  });
+  return bundle.agg;
 }
 
 function dashCrmPctDiffClass(ratio) {
@@ -16635,27 +16897,49 @@ function dashCrmNormalizeFuentePivotFromRow(row) {
 }
 
 /** Filas CRM vinculadas + segmentadores; sin filtro de mes ni rango (vista CRM global). */
+function dashboardCrmLeadIncludedInBottomPanels(r, ckMap, busq) {
+  if (!dashboardComercialCrmLeadRowPassesGlobalFilter(r)) return false;
+  const ck = crmCampaignKeyFromRow(r);
+  if (!ck) return false;
+  const pks = ckMap.get(ck);
+  if (!pks?.length) return false;
+  for (const pk of filterCaptacionPlanningKeys(pks)) {
+    const rowKey = planningKeyToDashboardRowKey(pk);
+    if (!dashboardRowKeyMatchesDashboardSegmentFilters(rowKey)) continue;
+    if (busq && !dashboardRowSearchHaystackFromKey(rowKey).includes(busq)) continue;
+    return true;
+  }
+  return false;
+}
+
+function dashboardCrmLeadMatchesSelectedProgramRow(r, selRow, ckMap) {
+  if (!selRow) return true;
+  const ck = crmCampaignKeyFromRow(r);
+  const pks = ckMap.get(ck);
+  if (!pks?.length) return false;
+  return filterCaptacionPlanningKeys(pks).some((pk) => planningKeyToDashboardRowKey(pk) === selRow);
+}
+
+function dashboardCrmLeadMatchesVisibleTableRowKeys(r, visibleKeysSet, ckMap) {
+  if (!visibleKeysSet || visibleKeysSet.size === 0) return false;
+  const ck = crmCampaignKeyFromRow(r);
+  const pks = ckMap.get(ck);
+  if (!pks?.length) return false;
+  return pks.some((pk) => visibleKeysSet.has(planningKeyToDashboardRowKey(pk)));
+}
+
+function dashCrmPerfResetLeadScanCount() {
+  dashCrmLeadScanCount = 0;
+}
+
+function dashCrmPerfTrackCrmLeadsScan(source) {
+  if (!perfAuditEnabled()) return;
+  dashCrmLeadScanCount += 1;
+  perfArrayOp("forEach", `crmLeadsScan:${source}`, crmLeads, () => {});
+}
+
 function getDashboardCrmRowsForBottomPanels() {
-  const ckMap = getCachedCrmKeyToPlanningKeysMap();
-  const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
-  const out = [];
-  crmLeads.forEach((r) => {
-    if (!dashboardComercialCrmLeadRowPassesGlobalFilter(r)) return;
-    const ck = crmCampaignKeyFromRow(r);
-    if (!ck) return;
-    const pks = ckMap.get(ck);
-    if (!pks?.length) return;
-    let ok = false;
-    for (const pk of filterCaptacionPlanningKeys(pks)) {
-      const rowKey = planningKeyToDashboardRowKey(pk);
-      if (!dashboardRowKeyMatchesDashboardSegmentFilters(rowKey)) continue;
-      if (busq && !dashboardRowSearchHaystackFromKey(rowKey).includes(busq)) continue;
-      ok = true;
-      break;
-    }
-    if (ok) out.push(r);
-  });
-  return out;
+  return ensureDashboardCrmLeadsBundle(dashboardCrmBottomMode).bottomPanelRows;
 }
 
 function filterDashboardCrmLeadRowsPorFilaSeleccionada(rows) {
@@ -16686,11 +16970,16 @@ function dashboardCrmSortKey(rowKey) {
 }
 
 function renderDashboardKpisCrm() {
+  const end = perfMeasureStart("render:DashboardKpisCrm", "kpi");
   const host = document.getElementById("dashboardKpisCrmHolder");
-  if (!host) return;
+  if (!host) {
+    end({ skipped: true });
+    return;
+  }
   if (!getDashboardSubtabVisibility().crm || getDashboardEffectiveSubtab() !== "crm") {
     ensureMesCardOutsideCrmKpiStrip();
     host.innerHTML = "";
+    end({ skipped: true, reason: "subtab" });
     return;
   }
   const platMap = dashboardCrmSubsetKeyedMap(getDashboardPlatformLeadsByRowKeyForCrm(), 0);
@@ -16759,29 +17048,18 @@ function renderDashboardKpisCrm() {
     host.appendChild(period);
     period.classList.add("dash-periodo--crm-kpi-slot");
   }
+  end(perfAuditMeta({ crmLeads: crmLeads.length, rowKeys: crmMap.size, platKeys: platMap.size }));
 }
 
 /** Claves de programa visibles en la tabla CRM (mismos criterios que `renderDashboardCrmTabla`). */
 function getDashboardCrmVisibleTableRowKeys() {
-  const platMap = getDashboardPlatformLeadsByRowKeyForCrm();
-  const crmMap = aggregateDashboardCrmMetricsByRowKey();
-  const keys = new Set([...platMap.keys(), ...crmMap.keys()]);
-  let list = [...keys].filter((k) => {
-    const p = platMap.get(k) || 0;
-    const c = crmMap.get(k);
-    const cL = c?.crmLeads || 0;
-    if (!(p > 0 || cL > 0 || (c?.crmInt || c?.crmPost || c?.crmMat))) return false;
-    return dashboardRowKeyMatchesDashboardSegmentFilters(k);
-  });
-  const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
-  if (busq) {
-    list = list.filter((k) => dashboardRowSearchHaystackFromKey(k).includes(busq));
-  }
-  return list;
+  const bundle = ensureDashboardCrmLeadsBundle(dashboardCrmBottomMode);
+  return bundle.visibleRowKeys;
 }
 
 function getDashboardCrmVisibleTableRowKeysSet() {
-  return new Set(getDashboardCrmVisibleTableRowKeys());
+  const bundle = ensureDashboardCrmLeadsBundle(dashboardCrmBottomMode);
+  return bundle.visibleRowKeysSet;
 }
 
 function filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys) {
@@ -16796,12 +17074,17 @@ function filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys) {
 }
 
 function renderDashboardCrmTabla() {
+  const end = perfMeasureStart("render:DashboardCrmTabla", "table");
   const tbody = document.getElementById("dashCrmTbody");
   const tfoot = document.getElementById("dashCrmTfoot");
-  if (!tbody || !tfoot) return;
+  if (!tbody || !tfoot) {
+    end({ skipped: true });
+    return;
+  }
   if (!hasAnyDataLoaded() || !getDashboardSubtabVisibility().crm || getDashboardEffectiveSubtab() !== "crm") {
     tbody.innerHTML = "";
     tfoot.innerHTML = "";
+    end({ skipped: true });
     return;
   }
   const platMap = getDashboardPlatformLeadsByRowKeyForCrm();
@@ -16920,37 +17203,103 @@ function renderDashboardCrmTabla() {
     <td class="dash-grp-col dash-grp-col-mat dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(totals.metaM)))}</td>
     <td class="dash-grp-col dash-grp-col-mat dash-grp-col-last dash-crm-num">${escapeHtml(dashFmtLeads(totals.rm))}</td>
   </tr>`;
+  end(perfAuditMeta({ rows: list.length, htmlRows: rowsHtml.length, virtualized: Boolean(virtCrm && rowsHtml.length > 40) }));
 }
 
-function renderDashboardCrmCompareChart() {
-  const svg = document.getElementById("dashboardChartCrmCompare");
-  if (!svg) return;
+function dashCrmBuildCompareChartSeries(platGlob, panelRows) {
   const platByDay = new Map();
   const crmByDay = new Map();
-  const platGlob = getDashboardPlatformRowsForCrmCharts();
-  platGlob.forEach((r) => {
+  (platGlob || []).forEach((r) => {
     if (!(r.fecha instanceof Date)) return;
     const d = formatDateInputFromDate(r.fecha);
     platByDay.set(d, (platByDay.get(d) || 0) + (Number(r.leads) || 0));
   });
-  const panelRows = getDashboardCrmRowsForCharts();
-  panelRows.forEach((r) => {
+  (panelRows || []).forEach((r) => {
     const d = formatDateInputFromDate(r.fecha);
     crmByDay.set(d, (crmByDay.get(d) || 0) + (Number(r.leads) || 0));
   });
   const dayKeys = [...new Set([...platByDay.keys(), ...crmByDay.keys()])]
     .filter((d) => (platByDay.get(d) || 0) > 0 || (crmByDay.get(d) || 0) > 0)
     .sort();
-  if (!dayKeys.length) {
-    svg.innerHTML = `<text x="20" y="36" fill="#94a3b8">Sin datos para graficar en la vista actual</text>`;
-    updateDashboardCrmDynamicTitle(0);
-    return;
-  }
   const points = dayKeys.map((d) => ({
     d,
     plat: platByDay.get(d) || 0,
     crm: crmByDay.get(d) || 0
   }));
+  return { platByDay, crmByDay, dayKeys, points };
+}
+
+function dashCrmCompareChartSeriesFingerprint(platGlob, panelRows) {
+  const { dayKeys, points } = dashCrmBuildCompareChartSeries(platGlob, panelRows);
+  return createDashSignature([
+    dayKeys.join(","),
+    points.map((p) => `${p.plat}:${p.crm}`).join("|"),
+    (platGlob || []).length,
+    (panelRows || []).length
+  ]);
+}
+
+/** PERF_AUDIT — paridad CompareChart: contexto vs getters (Sprint 1B). */
+function assertDashboardCrmCompareChartParity(renderContext, platGlob, panelRows) {
+  const diffs = [];
+  const livePlat = getDashboardPlatformRowsForCrmCharts();
+  const liveCrm = getDashboardCrmRowsForCharts();
+  if (
+    dashCrmRenderCtxModeloRowsFingerprint(platGlob) !== dashCrmRenderCtxModeloRowsFingerprint(livePlat)
+  ) {
+    diffs.push("chartPlatRows");
+  }
+  if (dashCrmRenderCtxLeadRowsFingerprint(panelRows) !== dashCrmRenderCtxLeadRowsFingerprint(liveCrm)) {
+    diffs.push("chartCrmRows");
+  }
+  if (dashCrmCompareChartSeriesFingerprint(platGlob, panelRows) !== dashCrmCompareChartSeriesFingerprint(livePlat, liveCrm)) {
+    diffs.push("compareChartSeries");
+  }
+  if (diffs.length) {
+    console.warn("[CRM Render Context] CompareChart paridad: diferencias en", diffs.join(", "));
+  }
+}
+
+/**
+ * @param {DashboardCrmRenderContext|null|undefined} renderContext
+ * @returns {{ platGlob: object[], panelRows: object[], fromContext: boolean }}
+ */
+function dashCrmResolveCompareChartRows(renderContext) {
+  if (renderContext && typeof renderContext === "object") {
+    const platGlob = renderContext.chartPlatRows;
+    const panelRows = renderContext.chartCrmRows;
+    if (Array.isArray(platGlob) && Array.isArray(panelRows)) {
+      return { platGlob, panelRows, fromContext: true };
+    }
+  }
+  return {
+    platGlob: getDashboardPlatformRowsForCrmCharts(),
+    panelRows: getDashboardCrmRowsForCharts(),
+    fromContext: false
+  };
+}
+
+/**
+ * @param {DashboardCrmRenderContext|null|undefined} [renderContext]
+ */
+function renderDashboardCrmCompareChart(renderContext) {
+  const end = perfMeasureStart("render:DashboardCrmCompareChart", "chart");
+  const svg = document.getElementById("dashboardChartCrmCompare");
+  if (!svg) {
+    end({ skipped: true });
+    return;
+  }
+  const { platGlob, panelRows, fromContext } = dashCrmResolveCompareChartRows(renderContext);
+  if (fromContext && dashCrmRenderContextParityEnabled()) {
+    assertDashboardCrmCompareChartParity(renderContext, platGlob, panelRows);
+  }
+  const { dayKeys, points } = dashCrmBuildCompareChartSeries(platGlob, panelRows);
+  if (!dayKeys.length) {
+    svg.innerHTML = `<text x="20" y="36" fill="#94a3b8">Sin datos para graficar en la vista actual</text>`;
+    updateDashboardCrmDynamicTitle(0, renderContext?.titleTotals);
+    end({ days: 0, skipped: true, fromContext });
+    return;
+  }
   const svgW = Math.round(svg.getBoundingClientRect().width) || 0;
   const crmChartFp = createDashSignature([
     dashboardAnalyticsSignature("crmCompare"),
@@ -16959,7 +17308,10 @@ function renderDashboardCrmCompareChart() {
     dayKeys.join(","),
     points.map((p) => `${p.plat}:${p.crm}`).join("|")
   ]);
-  if (dashCrmCompareChartGate.shouldSkip(crmChartFp)) return;
+  if (dashCrmCompareChartGate.shouldSkip(crmChartFp)) {
+    end({ skipped: true, gateSkip: true, days: dayKeys.length, fromContext });
+    return;
+  }
   dashCrmCompareChartGate.remember(crmChartFp);
   const dm = document.body.classList.contains("dark-mode");
   const chartBg = dm ? "#0f172a" : "#ffffff";
@@ -17048,7 +17400,7 @@ function renderDashboardCrmCompareChart() {
     requestAnimationFrame(() => {
       const w2 = Math.round(svg.getBoundingClientRect().width);
       if (Number.isFinite(w2) && w2 >= 80 && Math.abs(w2 - w) > 2) {
-        renderDashboardCrmCompareChart();
+        renderDashboardCrmCompareChart(renderContext || dashCrmResolveLastBottomRenderContext());
       }
     });
   }
@@ -17060,7 +17412,8 @@ function renderDashboardCrmCompareChart() {
     ${xLabels}
     <text x="${legendCx - 52}" y="14" fill="#2563eb" font-size="10" font-weight="700" text-anchor="end">Plataforma</text>
     <text x="${legendCx + 52}" y="14" fill="#059669" font-size="10" font-weight="700" text-anchor="start">CRM</text>`;
-  updateDashboardCrmDynamicTitle(0);
+  updateDashboardCrmDynamicTitle(0, renderContext?.titleTotals);
+  end({ days: dayKeys.length, platRows: platGlob.length, crmRows: panelRows.length, gateSkip: false, fromContext });
 }
 
 function dashCrmPivotFuenteMonthTotal(m, days) {
@@ -17100,12 +17453,28 @@ function dashCrmPivotRowToneClass(fuente, idx) {
   return cycle[Math.abs(idx) % cycle.length];
 }
 
-function updateDashboardCrmDynamicTitle(pivotTotalLeads) {
+function updateDashboardCrmDynamicTitle(pivotTotalLeads, titleTotalsFromContext) {
   const titleEl = document.getElementById("dashCrmDynamicTitle");
   if (!titleEl) return;
   if (dashboardCrmBottomMode === "fuente") {
-    const total = Number.isFinite(Number(pivotTotalLeads)) ? Math.max(0, Math.round(Number(pivotTotalLeads))) : 0;
+    const fromCtx = titleTotalsFromContext?.pivotTotalLeads;
+    const total =
+      fromCtx != null
+        ? Math.max(0, Math.round(Number(fromCtx) || 0))
+        : Number.isFinite(Number(pivotTotalLeads))
+          ? Math.max(0, Math.round(Number(pivotTotalLeads)))
+          : 0;
     titleEl.textContent = `Vista operativa | Total Leads: ${dashFmtLeads(total)}`;
+    return;
+  }
+  if (
+    titleTotalsFromContext &&
+    titleTotalsFromContext.plat != null &&
+    titleTotalsFromContext.crm != null
+  ) {
+    titleEl.textContent = `Vista operativa | Total Plataforma: ${dashFmtLeads(
+      Math.round(titleTotalsFromContext.plat)
+    )} | Total CRM: ${dashFmtLeads(titleTotalsFromContext.crm)}`;
     return;
   }
   let totalPlat = 0;
@@ -17119,19 +17488,26 @@ function updateDashboardCrmDynamicTitle(pivotTotalLeads) {
   titleEl.textContent = `Vista operativa | Total Plataforma: ${dashFmtLeads(Math.round(totalPlat))} | Total CRM: ${dashFmtLeads(Math.round(totalCrm))}`;
 }
 
-function renderDashboardCrmPivotFuente() {
+function renderDashboardCrmPivotFuente(renderContext) {
+  const end = perfMeasureStart("render:DashboardCrmPivotFuente", "chart");
   const table = document.getElementById("dashCrmPivotTable");
   const thead = document.getElementById("dashCrmPivotThead");
   const tbody = document.getElementById("dashCrmPivotTbody");
-  if (!table || !thead || !tbody) return;
+  if (!table || !thead || !tbody) {
+    end({ skipped: true });
+    return;
+  }
 
-  const rows = getDashboardCrmRowsForPivotFuente();
+  const rows =
+    renderContext && Array.isArray(renderContext.pivotRows)
+      ? renderContext.pivotRows
+      : getDashboardCrmRowsForPivotFuente();
   const days = dashboardAllDaysInSelectedMonth();
   const pivotTotalLeads = rows.reduce(
     (acc, r) => acc + Math.max(0, Math.round(Number(r.leads) || 0)),
     0
   );
-  updateDashboardCrmDynamicTitle(pivotTotalLeads);
+  updateDashboardCrmDynamicTitle(pivotTotalLeads, renderContext?.titleTotals);
 
   const bucket = new Map();
   rows.forEach((r) => {
@@ -17171,6 +17547,7 @@ function renderDashboardCrmPivotFuente() {
     thead.innerHTML = "";
     tbody.innerHTML = `<tr><td colspan="2" class="dash-empty-mini">Selecciona un mes válido para ver el detalle por fuente.</td></tr>`;
     table.querySelector("colgroup.dash-crm-pivot-colgroup")?.remove();
+    end({ skipped: true, days: 0 });
     return;
   }
 
@@ -17178,6 +17555,7 @@ function renderDashboardCrmPivotFuente() {
 
   if (!rows.length || !fuentes.length) {
     tbody.innerHTML = `<tr><td colspan="${days.length + 2}" class="dash-empty-mini">Sin fuentes con leads en el mes y filtros actuales.</td></tr>`;
+    end({ rows: 0, days: days.length, fuentes: 0 });
     return;
   }
 
@@ -17201,6 +17579,7 @@ function renderDashboardCrmPivotFuente() {
       return `<tr class="dash-crm-pivot-row ${toneClass}"><td class="dash-crm-pivot-fuente-col">${escapeHtml(f)}</td>${tds}<td class="col-num dash-crm-pivot-sum-col"><strong>${escapeHtml(dashFmtLeads(sum))}</strong></td></tr>`;
     })
     .join("");
+  end(perfAuditMeta({ rows: rows.length, days: days.length, fuentes: fuentes.length, cells: days.length * fuentes.length }));
 }
 
 /** Orden fijo de intervalos CRM (menor → mayor tiempo; al final casos sin clasificar). */
@@ -17263,12 +17642,69 @@ function applyDashboardCrmIntervaloPeriodScopeUi() {
   bMes?.classList.toggle("dash-crm-toggle-btn--active", m === "mes");
 }
 
-function renderDashboardCrmIntervaloTabla() {
+function dashCrmIntervaloTablaDataFingerprint(rows) {
+  const counts = new Map();
+  let totalLeads = 0;
+  (rows || []).forEach((r) => {
+    const label = canonDashboardCrmIntervalLabel(r.intervaloGestion);
+    const n = Math.max(0, Math.round(Number(r.leads) || 0));
+    if (n <= 0) return;
+    counts.set(label, (counts.get(label) || 0) + n);
+    totalLeads += n;
+  });
+  const parts = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], "es", { sensitivity: "base" }));
+  return createDashSignature([
+    totalLeads,
+    parts.map(([k, v]) => `${k}:${v}`).join("|"),
+    (rows || []).length
+  ]);
+}
+
+/** PERF_AUDIT — paridad IntervaloTabla: contexto vs getters (Sprint 1C). */
+function assertDashboardCrmIntervaloTablaParity(renderContext, rows) {
+  const diffs = [];
+  const liveRows = getDashboardCrmRowsForIntervaloTabla();
+  if (dashCrmRenderCtxLeadRowsFingerprint(rows) !== dashCrmRenderCtxLeadRowsFingerprint(liveRows)) {
+    diffs.push("intervaloRows");
+  }
+  if (dashCrmIntervaloTablaDataFingerprint(rows) !== dashCrmIntervaloTablaDataFingerprint(liveRows)) {
+    diffs.push("intervaloTablaData");
+  }
+  if (diffs.length) {
+    console.warn("[CRM Render Context] IntervaloTabla paridad: diferencias en", diffs.join(", "));
+  }
+}
+
+/**
+ * @param {DashboardCrmRenderContext|null|undefined} renderContext
+ * @returns {{ rows: object[], fromContext: boolean }}
+ */
+function dashCrmResolveIntervaloTablaRows(renderContext) {
+  if (renderContext && typeof renderContext === "object") {
+    const rows = renderContext.intervaloRows;
+    if (Array.isArray(rows)) {
+      return { rows, fromContext: true };
+    }
+  }
+  return { rows: getDashboardCrmRowsForIntervaloTabla(), fromContext: false };
+}
+
+/**
+ * @param {DashboardCrmRenderContext|null|undefined} [renderContext]
+ */
+function renderDashboardCrmIntervaloTabla(renderContext) {
+  const end = perfMeasureStart("render:DashboardCrmIntervaloTabla", "table");
   const tbody = document.getElementById("dashCrmIntervalTbody");
-  if (!tbody) return;
+  if (!tbody) {
+    end({ skipped: true });
+    return;
+  }
   applyDashboardCrmIntervaloPeriodScopeUi();
 
-  const rows = getDashboardCrmRowsForIntervaloTabla();
+  const { rows, fromContext } = dashCrmResolveIntervaloTablaRows(renderContext);
+  if (fromContext && dashCrmRenderContextParityEnabled()) {
+    assertDashboardCrmIntervaloTablaParity(renderContext, rows);
+  }
   const counts = new Map();
   let totalLeads = 0;
   rows.forEach((r) => {
@@ -17285,6 +17721,7 @@ function renderDashboardCrmIntervaloTabla() {
     if (tableEmpty instanceof HTMLElement) {
       tableEmpty.style.setProperty("--dash-crm-interval-visible-rows", "1");
     }
+    end({ rows: 0, fromContext });
     return;
   }
 
@@ -17309,9 +17746,283 @@ function renderDashboardCrmIntervaloTabla() {
   if (table instanceof HTMLElement) {
     table.style.setProperty("--dash-crm-interval-visible-rows", String(Math.max(1, htmlRows.length)));
   }
+  end({ rows: rows.length, intervals: htmlRows.length, totalLeads, fromContext });
 }
 
-function applyDashboardCrmBottomModeUi() {
+/**
+ * Sprint 1A — contexto efímero por ciclo de render de paneles inferiores CRM.
+ * No persiste, no vive en appState; los hijos aún no lo consumen.
+ *
+ * @typedef {Object} DashboardCrmRenderContext
+ * @property {object[]} bottomPanelRows
+ * @property {string[]} visibleRows
+ * @property {string[]} visibleRowKeys
+ * @property {Set<string>} visibleRowKeysSet
+ * @property {object[]} chartPlatRows
+ * @property {object[]} chartCrmRows
+ * @property {object[]} intervaloRows
+ * @property {object[]} pivotRows
+ * @property {{ plat: (number|null), crm: (number|null), pivotTotalLeads: (number|null) }} titleTotals
+ * @property {string} mode
+ * @property {string} intervaloPeriodScope
+ * @property {string} analyticsSignature
+ * @property {number} renderTimestamp
+ */
+
+function dashCrmRenderCtxLeadRowsFingerprint(rows) {
+  if (!Array.isArray(rows)) return "null";
+  if (!rows.length) return "0";
+  let sumLeads = 0;
+  const parts = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i];
+    const ck = crmCampaignKeyFromRow(r);
+    const d = r?.fecha instanceof Date ? formatDateInputFromDate(r.fecha) : "";
+    const leads = Number(r?.leads) || 0;
+    sumLeads += leads;
+    parts.push(`${ck}|${d}|${leads}`);
+  }
+  return `${rows.length}|${sumLeads}|${parts.join(";")}`;
+}
+
+function dashCrmRenderCtxModeloRowsFingerprint(rows) {
+  if (!Array.isArray(rows)) return "null";
+  if (!rows.length) return "0";
+  let sumLeads = 0;
+  const parts = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i];
+    const rk = dashboardRowKeyFromModelo(r);
+    const d = r?.fecha instanceof Date ? formatDateInputFromDate(r.fecha) : "";
+    const leads = Number(r?.leads) || 0;
+    sumLeads += leads;
+    parts.push(`${rk}|${d}|${leads}`);
+  }
+  return `${rows.length}|${sumLeads}|${parts.join(";")}`;
+}
+
+function dashCrmRenderCtxRowKeysFingerprint(keys) {
+  if (!Array.isArray(keys)) return "null";
+  return `${keys.length}|${keys.join("|")}`;
+}
+
+function dashCrmRenderCtxRowKeysSetFingerprint(set) {
+  if (!(set instanceof Set)) return "null";
+  return dashCrmRenderCtxRowKeysFingerprint([...set].sort());
+}
+
+/** PERF_AUDIT — validaciones de desarrollo del Render Context (Sprint 1A). */
+function validateDashboardCrmRenderContext(ctx) {
+  const issues = [];
+  if (!ctx || typeof ctx !== "object") {
+    console.warn("[CRM Render Context] contexto inválido: no es un objeto");
+    return;
+  }
+  const expectedSig = dashboardAnalyticsSignature(
+    `crmBottomRenderCtx|${dashboardCrmBottomMode}|${dashboardCrmIntervaloPeriodScope}`
+  );
+  if (ctx.analyticsSignature !== expectedSig) {
+    issues.push("analyticsSignature no coincide con el render actual");
+  }
+  if (ctx.mode !== dashboardCrmBottomMode) {
+    issues.push("mode desincronizado con dashboardCrmBottomMode");
+  }
+  if (ctx.intervaloPeriodScope !== dashboardCrmIntervaloPeriodScope) {
+    issues.push("intervaloPeriodScope desincronizado");
+  }
+  for (const key of [
+    "bottomPanelRows",
+    "visibleRows",
+    "visibleRowKeys",
+    "chartPlatRows",
+    "chartCrmRows",
+    "intervaloRows",
+    "pivotRows"
+  ]) {
+    if (ctx[key] == null) issues.push(`${key} es null o undefined`);
+    else if (!Array.isArray(ctx[key])) issues.push(`${key} no es un array`);
+  }
+  if (!(ctx.visibleRowKeysSet instanceof Set)) {
+    issues.push("visibleRowKeysSet no es un Set");
+  }
+  if (!ctx.titleTotals || typeof ctx.titleTotals !== "object") {
+    issues.push("titleTotals ausente o inválido");
+  }
+  if (typeof ctx.renderTimestamp !== "number" || !Number.isFinite(ctx.renderTimestamp)) {
+    issues.push("renderTimestamp inválido");
+  }
+  if (issues.length) {
+    console.warn("[CRM Render Context] validación:", issues.join("; "));
+  }
+}
+
+/** PERF_AUDIT — paridad contexto vs getters actuales (Sprint 1A; no altera render). */
+function assertDashboardCrmRenderContextParity(ctx) {
+  const diffs = [];
+  const cmpLead = (label, ctxRows, liveRows) => {
+    const a = dashCrmRenderCtxLeadRowsFingerprint(ctxRows);
+    const b = dashCrmRenderCtxLeadRowsFingerprint(liveRows);
+    if (a !== b) diffs.push(label);
+  };
+  const cmpModelo = (label, ctxRows, liveRows) => {
+    const a = dashCrmRenderCtxModeloRowsFingerprint(ctxRows);
+    const b = dashCrmRenderCtxModeloRowsFingerprint(liveRows);
+    if (a !== b) diffs.push(label);
+  };
+
+  cmpLead("bottomPanelRows", ctx.bottomPanelRows, getDashboardCrmRowsForBottomPanels());
+  cmpModelo("chartPlatRows", ctx.chartPlatRows, getDashboardPlatformRowsForCrmCharts());
+  cmpLead("chartCrmRows", ctx.chartCrmRows, getDashboardCrmRowsForCharts());
+  cmpLead("intervaloRows", ctx.intervaloRows, getDashboardCrmRowsForIntervaloTabla());
+  if (ctx.mode === "fuente") {
+    cmpLead("pivotRows", ctx.pivotRows, getDashboardCrmRowsForPivotFuente());
+  } else if ((ctx.pivotRows || []).length > 0) {
+    diffs.push("pivotRows");
+  }
+
+  const liveVisibleKeys = getDashboardCrmVisibleTableRowKeys();
+  if (dashCrmRenderCtxRowKeysFingerprint(ctx.visibleRowKeys) !== dashCrmRenderCtxRowKeysFingerprint(liveVisibleKeys)) {
+    diffs.push("visibleRowKeys");
+  }
+  if (dashCrmRenderCtxRowKeysFingerprint(ctx.visibleRows) !== dashCrmRenderCtxRowKeysFingerprint(liveVisibleKeys)) {
+    diffs.push("visibleRows");
+  }
+  if (
+    dashCrmRenderCtxRowKeysSetFingerprint(ctx.visibleRowKeysSet) !==
+    dashCrmRenderCtxRowKeysSetFingerprint(getDashboardCrmVisibleTableRowKeysSet())
+  ) {
+    diffs.push("visibleRowKeysSet");
+  }
+
+  let liveTitleTotals;
+  if (dashboardCrmBottomMode === "fuente") {
+    const pivotRows = getDashboardCrmRowsForPivotFuente();
+    const pivotTotalLeads = pivotRows.reduce(
+      (acc, r) => acc + Math.max(0, Math.round(Number(r.leads) || 0)),
+      0
+    );
+    liveTitleTotals = { plat: null, crm: null, pivotTotalLeads };
+  } else {
+    let plat = 0;
+    let crm = 0;
+    getDashboardPlatformRowsForCrmCharts().forEach((r) => {
+      plat += Number(r.leads) || 0;
+    });
+    getDashboardCrmRowsForCharts().forEach((r) => {
+      crm += Math.max(0, Math.round(Number(r.leads) || 0));
+    });
+    liveTitleTotals = { plat: Math.round(plat), crm, pivotTotalLeads: null };
+  }
+  if (
+    ctx.titleTotals?.plat !== liveTitleTotals.plat ||
+    ctx.titleTotals?.crm !== liveTitleTotals.crm ||
+    ctx.titleTotals?.pivotTotalLeads !== liveTitleTotals.pivotTotalLeads
+  ) {
+    diffs.push("titleTotals");
+  }
+
+  if (ctx.mode !== dashboardCrmBottomMode) diffs.push("mode");
+  if (diffs.length) {
+    console.warn("[CRM Render Context] paridad: diferencias en", diffs.join(", "));
+  }
+}
+
+/**
+ * Sprint 2 — un solo recorrido de crmLeads; deriva todos los datasets de paneles inferiores.
+ * @param {string} mode
+ * @returns {{
+ *   bottomPanelRows: object[],
+ *   chartCrmRows: object[],
+ *   intervaloRows: object[],
+ *   pivotRows: object[],
+ *   visibleRowKeys: string[],
+ *   visibleRowKeysSet: Set<string>
+ * }}
+ */
+function dashCrmBuildUnifiedBottomPanelDatasets(mode) {
+  const bundle = ensureDashboardCrmLeadsBundle(mode);
+  return {
+    bottomPanelRows: bundle.bottomPanelRows,
+    chartCrmRows: bundle.chartCrmRows,
+    intervaloRows: bundle.intervaloRows,
+    pivotRows: bundle.pivotRows,
+    visibleRowKeys: bundle.visibleRowKeys,
+    visibleRowKeysSet: bundle.visibleRowKeysSet
+  };
+}
+
+/**
+ * Construye el contexto efímero de render CRM (pipeline único Sprint 2).
+ * @returns {DashboardCrmRenderContext}
+ */
+function prepareDashboardCrmRenderContext() {
+  const mode = dashboardCrmBottomMode;
+  const intervaloPeriodScope = dashboardCrmIntervaloPeriodScope;
+  const analyticsSignature = dashboardAnalyticsSignature(`crmBottomRenderCtx|${mode}|${intervaloPeriodScope}`);
+
+  const {
+    bottomPanelRows,
+    chartCrmRows,
+    intervaloRows,
+    pivotRows,
+    visibleRowKeys,
+    visibleRowKeysSet
+  } = dashCrmBuildUnifiedBottomPanelDatasets(mode);
+  const chartPlatRows = getDashboardPlatformRowsForCrmCharts();
+
+  let titleTotals;
+  if (mode === "fuente") {
+    const pivotTotalLeads = pivotRows.reduce(
+      (acc, r) => acc + Math.max(0, Math.round(Number(r.leads) || 0)),
+      0
+    );
+    titleTotals = { plat: null, crm: null, pivotTotalLeads };
+  } else {
+    let plat = 0;
+    let crm = 0;
+    chartPlatRows.forEach((r) => {
+      plat += Number(r.leads) || 0;
+    });
+    chartCrmRows.forEach((r) => {
+      crm += Math.max(0, Math.round(Number(r.leads) || 0));
+    });
+    titleTotals = { plat: Math.round(plat), crm, pivotTotalLeads: null };
+  }
+
+  /** @type {DashboardCrmRenderContext} */
+  const ctx = {
+    bottomPanelRows,
+    visibleRows: visibleRowKeys,
+    visibleRowKeys,
+    visibleRowKeysSet,
+    chartPlatRows,
+    chartCrmRows,
+    intervaloRows,
+    pivotRows,
+    titleTotals,
+    mode,
+    intervaloPeriodScope,
+    analyticsSignature,
+    renderTimestamp: Date.now()
+  };
+
+  if (dashCrmRenderContextParityEnabled()) {
+    validateDashboardCrmRenderContext(ctx);
+    assertDashboardCrmRenderContextParity(ctx);
+    if (dashCrmLeadScanCount > 2) {
+      console.warn(
+        "[CRM Render Context] crmLeadScanCount elevado:",
+        dashCrmLeadScanCount,
+        "(objetivo ≤2 por BottomPanels; paridad definitiva añade scans legacy)"
+      );
+    }
+  }
+
+  dashCrmLastBottomRenderContext = ctx;
+  return ctx;
+}
+
+function applyDashboardCrmBottomModeUi(renderContext) {
   const pCmp = document.getElementById("dashCrmPanelCompare");
   const pFte = document.getElementById("dashCrmPanelFuente");
   const b1 = document.getElementById("dashCrmViewPlatVsCrm");
@@ -17321,19 +18032,30 @@ function applyDashboardCrmBottomModeUi() {
   pFte?.classList.toggle("hidden", m !== "fuente");
   b1?.classList.toggle("dash-crm-toggle-btn--active", m === "platVsCrm");
   b2?.classList.toggle("dash-crm-toggle-btn--active", m === "fuente");
-  if (m === "platVsCrm") updateDashboardCrmDynamicTitle(0);
+  if (m === "platVsCrm") updateDashboardCrmDynamicTitle(0, renderContext?.titleTotals);
 }
 
 function renderDashboardCrmBottomPanels() {
-  if (!getDashboardSubtabVisibility().crm) return;
-  applyDashboardCrmBottomModeUi();
-  if (dashboardCrmBottomMode === "platVsCrm") {
-    renderDashboardCrmCompareChart();
-  } else {
-    renderDashboardCrmPivotFuente();
+  const end = perfMeasureStart("render:DashboardCrmBottomPanels", "render");
+  if (!getDashboardSubtabVisibility().crm) {
+    end({ skipped: true });
+    return;
   }
-  renderDashboardCrmIntervaloTabla();
+  const dashCrmRenderContext = prepareDashboardCrmRenderContext();
+  applyDashboardCrmBottomModeUi(dashCrmRenderContext);
+  if (dashboardCrmBottomMode === "platVsCrm") {
+    renderDashboardCrmCompareChart(dashCrmRenderContext);
+  } else {
+    renderDashboardCrmPivotFuente(dashCrmRenderContext);
+  }
+  renderDashboardCrmIntervaloTabla(dashCrmRenderContext);
   renderDashboardCrmMotivosTabla();
+  end(
+    perfAuditMeta({
+      mode: dashboardCrmBottomMode,
+      crmLeadScans: dashCrmLeadScanCount
+    })
+  );
 }
 
 /** KPIs + paneles inferiores CRM (gráfico evolutivo e intervalo) sin recargar tabla principal. */
@@ -17341,6 +18063,7 @@ function renderDashboardCrmPanelsOnly() {
   if (!hasAnyDataLoaded()) return;
   const { vis, eff } = prepareDashboardUiSubtabState();
   if (!(vis.crm && eff === "crm")) return;
+  dashCrmPerfResetLeadScanCount();
   renderDashboardKpisCrm();
   renderDashboardCrmBottomPanels();
 }
@@ -17427,17 +18150,22 @@ function getDashboardPlatformRowsForCrmCharts() {
   return base;
 }
 
+function dashCrmResolveLastBottomRenderContext() {
+  const ctx = dashCrmLastBottomRenderContext;
+  if (!ctx || typeof ctx !== "object") return null;
+  const expectedSig = dashboardAnalyticsSignature(
+    `crmBottomRenderCtx|${dashboardCrmBottomMode}|${dashboardCrmIntervaloPeriodScope}`
+  );
+  return ctx.analyticsSignature === expectedSig ? ctx : null;
+}
+
 function getDashboardCrmRowsForCharts() {
-  const visibleKeys = getDashboardCrmVisibleTableRowKeysSet();
-  let rows = getDashboardCrmRowsForBottomPanels().filter(dashboardCrmLeadPassesChartPeriodFilter);
-  rows = filterDashboardCrmLeadRowsPorFilaSeleccionada(rows);
-  return filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys);
+  return ensureDashboardCrmLeadsBundle(dashboardCrmBottomMode).chartCrmRows;
 }
 
 /** CRM tablas laterales: filtros tabla + Total/Mes + fila seleccionada. */
 function getDashboardCrmRowsForSidePanelScope() {
-  const rows = getDashboardCrmRowsForBottomPanels().filter(dashboardCrmIntervaloLeadPassesScopeFilter);
-  return filterDashboardCrmLeadRowsPorFilaSeleccionada(rows);
+  return ensureDashboardCrmLeadsBundle(dashboardCrmBottomMode).intervaloRows;
 }
 
 /** CRM para Intervalo de Gestión. */
@@ -17452,13 +18180,7 @@ function getDashboardCrmRowsForMotivosTabla() {
 
 /** CRM pivot Por fuente: filtros de tabla + mes seleccionado (todos los días del mes, con 0). */
 function getDashboardCrmRowsForPivotFuente() {
-  let rows = filterDashboardCrmLeadRowsPorFilaSeleccionada(getDashboardCrmRowsForBottomPanels());
-  if (!estadoFiltrosDashboard.mes) {
-    const now = new Date();
-    estadoFiltrosDashboard.mes = formatMonthYearData(now);
-  }
-  const mesSel = estadoFiltrosDashboard.mes;
-  return rows.filter((r) => formatMonthYearData(r.fecha) === mesSel);
+  return ensureDashboardCrmLeadsBundle("fuente").pivotRows;
 }
 
 /** Todos los días (01…último) del mes activo en filtros del dashboard CRM. */
@@ -17514,12 +18236,35 @@ function renderDashboardTableFooter() {
   const emptyMeta = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-meta">&nbsp;</td>`;
   const emptyLeads = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-leads">&nbsp;</td>`;
   const emptyGasto = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-gasto">&nbsp;</td>`;
+  const emptyCrmLeads = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-leads">&nbsp;</td>`;
+  const emptyCrmInt = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-int">&nbsp;</td>`;
+  const emptyCrmPost = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-post">&nbsp;</td>`;
+  const emptyCrmMat = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-mat">&nbsp;</td>`;
+  const calendarFooter = mostrarMetaGlobal
+    ? `
+      <td class="dash-tfoot-empty dash-grp-col dash-grp-col-meta dash-grp-col-first">&nbsp;</td>
+      ${emptyMeta}
+      ${emptyMeta}
+      <td class="dash-tfoot-empty dash-col-separador-right dash-grp-col dash-grp-col-meta dash-grp-col-last dash-grp-sep-right grupo-separador">&nbsp;</td>
+    `
+    : "";
+  const crmFunnelFooter = mostrarMetaGlobal
+    ? `
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-first dash-crm-num"><span id="dashPlatTotalCrmMetaL">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num"><span id="dashPlatTotalCrmPlatL">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num"><span id="dashPlatTotalCrmLeads">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num"><span id="dashPlatTotalCrmPctDif">—</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num"><span id="dashPlatTotalCrmPctAv">—</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-first dash-crm-num"><span id="dashPlatTotalCrmMetaI">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num"><span id="dashPlatTotalCrmInt">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-first dash-crm-num"><span id="dashPlatTotalCrmMetaP">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num"><span id="dashPlatTotalCrmPost">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-first dash-crm-num"><span id="dashPlatTotalCrmMetaM">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-last dash-crm-num"><span id="dashPlatTotalCrmMat">0</span></td>
+  `
+    : "";
   const metaBlock = mostrarMetaGlobal
     ? `
-      <td class="dash-tfoot-empty dash-col-separador-left dash-grp-col dash-grp-col-meta dash-grp-col-first">&nbsp;</td>
-      ${emptyMeta}
-      ${emptyMeta}
-      <td class="dash-tfoot-empty dash-col-separador-right dash-grp-col dash-grp-col-meta">&nbsp;</td>
       <td class="dash-tfoot-total-metric dash-col-separador-left dash-grp-col dash-grp-col-meta"><span id="dashTotalMetaGlobalMetaGasto">$0</span></td>
       ${emptyMeta}
       <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-meta"><span id="dashTotalMetaGlobalGastoReal">$0</span></td>
@@ -17548,7 +18293,9 @@ function renderDashboardTableFooter() {
       <td class="tipo-col dash-tfoot-empty">&nbsp;</td>
       <td class="dash-int-col dash-tfoot-empty">&nbsp;</td>
       <td class="dash-plat-col dash-tfoot-empty">&nbsp;</td>
-      <td class="programa-col dash-tfoot-label dash-col-separador-right"><strong>Total general</strong></td>
+      <td class="programa-col dash-tfoot-label dash-grp-sticky-sep"><strong>Total general</strong></td>
+      ${calendarFooter}
+      ${crmFunnelFooter}
       ${metaBlock}
       <td class="dash-tfoot-total-metric dash-tfoot-total-leads-meta dash-grp-col dash-grp-col-leads dash-grp-col-first"><span id="dashTotalLeadsMeta">0</span></td>
       ${emptyLeads}
@@ -17853,9 +18600,29 @@ function getTotalDataGastoPeriodoDashboard() {
   return dataReal.filter(dataRealPasaFiltroPeriodoDashboard).reduce((a, d) => a + (Number(d.gasto) || 0), 0);
 }
 
+/** Gasto DATA Charla_/Webinar_/Alcance_ en el periodo (solo mes/rango; sin filtros comerciales). */
+function getDataAutoInformativaGastoEnPeriodo() {
+  return dataReal
+    .filter((d) => dataRealPasaFiltroPeriodoDashboard(d) && isDataCampaignAutoInformativa(d.nombre))
+    .reduce((a, d) => a + (Number(d.gasto) || 0), 0);
+}
+
+/** Gasto auto-informativa sumable al KPI Presupuesto (respeta fila seleccionada en tabla). */
+function getDataAutoInformativaGastoPeriodoDashboard() {
+  if (programaSeleccionado) return 0;
+  return getDataAutoInformativaGastoEnPeriodo();
+}
+
+/** DATA comercial del periodo para el banner (excluye Charla_/Webinar_/Alcance_ auto-procesadas). */
+function getTotalDataGastoPeriodoDashboardParaBanner() {
+  return getTotalDataGastoPeriodoDashboard() - getDataAutoInformativaGastoEnPeriodo();
+}
+
 /** Mismo conjunto de filas del modelo que usa el KPI de presupuesto/gasto (filtros + branding + fila de programa). */
 function getDashboardModeloRowsForGastoTotal() {
-  let rows = aplicarFiltroBrandingTarjetas(getDashboardFilteredData());
+  let rows = aplicarFiltroBrandingTarjetas(getDashboardFilteredData()).filter(
+    (r) => !isDataCampaignAutoInformativa(r.nombre)
+  );
   if (programaSeleccionado) {
     const row = parseDashboardRowKey(programaSeleccionado);
     rows = rows.filter(
@@ -17868,6 +18635,18 @@ function getDashboardModeloRowsForGastoTotal() {
     );
   }
   return rows;
+}
+
+/** Gasto real comercial vía modelo (Planning + Relaciones + DATA). Sin auto-informativas. */
+function getDashboardComercialGastoRealTotal() {
+  return getDashboardModeloRowsForGastoTotal().reduce((a, r) => a + (Number(r.gasto) || 0), 0);
+}
+
+/** Gasto real Dashboard Plataforma: comercial (+ DATA auto-informativa si el check está activo). */
+function getDashboardPlataformaGastoRealTotal() {
+  const modeloGasto = getDashboardComercialGastoRealTotal();
+  const autoGasto = incluirBrandingDashboard ? getDataAutoInformativaGastoPeriodoDashboard() : 0;
+  return modeloGasto + autoGasto;
 }
 
 function dashboardModeloRowDedupeKeyFromModeloRow(r) {
@@ -17940,6 +18719,7 @@ function computeDashGastoDiffExcludedRows() {
   const keyFinal = new Set(getDashboardModeloRowsForGastoTotal().map(dashboardModeloRowDedupeKeyFromModeloRow));
   for (const d of dataReal) {
     if (!dataRealPasaFiltroPeriodoDashboard(d)) continue;
+    if (isDataCampaignAutoInformativa(d.nombre)) continue;
     const g = Number(d.gasto) || 0;
     if (g < DASH_GASTO_DIFF_EPS) continue;
     const dataId = String(d.idCampania || "").trim();
@@ -18531,8 +19311,8 @@ function renderDashboardGastoDiffBanner() {
     wrap.innerHTML = "";
     return;
   }
-  const totalDataPeriodo = getTotalDataGastoPeriodoDashboard();
-  const totalDashboard = getDashboardModeloRowsForGastoTotal().reduce((a, r) => a + (Number(r.gasto) || 0), 0);
+  const totalDataPeriodo = getTotalDataGastoPeriodoDashboardParaBanner();
+  const totalDashboard = getDashboardComercialGastoRealTotal();
   const diff = totalDataPeriodo - totalDashboard;
   if (Math.abs(diff) < DASH_GASTO_DIFF_EPS) {
     wrap.classList.add("hidden");
@@ -18620,12 +19400,15 @@ function dashPaintCplMiniChartPlaceholder(canvas) {
 }
 
 function renderDashboardKpis() {
+  const end = perfMeasureStart("render:DashboardKpisPlataforma", "kpi");
   const el = document.getElementById("dashboardKpis");
-  if (!el) return;
+  if (!el) {
+    end({ skipped: true });
+    return;
+  }
   setFechaActualData();
   const dataFiltrada = getDashboardKpiDataset();
-  const dataGastoTotal = getDashboardModeloRowsForGastoTotal();
-  const gastoReal = dataGastoTotal.reduce((a, r) => a + (Number(r.gasto) || 0), 0);
+  const gastoReal = getDashboardPlataformaGastoRealTotal();
   const leadsReal = dataFiltrada.reduce((a, r) => a + (Number(r.leads) || 0), 0);
   const clicsReal = dataFiltrada.reduce((a, r) => a + (Number(r.clics) || 0), 0);
   const impReal = dataFiltrada.reduce((a, r) => a + (Number(r.impresiones) || 0), 0);
@@ -18691,16 +19474,24 @@ function renderDashboardKpis() {
   `;
 
   requestAnimationFrame(() => dashPaintCplMiniChartPlaceholder(document.getElementById("cplMiniChart")));
+  end({ records: dataFiltrada.length });
 }
 
 function renderDashboardTabla() {
+  const end = perfMeasureStart("render:DashboardTablaPlataforma", "table");
   renderDashboardTableFooter();
   updateDashboardMetaGlobalVisibility();
   const tbody = document.getElementById("dashTbody");
   const totalLeadsEl = document.getElementById("dashTotalLeads");
   const totalGastoEl = document.getElementById("dashTotalGasto");
-  if (!tbody || !totalLeadsEl || !totalGastoEl) return;
+  if (!tbody || !totalLeadsEl || !totalGastoEl) {
+    end({ skipped: true });
+    return;
+  }
   renderDashboardPeriodHeaders();
+
+  const platMap = getDashboardPlatformLeadsByRowKeyForCrm();
+  const crmMap = aggregateDashboardCrmMetricsByRowKey();
 
   const dataMesRaw = getDashboardFilteredData();
   const dataMesGasto = filtrarDashboardSinBranding(dataMesRaw);
@@ -18747,7 +19538,16 @@ function renderDashboardTabla() {
     leadsPendiente: 0,
     gastoMeta: 0,
     gastoReal: 0,
-    gastoPendiente: 0
+    gastoPendiente: 0,
+    crmMetaL: 0,
+    crmPlat: 0,
+    crmLeads: 0,
+    crmMetaI: 0,
+    crmInt: 0,
+    crmMetaP: 0,
+    crmPost: 0,
+    crmMetaM: 0,
+    crmMat: 0
   };
   const mesGastoDiarioKey = estadoFiltrosDashboard.mes || formatMonthYearData(new Date());
 
@@ -18848,13 +19648,52 @@ function renderDashboardTabla() {
           : "dash-delivery-dot--nodata";
     const estadoAria = estadoDelivery;
     const estadoTitle = estadoDelivery;
-    const metaGlobalCells = mostrarMetaGlobal
+    const pmGlobalCrm = dashPlanningMetaOcultarLeadsSiTipoBranding(
+      computeDashboardPlanningGlobalMeta(planningRowsOperativas),
+      planningRowsOperativas
+    );
+    const funnel = computeDashboardPlanningFunnelMetaPeriod(planningRowsOperativas, pmGlobalCrm);
+    const platL = platMap.get(rowKey) || 0;
+    const crmRow = crmMap.get(rowKey) || { crmLeads: 0, crmInt: 0, crmPost: 0, crmMat: 0 };
+    const metaLCrm = Number(pmGlobalCrm.metaLeadsPeriod) || 0;
+    const pctDifCrm = platL > 0 ? (crmRow.crmLeads - platL) / platL : null;
+    const pctAvCrm = metaLCrm > 0 ? crmRow.crmLeads / metaLCrm : null;
+    const semAvCrm =
+      pctAvCrm != null && Number.isFinite(pctAvCrm) ? dashSemMetaG1(1, pctAvCrm, "leads") : "";
+    const difClsCrm = dashCrmPctDiffClass(pctDifCrm != null ? pctDifCrm : NaN);
+    totals.crmMetaL += metaLCrm;
+    totals.crmPlat += platL;
+    totals.crmLeads += crmRow.crmLeads;
+    totals.crmMetaI += funnel.metaInteresados;
+    totals.crmInt += crmRow.crmInt;
+    totals.crmMetaP += funnel.metaPostulantes;
+    totals.crmPost += crmRow.crmPost;
+    totals.crmMetaM += funnel.metaMatriculados;
+    totals.crmMat += crmRow.crmMat;
+    const crmFunnelCells = mostrarMetaGlobal
       ? `
-        <td class="dash-col-separador-left dash-grp-col dash-grp-col-meta dash-grp-col-first">${escapeHtml(formatFechaDdMmmEsFromDate(fechaInMin))}</td>
-        <td class="dash-grp-col dash-grp-col-meta">${escapeHtml(formatFechaDdMmmEsFromDate(fechaFinMax))}</td>
-        <td class="dash-grp-col dash-grp-col-meta">${dashFmtLeads(diasPautaGlobal)}</td>
-        <td class="dash-col-separador-right dash-grp-col dash-grp-col-meta">${dashFmtLeads(diasPendientesGlobal)}</td>
-        <td class="dash-col-separador-left dash-grp-col dash-grp-col-meta">${dashFmtMoney(pmGlobal.presupuestoPeriod)}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(metaLCrm)))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(platL)))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(crmRow.crmLeads)))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num"><span class="dash-chip-metric ${difClsCrm}">${pctDifCrm == null ? "—" : escapeHtml(dashFmtPctFromRatio(pctDifCrm))}</span></td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num ${semAvCrm}">${pctAvCrm == null ? "—" : escapeHtml(dashFmtPctFromRatio(pctAvCrm))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(funnel.metaInteresados)))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num">${escapeHtml(dashFmtLeads(crmRow.crmInt))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(funnel.metaPostulantes)))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num">${escapeHtml(dashFmtLeads(crmRow.crmPost))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(funnel.metaMatriculados)))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-last dash-crm-num">${escapeHtml(dashFmtLeads(crmRow.crmMat))}</td>`
+      : "";
+    const calendarCells = mostrarMetaGlobal
+      ? `
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-meta dash-grp-col-first">${escapeHtml(formatFechaDdMmmEsFromDate(fechaInMin))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-meta">${escapeHtml(formatFechaDdMmmEsFromDate(fechaFinMax))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-meta">${dashFmtLeads(diasPautaGlobal)}</td>
+        <td class="dash-meta-global-col dash-col-separador-right dash-grp-col dash-grp-col-meta dash-grp-col-last dash-grp-sep-right grupo-separador">${dashFmtLeads(diasPendientesGlobal)}</td>`
+      : "";
+    const metaGlobalRestCells = mostrarMetaGlobal
+      ? `
+        <td class="dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta">${dashFmtMoney(pmGlobal.presupuestoPeriod)}</td>
         <td class="dash-grp-col dash-grp-col-meta">${dashFmtMoney(metaGastoHoyGlobal)}</td>
         <td class="dash-cell-real-metric dash-grp-col dash-grp-col-meta">${dashFmtMoney(gastoRealGlobal)}</td>
         <td class="dash-grp-col dash-grp-col-meta">${dashFmtPctFromRatio(pctIdealGastoGlobal)}</td>
@@ -18883,8 +19722,10 @@ function renderDashboardTabla() {
         <td class="tipo-col dash-td-tipo">${escapeHtml(tipo)}</td>
         <td class="dash-int-col">${escapeHtml(intakeValor)}</td>
         <td class="dash-plat-col">${formatearPlataforma(row.plataforma)}</td>
-        <td class="programa-col dash-td-prog dash-col-separador-right">${escapeHtml(nombrePrograma)}</td>
-        ${metaGlobalCells}
+        <td class="programa-col dash-td-prog dash-grp-sticky-sep">${escapeHtml(nombrePrograma)}</td>
+        ${calendarCells}
+        ${crmFunnelCells}
+        ${metaGlobalRestCells}
         <td class="dash-grp-col dash-grp-col-leads dash-grp-col-first">${dashFmtLeads(Math.round(pmMes.metaLeadsPeriod))}</td>
         <td class="dash-grp-col dash-grp-col-leads">${dashFmtLeads(Math.round(pmMes.metaLeadsHoyPeriod))}</td>
         <td class="dash-grp-col dash-grp-col-leads">${dashFmtLeads(Math.round(pmMes.metaLeadsDiarioPeriod))}</td>
@@ -18925,8 +19766,31 @@ function renderDashboardTabla() {
   totalLeadsEl.textContent = dashFmtLeads(totals.leadsReal);
   setText("dashTotalLeadsPendiente", dashFmtLeads(totals.leadsPendiente));
   setText("dashTotalGastoMeta", dashFmtMoney(totals.gastoMeta));
-  totalGastoEl.textContent = dashFmtMoney(totals.gastoReal);
+  let footerGastoReal = totals.gastoReal;
+  if (incluirBrandingDashboard && !programaSeleccionado) {
+    footerGastoReal += getDataAutoInformativaGastoPeriodoDashboard();
+  }
+  totalGastoEl.textContent = dashFmtMoney(footerGastoReal);
   setText("dashTotalGastoPendiente", dashFmtMoney(totals.gastoPendiente));
+  setText("dashPlatTotalCrmMetaL", dashFmtLeads(Math.round(totals.crmMetaL)));
+  setText("dashPlatTotalCrmPlatL", dashFmtLeads(Math.round(totals.crmPlat)));
+  setText("dashPlatTotalCrmLeads", dashFmtLeads(Math.round(totals.crmLeads)));
+  const footDifCrm = totals.crmPlat > 0 ? (totals.crmLeads - totals.crmPlat) / totals.crmPlat : null;
+  const footAvCrm = totals.crmMetaL > 0 ? totals.crmLeads / totals.crmMetaL : null;
+  const footDifClsCrm = dashCrmPctDiffClass(footDifCrm != null ? footDifCrm : NaN);
+  const footDifEl = document.getElementById("dashPlatTotalCrmPctDif");
+  if (footDifEl) {
+    footDifEl.textContent = footDifCrm == null ? "—" : dashFmtPctFromRatio(footDifCrm);
+    footDifEl.className = `dash-chip-metric dash-crm-tfoot-metric ${footDifClsCrm}`;
+  }
+  setText("dashPlatTotalCrmPctAv", footAvCrm == null ? "—" : dashFmtPctFromRatio(footAvCrm));
+  setText("dashPlatTotalCrmMetaI", dashFmtLeads(Math.round(totals.crmMetaI)));
+  setText("dashPlatTotalCrmInt", dashFmtLeads(totals.crmInt));
+  setText("dashPlatTotalCrmMetaP", dashFmtLeads(Math.round(totals.crmMetaP)));
+  setText("dashPlatTotalCrmPost", dashFmtLeads(totals.crmPost));
+  setText("dashPlatTotalCrmMetaM", dashFmtLeads(Math.round(totals.crmMetaM)));
+  setText("dashPlatTotalCrmMat", dashFmtLeads(totals.crmMat));
+  end({ rows: rowsHtml.length, entries: entries.length, virtualized: Boolean(virtPlat) });
 }
 
 function formatDashboardChartLabel(yyyyMmDd) {
@@ -19021,11 +19885,18 @@ function dashboardMainChartFingerprint(data) {
 }
 
 function renderDashboardChart(data) {
+  const end = perfMeasureStart("render:DashboardChartPlataforma", "chart");
   const fp = dashboardMainChartFingerprint(data);
-  if (dashMainChartGate.shouldSkip(fp)) return;
+  if (dashMainChartGate.shouldSkip(fp)) {
+    end({ skipped: true, gateSkip: true, records: (data || []).length });
+    return;
+  }
   dashMainChartGate.remember(fp);
   const svg = document.getElementById("dashboardChart");
-  if (!svg) return;
+  if (!svg) {
+    end({ skipped: true });
+    return;
+  }
   const dm = document.body.classList.contains("dark-mode");
   const chartBg = dm ? "#0f172a" : "#ffffff";
   const gridStroke = dm ? "rgba(148, 163, 184, 0.22)" : "#e8eef5";
@@ -19047,6 +19918,7 @@ function renderDashboardChart(data) {
   const range = getDashboardChartDateRange();
   if (!range || !range.startD || !range.endD) {
     svg.innerHTML = `<text x="20" y="36" fill="#94a3b8">Sin datos para graficar</text>`;
+    end({ skipped: true, records: (data || []).length });
     return;
   }
   const startD = range.startD;
@@ -19199,6 +20071,7 @@ function renderDashboardChart(data) {
     ${hitsCpl}
     ${xLabels}
   `;
+  end({ days: points.length, records: (data || []).length, gateSkip: false });
 }
 
 function dashboardDatePassesFilters(dateValue) {
@@ -19496,7 +20369,7 @@ function renderDashboardSkeleton() {
   }
   const tbody = document.getElementById("dashTbody");
   if (tbody) {
-    const totalColumnas = mostrarMetaGlobal ? 47 : 23;
+    const totalColumnas = mostrarMetaGlobal ? 58 : 23;
     tbody.innerHTML = Array.from(
       { length: 10 },
       () =>
@@ -19562,7 +20435,7 @@ function renderDashboardSinData() {
     kpiEl.innerHTML = "";
   }
   if (tbody) {
-    const totalColumnas = mostrarMetaGlobal ? 47 : 23;
+    const totalColumnas = mostrarMetaGlobal ? 58 : 23;
     tbody.innerHTML = `<tr><td colspan="${totalColumnas}" class="dash-empty-mini">No hay data cargada</td></tr>`;
   }
   if (totalLeadsEl) totalLeadsEl.textContent = "0";
@@ -19608,12 +20481,41 @@ function renderDashboardSinData() {
   mostrarFechaActualizacion();
 }
 
+/** Metadatos de dataset para auditoría PERF (temporal). */
+function perfAuditMeta(meta = {}) {
+  if (!perfAuditEnabled()) return meta;
+  return {
+    ...meta,
+    crmLeads: crmLeads.length,
+    planningRows: planningDraftRecords().length,
+    relacionesMeta: relaciones.length,
+    relacionesCrm: relacionesCrm.length
+  };
+}
+
+function getPerfAuditDatasetContext() {
+  return {
+    hasData: hasAnyDataLoaded(),
+    crmLeads: crmLeads.length,
+    planningRows: planningDraftRecords().length,
+    relacionesMeta: relaciones.length,
+    relacionesCrm: relacionesCrm.length,
+    modeloAnalitico: modeloAnalitico.length,
+    dataReal: dataReal.length
+  };
+}
+
 function renderDashboardFromFiltersNow() {
+  perfBeginInteraction("dashboard:filter-render", {
+    subtab: dashboardActiveSubtab,
+    filtros: perfAuditEnabled() ? { ...estadoFiltrosDashboard } : null
+  });
   programaSeleccionado = null;
   setFechaActualData();
   renderDashboardAllSegmentGroups();
   if (!hasAnyDataLoaded()) {
     renderDashboardSinData();
+    perfEndInteraction({ empty: true });
     return;
   }
   const { vis, eff } = prepareDashboardUiSubtabState();
@@ -19632,6 +20534,7 @@ function renderDashboardFromFiltersNow() {
   }
 
   if (vis.crm && eff === "crm") {
+    dashCrmPerfResetLeadScanCount();
     renderDashboardKpisCrm();
     renderDashboardCrmTabla();
     renderDashboardCrmBottomPanels();
@@ -19645,6 +20548,14 @@ function renderDashboardFromFiltersNow() {
   }
 
   mostrarFechaActualizacion();
+  perfEndInteraction({
+    subtab: eff,
+    crmLeads: crmLeads.length,
+    modelo: modeloAnalitico.length,
+    planningRows: planningDraftRecords().length,
+    relacionesMeta: relaciones.length,
+    relacionesCrm: relacionesCrm.length
+  });
 }
 
 /** Repinta dashboard tras cambio de filtros; agrupa en un frame para fluidez. */
@@ -19670,6 +20581,7 @@ function renderDashboardKpisChartOnly() {
     renderDashboardDemographicGeoPanels();
   }
   if (vis.crm && eff === "crm") {
+    dashCrmPerfResetLeadScanCount();
     renderDashboardCrmBottomPanels();
   }
   mostrarFechaActualizacion();
@@ -19689,12 +20601,14 @@ function renderDashboardChartsOnly() {
     renderDashboardDemographicGeoPanels();
   }
   if (vis.crm && eff === "crm") {
+    dashCrmPerfResetLeadScanCount();
     renderDashboardCrmPanelsOnly();
   }
   mostrarFechaActualizacion();
 }
 
 function renderDashboard() {
+  const end = perfMeasureStart("render:DashboardInit", "render");
   clearDashboardSkeletonMode();
   ensureDashboardInitialMonth();
   fillDashboardIntakeSelect();
@@ -19732,6 +20646,7 @@ function renderDashboard() {
   syncDashboardDateInputsToMonth(false);
   validateDashboardRangoFechas({ silent: true });
   renderDashboardFromFilters({ sync: true });
+  end({ subtab: dashboardActiveSubtab, crmLeads: crmLeads.length, modelo: modeloAnalitico.length });
 }
 
 function initDashboardModule() {
@@ -19783,6 +20698,7 @@ function initDashboardModule() {
       const val = seg.getAttribute("data-dash-val") || "";
       if (!field) return;
       estadoFiltrosDashboard[field] = estadoFiltrosDashboard[field] === val ? "" : val;
+      perfTrackFilterChange(field, estadoFiltrosDashboard[field], "dashboard");
       programaSeleccionado = null;
       renderDashboardFromFilters();
       return;
@@ -19806,11 +20722,13 @@ function initDashboardModule() {
 
   document.getElementById("dashFiltroMes")?.addEventListener("change", (e) => {
     estadoFiltrosDashboard.mes = e.target.value || "";
+    perfTrackFilterChange("mes", estadoFiltrosDashboard.mes, "dashboard");
     if (!isDashboardComercialCrmActiveView()) programaSeleccionado = null;
     syncDashboardDateInputsToMonth(true);
     validateDashboardRangoFechas({ silent: true });
     if (isDashboardComercialCrmActiveView()) {
       syncDashboardTableRowDomSelectionHighlight();
+      dashCrmPerfResetLeadScanCount();
       renderDashboardKpisCrm();
       renderDashboardCrmBottomPanels();
     } else {
@@ -19819,11 +20737,13 @@ function initDashboardModule() {
   });
   document.getElementById("dashFiltroIntake")?.addEventListener("change", (e) => {
     estadoFiltrosDashboard.intake = e.target.value || "";
+    perfTrackFilterChange("intake", estadoFiltrosDashboard.intake, "dashboard");
     programaSeleccionado = null;
     renderDashboardFromFilters();
   });
   document.getElementById("dashFechaInicio")?.addEventListener("change", (e) => {
     estadoFiltrosDashboard.fechaInicio = e.target instanceof HTMLInputElement ? e.target.value : "";
+    perfTrackFilterChange("fechaInicio", estadoFiltrosDashboard.fechaInicio, "dashboard");
     validateDashboardRangoFechas({ silent: false });
     if (!isDashboardComercialCrmActiveView()) programaSeleccionado = null;
     if (isDashboardComercialCrmActiveView()) {
@@ -19835,6 +20755,7 @@ function initDashboardModule() {
   });
   document.getElementById("dashFechaFin")?.addEventListener("change", (e) => {
     estadoFiltrosDashboard.fechaFin = e.target instanceof HTMLInputElement ? e.target.value : "";
+    perfTrackFilterChange("fechaFin", estadoFiltrosDashboard.fechaFin, "dashboard");
     validateDashboardRangoFechas({ silent: false });
     if (!isDashboardComercialCrmActiveView()) programaSeleccionado = null;
     if (isDashboardComercialCrmActiveView()) {
@@ -19864,6 +20785,7 @@ function initDashboardModule() {
     if (dashBusquedaProgramaTimer) clearTimeout(dashBusquedaProgramaTimer);
     dashBusquedaProgramaTimer = setTimeout(() => {
       dashBusquedaProgramaTimer = null;
+      perfTrackFilterChange("busquedaPrograma", estadoFiltrosDashboard.busquedaPrograma, "dashboard");
       runDashProgramaSearchRender();
     }, 250);
   });
@@ -19872,6 +20794,7 @@ function initDashboardModule() {
     const t = e.target;
     incluirBrandingDashboard = t instanceof HTMLInputElement && t.checked;
     programaSeleccionado = null;
+    invalidateDashboardQueryCache();
     renderDashboardFromFilters();
   });
 
@@ -19929,20 +20852,24 @@ function initDashboardModule() {
   });
   document.getElementById("dashCrmViewPlatVsCrm")?.addEventListener("click", () => {
     dashboardCrmBottomMode = "platVsCrm";
+    dashCrmPerfResetLeadScanCount();
     renderDashboardCrmBottomPanels();
   });
   document.getElementById("dashCrmViewFuente")?.addEventListener("click", () => {
     dashboardCrmBottomMode = "fuente";
+    dashCrmPerfResetLeadScanCount();
     renderDashboardCrmBottomPanels();
   });
   document.getElementById("dashCrmScopeTotal")?.addEventListener("click", () => {
     if (dashboardCrmIntervaloPeriodScope === "total") return;
     dashboardCrmIntervaloPeriodScope = "total";
+    dashCrmPerfResetLeadScanCount();
     renderDashboardCrmBottomPanels();
   });
   document.getElementById("dashCrmScopeMes")?.addEventListener("click", () => {
     if (dashboardCrmIntervaloPeriodScope === "mes") return;
     dashboardCrmIntervaloPeriodScope = "mes";
+    dashCrmPerfResetLeadScanCount();
     renderDashboardCrmBottomPanels();
   });
   initDashboardCrmOperTabs();
@@ -19954,7 +20881,9 @@ function initDashboardModule() {
       if (dashCrmRoTimer) clearTimeout(dashCrmRoTimer);
       dashCrmRoTimer = setTimeout(() => {
         dashCrmRoTimer = null;
-        if (hasAnyDataLoaded() && dashboardCrmBottomMode === "platVsCrm") renderDashboardCrmCompareChart();
+        if (hasAnyDataLoaded() && dashboardCrmBottomMode === "platVsCrm") {
+          renderDashboardCrmCompareChart(dashCrmResolveLastBottomRenderContext());
+        }
       }, 80);
     });
     dashCrmRo.observe(crmChartResizeHost);
@@ -22349,6 +23278,7 @@ function initTabs() {
   };
 
   const setActive = (which) => {
+    const _modT0 = perfAuditEnabled() ? performance.now() : 0;
     console.log("Relaciones actuales (antes cambio módulo):", appState.dataDraft.relaciones);
     applyRoleVisibility();
     const safeModule = isCampatrackModuleAllowed(which) ? which : "dashboard";
@@ -22470,6 +23400,10 @@ function initTabs() {
       renderTablaCampañas();
     }
     console.log("Relaciones actuales (después cambio módulo):", appState.dataDraft.relaciones);
+    if (_modT0) {
+      perfTrackModuleLoad(safeModule, performance.now() - _modT0);
+      perfAuditSnapshotMemory(`module:${safeModule}`);
+    }
   };
 
   tabPlanning.addEventListener("click", () => setActive("planning"));
@@ -22732,6 +23666,68 @@ async function campatrackResumeLiteSessionIfNeeded() {
     console.warn("[CampaTrack] Reanudar sesión lite con bundle vacío:", e);
     campatrackCompletePostLoginPipeline(createEmptyCampatrackBundle());
   }
+}
+
+/** PERF_AUDIT — recorrido automático inicial (sin reset; lo hace startDefinitiveAudit). */
+async function perfAuditDefinitiveWalkthrough() {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const click = async (sel) => {
+    document.querySelector(sel)?.click();
+    await campatrackYieldToPaint();
+  };
+
+  console.info("[PERF AUDIT] → Dashboard CRM");
+  await click("#tabDashboard");
+  await sleep(400);
+  await click("#dashTabComercialCrm");
+  await sleep(1200);
+
+  console.info("[PERF AUDIT] → Dashboard Plataforma");
+  await click("#dashTabPlataforma");
+  await sleep(1200);
+
+  console.info("[PERF AUDIT] → Dashboard CRM");
+  await click("#dashTabComercialCrm");
+  await sleep(1200);
+
+  console.info("[PERF AUDIT] → Relaciones META");
+  await click("#tabRelaciones");
+  await sleep(600);
+  await click("#relTabMeta");
+  await sleep(1200);
+
+  console.info("[PERF AUDIT] → Relaciones CRM");
+  await click("#relTabCrm");
+  await sleep(1200);
+
+  console.info("[PERF AUDIT] → Bitácora");
+  await click("#tabBitacora");
+  await sleep(1200);
+
+  console.info("[PERF AUDIT] → Dashboard CRM (cierre recorrido)");
+  await click("#tabDashboard");
+  await sleep(400);
+  await click("#dashTabComercialCrm");
+  await sleep(1200);
+
+  perfAuditSnapshotMemory("walkthrough-fin");
+}
+
+/** PERF_AUDIT — escenario producción legacy (perf_run=1). */
+async function perfAuditExecuteProductionScenario() {
+  perfAuditReset();
+  perfAuditCaptureSessionStart(getPerfAuditDatasetContext());
+  perfAuditSnapshotMemory("production-start");
+  await perfAuditDefinitiveWalkthrough();
+  perfAuditSnapshotMemory("production-end");
+  perfAuditCaptureSessionEnd(getPerfAuditDatasetContext());
+  return JSON.parse(perfAuditExportJson());
+}
+
+if (perfAuditEnabled()) {
+  perfAuditRegisterContext(getPerfAuditDatasetContext);
+  perfAuditRegisterWalkthroughRunner(perfAuditDefinitiveWalkthrough);
+  perfAuditRegisterProductionRunner(perfAuditExecuteProductionScenario);
 }
 
 initCampatrackGithubSetupOverlay();

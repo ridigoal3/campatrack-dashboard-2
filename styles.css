@@ -864,10 +864,66 @@ body {
   margin: 12px;
 }
 
+.bitacora-programas-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 228px);
+  gap: 16px;
+  align-items: start;
+}
+
+.bitacora-programas-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bitacora-programas-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.bitacora-programas-side-selected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bitacora-programas-count {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.bitacora-programas-limpiar-btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  min-height: 34px;
+}
+
+.bitacora-programas-side-field {
+  margin: 0;
+}
+
+.bitacora-programas-side-field .bitacora-saas-label {
+  margin-bottom: 6px;
+}
+
+.bitacora-programas-side-switch {
+  margin: 0;
+}
+
 .bitacora-programas-checklist {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
+  grid-template-columns: 1fr;
+  gap: 8px;
   max-height: 180px;
   overflow-y: auto;
   padding: 10px 12px;
@@ -876,11 +932,16 @@ body {
   background: #f8fafc;
 }
 
-.bitacora-programas-checklist-hint {
+.bitacora-programas-checklist-hint,
+.bitacora-programas-checklist-empty-search {
   margin: 0;
   grid-column: 1 / -1;
   font-size: 0.88rem;
   color: #64748b;
+}
+
+.bitacora-programas-check-item--hidden {
+  display: none !important;
 }
 
 .bitacora-programas-check-item {
@@ -896,6 +957,16 @@ body {
 .bitacora-programas-check-item input {
   margin-top: 3px;
   flex-shrink: 0;
+}
+
+.bitacora-saas-form-actions--footer {
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .bitacora-programas-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -922,10 +993,6 @@ body {
 
   #bitacoraModule .bitacora-row-actions {
     justify-content: flex-start;
-  }
-
-  .bitacora-programas-checklist {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -13784,24 +13851,12 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   border-bottom: 5px solid #000 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-crm-main-table thead tr.dash-thead-row-groups th#dashCrmHeaderLeads {
-  border-left: 2.5px solid #000 !important;
-  border-right: 2.5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-crm-main-table thead tr.dash-thead-row-groups th#dashCrmHeaderInt,
-#dashboardModule.dash-module-saas .dash-crm-main-table thead tr.dash-thead-row-groups th#dashCrmHeaderPost {
-  border-left: 2.5px solid #000 !important;
-  border-right: 2.5px solid #000 !important;
-}
-
 #dashboardModule.dash-module-saas .dash-crm-main-table thead tr.dash-thead-row-groups th#dashCrmHeaderMat {
-  border-left: 2.5px solid #000 !important;
   border-right: 5px solid #000 !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-meta.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-meta.dash-grp-col-last {
@@ -13809,7 +13864,7 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-leads.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-leads.dash-grp-col-last {
@@ -13819,7 +13874,7 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-int.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-post.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-mat.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-int.dash-grp-col-last,
@@ -13832,7 +13887,7 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-last {
@@ -13843,7 +13898,7 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-int.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-post.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-mat.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-leads.dash-grp-col-last,
@@ -13856,19 +13911,12 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   border-right: 5px solid #000 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-meta.dash-grp-col-first {
-  border-left: 2.5px solid rgba(255, 255, 255, 0.45) !important;
-}
-
-#dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-meta.dash-grp-col-last {
-  border-right: 2.5px solid rgba(255, 255, 255, 0.45) !important;
-}
-
+#dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-meta.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-leads.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-int.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-post.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-mat.dash-grp-col-first {
-  border-left: 2.5px solid rgba(255, 255, 255, 0.45) !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-leads.dash-grp-col-last,
@@ -13887,8 +13935,7 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 }
 
 /*
- * CRM — uniones uniformes (border-collapse: separate): 2.5px + 2.5px = 5px por corte;
- * nunca 5px en dos celdas contiguas. Exterior: 5px solo en borde izq. tabla y der. Mat.
+ * CRM — separadores verticales: solo dash-grp-col-last (2.5px); fuente/tracking aporta corte previo al calendario.
  */
 #dashboardModule.dash-module-saas .dash-crm-main-table thead tr.dash-thead-row-groups th#dashCrmFuenteHead.dash-tracking-col.dash-th-sticky-corner,
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-tracking-col,
@@ -15143,14 +15190,13 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
   line-height: 1.1 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table thead tr:nth-child(2) th {
-  top: var(--dash-thead-h1) !important;
-  padding: 2px 4px !important;
-  font-size: 11px !important;
-  line-height: 1.06 !important;
-  vertical-align: middle !important;
+#dashboardModule.dash-module-saas .dash-table thead tr:nth-child(2) th:not(.dash-grp-col) {
   border-top: none !important;
   border-top-width: 0 !important;
+}
+
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-columns th.dash-grp-col {
+  border-top: 5px solid #000 !important;
 }
 
 #dashboardModule.dash-module-saas .dash-th-sticky-corner {
@@ -15169,116 +15215,109 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
   line-height: 1.1 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-grp-sep-right,
-#dashboardModule.dash-module-saas .dash-table tbody .grupo-separador {
+#dashboardModule.dash-module-saas .dash-grp-sep-right:not(.dash-grp-col-last):not(.dash-grp-h1),
+#dashboardModule.dash-module-saas .dash-table tbody .grupo-separador:not(.dash-grp-col-last) {
   border-right-color: rgba(148, 163, 184, 0.55) !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table thead tr:nth-child(2) th.grupo-separador {
-  border-right-color: rgba(148, 163, 184, 0.55) !important;
-  border-top: none !important;
-}
-
-#dashboardModule.dash-module-saas .dash-grp-sep-right {
   border-right-width: 2px !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table th.dash-col-separador-right,
-#dashboardModule.dash-module-saas .dash-table td.dash-col-separador-right {
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-columns th {
+  top: var(--dash-thead-h1) !important;
+  padding: 2px 4px !important;
+  font-size: 11px !important;
+  line-height: 1.06 !important;
+  vertical-align: middle !important;
+}
+
+#dashboardModule.dash-module-saas .dash-table thead tr:nth-child(2) th.grupo-separador:not(.dash-grp-col-last) {
+  border-right-color: rgba(148, 163, 184, 0.55) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-table th.dash-col-separador-right:not(.dash-grp-col-last),
+#dashboardModule.dash-module-saas .dash-table td.dash-col-separador-right:not(.dash-grp-col-last) {
   border-right-color: rgba(148, 163, 184, 0.5) !important;
   border-right-width: 2px !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table th.dash-col-separador-left,
-#dashboardModule.dash-module-saas .dash-table td.dash-col-separador-left {
+#dashboardModule.dash-module-saas .dash-table th.dash-col-separador-left:not(.dash-grp-col-first),
+#dashboardModule.dash-module-saas .dash-table td.dash-col-separador-left:not(.dash-grp-col-first) {
   border-left-color: rgba(148, 163, 184, 0.5) !important;
   border-left-width: 2px !important;
+}
+
+#dashboardModule.dash-module-saas .dash-table th.dash-grp-col-first.dash-col-separador-left,
+#dashboardModule.dash-module-saas .dash-table td.dash-grp-col-first.dash-col-separador-left {
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-table .dash-meta-global-gasto-pendiente-sep {
   border-right-color: rgba(148, 163, 184, 0.55) !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table thead tr:first-child th.dash-grp-sep-right:not(#dashMetaGlobalGroupHead):not(#dashHeaderLeads):not(#dashHeaderGasto) {
-  border-right-color: rgba(148, 163, 184, 0.55) !important;
+/* === Sistema unificado de bordes de grupo (todas las tablas dashboard SaaS) ===
+ * - Corte sticky→datos: dash-grp-sticky-sep (Programa / Fuente) → border-right 2.5px
+ * - Fin de subgrupo: dash-grp-col-last → border-right 2.5px (5px solo borde exterior derecho de tabla)
+ * - Inicio de subgrupo: dash-grp-col-first → sin border-left (evita doble trazo)
+ * - Fila grupos (h1): borde superior 5px; fila subcabeceras: borde superior e inferior 5px
+ */
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead tr.dash-thead-row-groups th.dash-grp-sticky-sep,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tbody tr:not(.dash-tr-empty) td.dash-grp-sticky-sep,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-sticky-sep {
+  border-right: 2.5px solid #000 !important;
 }
 
-/* === Thead dashboard: 2 filas, bordes de grupo por clase (sin nth-child) === */
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups .dash-grp-h1 {
   background: linear-gradient(to bottom, #eef2ff, #e8ecfa) !important;
   color: #334155 !important;
   border: 1px solid #e5e7eb !important;
-  border-left: 5px solid #000 !important;
-  border-right: 5px solid #000 !important;
-  /* Marco negro superior e inferior (sustituye el inset 5px del bloque base, sin duplicar lados) */
+  border-left: none !important;
+  border-right: 2.5px solid #000 !important;
   border-top: 5px solid #000 !important;
-  border-bottom: 5px solid #000 !important;
+  border-bottom: none !important;
   box-sizing: border-box !important;
   vertical-align: middle !important;
   font-size: 11px !important;
   padding: 2px 4px !important;
   line-height: 1.1 !important;
-  /* Quitar inset 5px del bloque base (#dashHeaderLeads/Gasto/Meta): duplicaba el trazo en uniones */
   box-shadow: none !important;
 }
 
-/* Uniones internas: 2.5px + 2.5px = 5px (sin doblar el trazo de 5+5) */
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderGasto {
+  border-right: 5px solid #000 !important;
+}
+
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead tr.dash-thead-row-groups th.dash-grp-col-meta.dash-meta-global-col {
+  border-top: 5px solid #000 !important;
+  border-bottom: 5px solid #000 !important;
+}
+
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashMetaGlobalGroupHead:not(.dash-meta-global-collapsed) {
   border-right: 2.5px solid #000 !important;
 }
 
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderLeads {
-  border-left: 2.5px solid #000 !important;
   border-right: 2.5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table:has(#dashMetaGlobalGroupHead.dash-meta-global-collapsed)
-  thead
-  tr.dash-thead-row-groups
-  th#dashHeaderLeads {
-  border-left: 5px solid #000 !important;
 }
 
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderGasto {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
-/* Subcabeceras: borde de grupo solo primer/último; uniones sin duplicar */
-/* Subcabeceras: z-index > celdas sticky del tbody (5–9) y < esquinas thead rowspan (26–30).
-   Un z-index bajo (p. ej. 2) ganaba por especificidad SaaS y dejaba el body por encima al hacer scroll. */
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead .dash-grp-col-meta.dash-grp-col-first {
-  z-index: 18;
-  border-left: 5px solid #000 !important;
+#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-first {
+  border-left: none !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-meta.dash-grp-col-first {
-  z-index: 18;
-}
-
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead .dash-grp-col-meta.dash-grp-col-last {
+#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-meta.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-leads.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-int.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-post.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-mat.dash-grp-col-last {
   z-index: 18;
   border-right: 2.5px solid #000 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-meta.dash-grp-col-last {
-  z-index: 18;
-}
-
-#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-leads.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table:has(#dashMetaGlobalGroupHead.dash-meta-global-collapsed) thead .dash-grp-col-leads.dash-grp-col-first {
-  border-left: 5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-leads.dash-grp-col-last {
-  z-index: 18;
-  border-right: 2.5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-gasto.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+#dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-mat.dash-grp-col-last {
+  border-right: 5px solid #000 !important;
 }
 
 #dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-gasto.dash-grp-col-last {
@@ -15286,97 +15325,65 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
   border-right: 5px solid #000 !important;
 }
 
-/* Cuerpo: mismos cortes que thead (5px borde exterior; 2.5px en uniones) */
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-first {
-  position: relative;
-  z-index: 2;
-  border-left: 5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-first {
-  position: relative;
-  z-index: 2;
-}
-
-#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-leads.dash-grp-col-first {
-  position: relative;
-  z-index: 2;
-  border-left: 2.5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table:has(#dashMetaGlobalGroupHead.dash-meta-global-collapsed)
-  tbody
-  tr:not(.dash-tr-empty)
-  td.dash-grp-col-leads.dash-grp-col-first {
-  border-left: 5px solid #000 !important;
-}
-
+#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-gasto.dash-grp-col-first {
-  position: relative;
-  z-index: 2;
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-last {
+#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-leads.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-int.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-post.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tbody tr:not(.dash-tr-empty) td.dash-grp-col-mat.dash-grp-col-last {
   position: relative;
   z-index: 2;
   border-right: 2.5px solid #000 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-last {
-  position: relative;
-  z-index: 2;
-}
-
-#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-leads.dash-grp-col-last {
-  position: relative;
-  z-index: 2;
-  border-right: 2.5px solid #000 !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-gasto.dash-grp-col-last {
-  position: relative;
-  z-index: 2;
+#dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-mat.dash-grp-col-last {
   border-right: 5px solid #000 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-meta.dash-grp-col-first,
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-leads.dash-grp-col-first,
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-gasto.dash-grp-col-first {
-  border-left: 2px solid rgba(255, 255, 255, 0.45) !important;
+#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-gasto.dash-grp-col-last {
+  border-right: 5px solid #000 !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-meta.dash-grp-col-last {
-  border-right: 2px solid rgba(255, 255, 255, 0.45) !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-leads.dash-grp-col-first {
-  border-left: none !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table:has(#dashMetaGlobalGroupHead.dash-meta-global-collapsed) tfoot tr.dash-tfoot-row td.dash-grp-col-leads.dash-grp-col-first {
-  border-left: 2px solid rgba(255, 255, 255, 0.45) !important;
-}
-
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-leads.dash-grp-col-last {
-  border-right: 2px solid rgba(255, 255, 255, 0.45) !important;
-}
-
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-gasto.dash-grp-col-first {
   border-left: none !important;
+}
+
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-meta.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-leads.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-int.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-post.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-mat.dash-grp-col-last {
+  border-right: 2px solid rgba(255, 255, 255, 0.45) !important;
 }
 
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-gasto.dash-grp-col-last {
   border-right: 2px solid rgba(255, 255, 255, 0.45) !important;
 }
 
-/* CRM — refuerzo final de cortes verticales (tras reglas Plataforma; 2.5+2.5 = 5px) */
+#dashboardModule.dash-module-saas .dash-table th.dash-grp-col-last.dash-col-separador-right,
+#dashboardModule.dash-module-saas .dash-table td.dash-grp-col-last.dash-col-separador-right,
+#dashboardModule.dash-module-saas .dash-table th.dash-grp-col-last.dash-grp-sep-right.grupo-separador,
+#dashboardModule.dash-module-saas .dash-table td.dash-grp-col-last.dash-grp-sep-right.grupo-separador,
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups .dash-grp-h1.dash-grp-sep-right {
+  border-right-color: #000 !important;
+  border-right-width: 2.5px !important;
+}
+
+/*
+ * Cortes verticales de grupo: solo dash-grp-col-last dibuja 2.5px negro.
+ * dash-grp-col-first interno no aporta borde izquierdo (sin doble trazo).
+ */
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-meta.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-leads.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-int.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-post.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-mat.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table thead .dash-grp-col-meta.dash-grp-col-last,
@@ -15395,7 +15402,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-int.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-post.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-mat.dash-grp-col-first {
-  border-left: 2.5px solid #000 !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-last,
@@ -15414,7 +15421,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-int.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-post.dash-grp-col-first,
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-mat.dash-grp-col-first {
-  border-left: 2.5px solid rgba(255, 255, 255, 0.45) !important;
+  border-left: none !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-main-table tfoot tr.dash-crm-tfoot-row td.dash-grp-col-meta.dash-grp-col-last,
@@ -15436,7 +15443,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
   background: #f9fafb !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead tr:first-child th:not(#dashMetaGlobalGroupHead):not(#dashHeaderLeads):not(#dashHeaderGasto):not(.dash-th-sticky-corner) {
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead tr:first-child th:not(#dashMetaGlobalGroupHead):not(#dashHeaderLeads):not(#dashHeaderGasto):not(.dash-th-sticky-corner):not(.dash-grp-col-meta):not(.dash-meta-global-col) {
   border-bottom: 1px solid #e5e7eb !important;
 }
 
@@ -15461,12 +15468,15 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
   font-size: 12px !important;
 }
 
-/* Misma especificidad 2×#id que el bloque base: fuerza trazo negro sup/inf tras quitar inset */
+/* Refuerzo borde superior en cabeceras de grupo (sin duplicar borde inferior; lo aporta fila 2) */
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashMetaGlobalGroupHead,
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderLeads,
-#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderGasto {
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderGasto,
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmLeads,
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmInt,
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmPost,
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmMat {
   border-top: 5px solid #000 !important;
-  border-bottom: 5px solid #000 !important;
   box-shadow: none !important;
 }
 

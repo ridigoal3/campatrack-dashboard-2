@@ -1,0 +1,1319 @@
+{
+  "generatedAt": "2026-07-03T17:48:03.789Z",
+  "note": "CampaTrack usa vanilla JS (no React). 'Componentes' = funciones render/medición instrumentadas.",
+  "summary": {
+    "measureCount": 78,
+    "interactionCount": 7,
+    "memorySnapshots": 13,
+    "sharedDashboardFilterState": "estadoFiltrosDashboard (Plataforma + CRM comparten objeto)"
+  },
+  "top20": [
+    {
+      "name": "render:DashboardChartPlataforma",
+      "category": "chart",
+      "count": 8,
+      "totalMs": 26.2,
+      "avgMs": 3.27,
+      "maxMs": 5.2,
+      "avgRecords": 0
+    },
+    {
+      "name": "render:DashboardInit",
+      "category": "render",
+      "count": 3,
+      "totalMs": 23.6,
+      "avgMs": 7.87,
+      "maxMs": 8.8,
+      "avgRecords": null
+    },
+    {
+      "name": "render:DashboardKpisPlataforma",
+      "category": "kpi",
+      "count": 7,
+      "totalMs": 5.5,
+      "avgMs": 0.79,
+      "maxMs": 1.4,
+      "avgRecords": 0
+    },
+    {
+      "name": "render:DashboardTablaPlataforma",
+      "category": "table",
+      "count": 7,
+      "totalMs": 5,
+      "avgMs": 0.71,
+      "maxMs": 1,
+      "avgRecords": 0
+    },
+    {
+      "name": "render:BitacoraTable",
+      "category": "table",
+      "count": 3,
+      "totalMs": 0.8,
+      "avgMs": 0.27,
+      "maxMs": 0.4,
+      "avgRecords": 0
+    },
+    {
+      "name": "data:getDashboardFilteredData",
+      "category": "data",
+      "count": 50,
+      "totalMs": 0.3,
+      "avgMs": 0.01,
+      "maxMs": 0.1,
+      "avgRecords": 0
+    }
+  ],
+  "renders": [
+    {
+      "name": "render:DashboardInit",
+      "count": 3,
+      "totalMs": 23.600000023841858
+    }
+  ],
+  "kpis": [
+    {
+      "name": "render:DashboardKpisPlataforma",
+      "category": "kpi",
+      "count": 7,
+      "totalMs": 5.5,
+      "avgMs": 0.79,
+      "maxMs": 1.4,
+      "avgRecords": 0
+    }
+  ],
+  "charts": [
+    {
+      "name": "render:DashboardChartPlataforma",
+      "category": "chart",
+      "count": 8,
+      "totalMs": 26.2,
+      "avgMs": 3.27,
+      "maxMs": 5.2,
+      "avgRecords": 0
+    }
+  ],
+  "tables": [
+    {
+      "name": "render:DashboardTablaPlataforma",
+      "category": "table",
+      "count": 7,
+      "totalMs": 5,
+      "avgMs": 0.71,
+      "maxMs": 1,
+      "avgRecords": 0
+    },
+    {
+      "name": "render:BitacoraTable",
+      "category": "table",
+      "count": 3,
+      "totalMs": 0.8,
+      "avgMs": 0.27,
+      "maxMs": 0.4,
+      "avgRecords": 0
+    }
+  ],
+  "dataOps": [
+    {
+      "name": "data:getDashboardFilteredData",
+      "category": "data",
+      "count": 50,
+      "totalMs": 0.3,
+      "avgMs": 0.01,
+      "maxMs": 0.1,
+      "avgRecords": 0
+    }
+  ],
+  "arrayOps": [],
+  "moduleLoads": {
+    "dashboard": {
+      "count": 2,
+      "totalMs": 18.80000001192093,
+      "maxMs": 10,
+      "lastMeta": {}
+    },
+    "planning": {
+      "count": 1,
+      "totalMs": 1,
+      "maxMs": 1,
+      "lastMeta": {}
+    },
+    "bitacora": {
+      "count": 1,
+      "totalMs": 1.5,
+      "maxMs": 1.5,
+      "lastMeta": {}
+    },
+    "relaciones": {
+      "count": 1,
+      "totalMs": 69.79999995231628,
+      "maxMs": 69.79999995231628,
+      "lastMeta": {}
+    }
+  },
+  "stateChanges": [
+    {
+      "at": 101044.60000002384,
+      "module": "dashboard",
+      "field": "plataforma",
+      "value": "Meta"
+    },
+    {
+      "at": 102560.5,
+      "module": "dashboard",
+      "field": "mes",
+      "value": "Feb-2026"
+    },
+    {
+      "at": 107010.90000003576,
+      "module": "dashboard",
+      "field": "plataforma",
+      "value": ""
+    }
+  ],
+  "memory": [
+    {
+      "label": "post-interaction",
+      "at": 97205.40000003576,
+      "mb": 17.9,
+      "ts": 1783100865748
+    },
+    {
+      "label": "module:dashboard",
+      "at": 97205.60000002384,
+      "mb": 17.9,
+      "ts": 1783100865748
+    },
+    {
+      "label": "post-interaction",
+      "at": 101052,
+      "mb": 18,
+      "ts": 1783100869594
+    },
+    {
+      "label": "post-interaction",
+      "at": 102571.40000003576,
+      "mb": 17.3,
+      "ts": 1783100871114
+    },
+    {
+      "label": "post-interaction",
+      "at": 104601.20000004768,
+      "mb": 17.3,
+      "ts": 1783100873144
+    },
+    {
+      "label": "post-interaction",
+      "at": 107019.60000002384,
+      "mb": 17.3,
+      "ts": 1783100875562
+    },
+    {
+      "label": "module:planning",
+      "at": 108534,
+      "mb": 17.3,
+      "ts": 1783100877076
+    },
+    {
+      "label": "module:bitacora",
+      "at": 110211.90000003576,
+      "mb": 17.4,
+      "ts": 1783100878754
+    },
+    {
+      "label": "module:relaciones",
+      "at": 111916,
+      "mb": 18.2,
+      "ts": 1783100880458
+    },
+    {
+      "label": "post-interaction",
+      "at": 113559.5,
+      "mb": 17.4,
+      "ts": 1783100882102
+    },
+    {
+      "label": "module:dashboard",
+      "at": 113560.40000003576,
+      "mb": 17.4,
+      "ts": 1783100882103
+    },
+    {
+      "label": "post-interaction",
+      "at": 114235,
+      "mb": 39,
+      "ts": 1783100882777
+    },
+    {
+      "label": "scenario-end",
+      "at": 115245.30000001192,
+      "mb": 37.7,
+      "ts": 1783100883788
+    }
+  ],
+  "interactions": [
+    {
+      "id": 3,
+      "trigger": "dashboard:filter-render",
+      "start": 97198.90000003576,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Apr-2026",
+          "fechaInicio": "2026-04-01",
+          "fechaFin": "2026-04-30",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 97199.70000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 97199.70000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 97199.70000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 97199.70000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardKpisPlataforma",
+          "category": "kpi",
+          "ms": 0.800000011920929,
+          "at": 97200.20000004768,
+          "meta": {
+            "records": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 97200.80000001192,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 97201.10000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardTablaPlataforma",
+          "category": "table",
+          "ms": 0.699999988079071,
+          "at": 97201.60000002384,
+          "meta": {
+            "rows": 0,
+            "entries": 0,
+            "virtualized": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 97201.60000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardChartPlataforma",
+          "category": "chart",
+          "ms": 2.800000011920929,
+          "at": 97204.40000003576,
+          "meta": {
+            "skipped": true,
+            "gateSkip": true,
+            "records": 0
+          }
+        }
+      ],
+      "end": 97205.40000003576,
+      "durationMs": 6.5,
+      "extra": {
+        "subtab": "plataforma",
+        "crmLeads": 0,
+        "modelo": 0
+      }
+    },
+    {
+      "id": 4,
+      "trigger": "dashboard:filter-render",
+      "start": 101045.30000001192,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Apr-2026",
+          "fechaInicio": "2026-04-01",
+          "fechaFin": "2026-04-30",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "Meta",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0.09999996423721313,
+          "at": 101046,
+          "meta": {
+            "records": 0,
+            "cacheHit": false,
+            "poolSize": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 101046,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 101046,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 101046,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardKpisPlataforma",
+          "category": "kpi",
+          "ms": 0.800000011920929,
+          "at": 101046.60000002384,
+          "meta": {
+            "records": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 101047.20000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 101047.60000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardTablaPlataforma",
+          "category": "table",
+          "ms": 0.800000011920929,
+          "at": 101048.10000002384,
+          "meta": {
+            "rows": 0,
+            "entries": 0,
+            "virtualized": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 101048.10000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardChartPlataforma",
+          "category": "chart",
+          "ms": 3.300000011920929,
+          "at": 101051.40000003576,
+          "meta": {
+            "days": 30,
+            "records": 0,
+            "gateSkip": false
+          }
+        }
+      ],
+      "end": 101052,
+      "durationMs": 6.699999988079071,
+      "extra": {
+        "subtab": "plataforma",
+        "crmLeads": 0,
+        "modelo": 0
+      }
+    },
+    {
+      "id": 5,
+      "trigger": "dashboard:filter-render",
+      "start": 102564.5,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Feb-2026",
+          "fechaInicio": "2026-02-01",
+          "fechaFin": "2026-02-28",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "Meta",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 102565,
+          "meta": {
+            "records": 0,
+            "cacheHit": false,
+            "poolSize": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 102565,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 102565,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 102565,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardKpisPlataforma",
+          "category": "kpi",
+          "ms": 0.800000011920929,
+          "at": 102565.70000004768,
+          "meta": {
+            "records": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 102566.20000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 102566.80000001192,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardTablaPlataforma",
+          "category": "table",
+          "ms": 0.800000011920929,
+          "at": 102567.20000004768,
+          "meta": {
+            "rows": 0,
+            "entries": 0,
+            "virtualized": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 102567.20000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardChartPlataforma",
+          "category": "chart",
+          "ms": 3.299999952316284,
+          "at": 102570.5,
+          "meta": {
+            "days": 28,
+            "records": 0,
+            "gateSkip": false
+          }
+        }
+      ],
+      "end": 102571.40000003576,
+      "durationMs": 6.900000035762787,
+      "extra": {
+        "subtab": "plataforma",
+        "crmLeads": 0,
+        "modelo": 0
+      }
+    },
+    {
+      "id": 6,
+      "trigger": "dashboard:filter-render",
+      "start": 104593.5,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Feb-2026",
+          "fechaInicio": "2026-02-01",
+          "fechaFin": "2026-02-28",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "Meta",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 104595,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 104595,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 104595,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 104595,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardKpisPlataforma",
+          "category": "kpi",
+          "ms": 1.4000000357627869,
+          "at": 104595.70000004768,
+          "meta": {
+            "records": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 104596.40000003576,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 104597,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardTablaPlataforma",
+          "category": "table",
+          "ms": 1,
+          "at": 104597.5,
+          "meta": {
+            "rows": 0,
+            "entries": 0,
+            "virtualized": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 104597.5,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardChartPlataforma",
+          "category": "chart",
+          "ms": 2.5,
+          "at": 104600,
+          "meta": {
+            "skipped": true,
+            "gateSkip": true,
+            "records": 0
+          }
+        }
+      ],
+      "end": 104601.20000004768,
+      "durationMs": 7.700000047683716,
+      "extra": {
+        "subtab": "plataforma",
+        "crmLeads": 0,
+        "modelo": 0
+      }
+    },
+    {
+      "id": 7,
+      "trigger": "dashboard:filter-render",
+      "start": 107011.70000004768,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Feb-2026",
+          "fechaInicio": "2026-02-01",
+          "fechaFin": "2026-02-28",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 107012.40000003576,
+          "meta": {
+            "records": 0,
+            "cacheHit": false,
+            "poolSize": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 107012.40000003576,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 107012.40000003576,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 107012.40000003576,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardKpisPlataforma",
+          "category": "kpi",
+          "ms": 0.7999999523162842,
+          "at": 107013,
+          "meta": {
+            "records": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0.10000002384185791,
+          "at": 107013.60000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 107014.10000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardTablaPlataforma",
+          "category": "table",
+          "ms": 0.8999999761581421,
+          "at": 107014.60000002384,
+          "meta": {
+            "rows": 0,
+            "entries": 0,
+            "virtualized": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 107014.60000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardChartPlataforma",
+          "category": "chart",
+          "ms": 4.100000023841858,
+          "at": 107018.70000004768,
+          "meta": {
+            "days": 28,
+            "records": 0,
+            "gateSkip": false
+          }
+        }
+      ],
+      "end": 107019.60000002384,
+      "durationMs": 7.899999976158142,
+      "extra": {
+        "subtab": "plataforma",
+        "crmLeads": 0,
+        "modelo": 0
+      }
+    },
+    {
+      "id": 8,
+      "trigger": "dashboard:filter-render",
+      "start": 113551.90000003576,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Feb-2026",
+          "fechaInicio": "2026-02-01",
+          "fechaFin": "2026-02-28",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 113552.20000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 113552.20000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 113552.20000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 113552.20000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardKpisPlataforma",
+          "category": "kpi",
+          "ms": 0.3999999761581421,
+          "at": 113552.60000002384,
+          "meta": {
+            "records": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 113553,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 113553.40000003576,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardTablaPlataforma",
+          "category": "table",
+          "ms": 0.3999999761581421,
+          "at": 113553.60000002384,
+          "meta": {
+            "rows": 0,
+            "entries": 0,
+            "virtualized": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 113553.60000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardChartPlataforma",
+          "category": "chart",
+          "ms": 5.199999988079071,
+          "at": 113558.90000003576,
+          "meta": {
+            "skipped": true,
+            "gateSkip": true,
+            "records": 0
+          }
+        }
+      ],
+      "end": 113559.5,
+      "durationMs": 7.599999964237213,
+      "extra": {
+        "subtab": "plataforma",
+        "crmLeads": 0,
+        "modelo": 0
+      }
+    },
+    {
+      "id": 9,
+      "trigger": "dashboard:filter-render",
+      "start": 114229.30000001192,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Feb-2026",
+          "fechaInicio": "2026-02-01",
+          "fechaFin": "2026-02-28",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 114229.60000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": false,
+            "poolSize": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 114229.60000002384,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 114229.70000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 114229.70000004768,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardKpisPlataforma",
+          "category": "kpi",
+          "ms": 0.5,
+          "at": 114230.10000002384,
+          "meta": {
+            "records": 0
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 114230.40000003576,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0.09999996423721313,
+          "at": 114230.80000001192,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardTablaPlataforma",
+          "category": "table",
+          "ms": 0.3999999761581421,
+          "at": 114231,
+          "meta": {
+            "rows": 0,
+            "entries": 0,
+            "virtualized": true
+          }
+        },
+        {
+          "name": "data:getDashboardFilteredData",
+          "category": "data",
+          "ms": 0,
+          "at": 114231,
+          "meta": {
+            "records": 0,
+            "cacheHit": true
+          }
+        },
+        {
+          "name": "render:DashboardChartPlataforma",
+          "category": "chart",
+          "ms": 3.400000035762787,
+          "at": 114234.40000003576,
+          "meta": {
+            "days": 28,
+            "records": 0,
+            "gateSkip": false
+          }
+        }
+      ],
+      "end": 114235,
+      "durationMs": 5.699999988079071,
+      "extra": {
+        "subtab": "plataforma",
+        "crmLeads": 0,
+        "modelo": 0
+      }
+    }
+  ],
+  "lastInteractionTimeline": {
+    "id": 9,
+    "trigger": "dashboard:filter-render",
+    "start": 114229.30000001192,
+    "meta": {
+      "subtab": "plataforma",
+      "filtros": {
+        "mes": "Feb-2026",
+        "fechaInicio": "2026-02-01",
+        "fechaFin": "2026-02-28",
+        "tipo": "",
+        "intake": "",
+        "tracking": "",
+        "plataforma": "",
+        "estado": "",
+        "busquedaPrograma": ""
+      }
+    },
+    "phases": [
+      {
+        "name": "data:getDashboardFilteredData",
+        "category": "data",
+        "ms": 0,
+        "at": 114229.60000002384,
+        "meta": {
+          "records": 0,
+          "cacheHit": false,
+          "poolSize": 0
+        }
+      },
+      {
+        "name": "data:getDashboardFilteredData",
+        "category": "data",
+        "ms": 0,
+        "at": 114229.60000002384,
+        "meta": {
+          "records": 0,
+          "cacheHit": true
+        }
+      },
+      {
+        "name": "data:getDashboardFilteredData",
+        "category": "data",
+        "ms": 0,
+        "at": 114229.70000004768,
+        "meta": {
+          "records": 0,
+          "cacheHit": true
+        }
+      },
+      {
+        "name": "data:getDashboardFilteredData",
+        "category": "data",
+        "ms": 0,
+        "at": 114229.70000004768,
+        "meta": {
+          "records": 0,
+          "cacheHit": true
+        }
+      },
+      {
+        "name": "render:DashboardKpisPlataforma",
+        "category": "kpi",
+        "ms": 0.5,
+        "at": 114230.10000002384,
+        "meta": {
+          "records": 0
+        }
+      },
+      {
+        "name": "data:getDashboardFilteredData",
+        "category": "data",
+        "ms": 0,
+        "at": 114230.40000003576,
+        "meta": {
+          "records": 0,
+          "cacheHit": true
+        }
+      },
+      {
+        "name": "data:getDashboardFilteredData",
+        "category": "data",
+        "ms": 0.09999996423721313,
+        "at": 114230.80000001192,
+        "meta": {
+          "records": 0,
+          "cacheHit": true
+        }
+      },
+      {
+        "name": "render:DashboardTablaPlataforma",
+        "category": "table",
+        "ms": 0.3999999761581421,
+        "at": 114231,
+        "meta": {
+          "rows": 0,
+          "entries": 0,
+          "virtualized": true
+        }
+      },
+      {
+        "name": "data:getDashboardFilteredData",
+        "category": "data",
+        "ms": 0,
+        "at": 114231,
+        "meta": {
+          "records": 0,
+          "cacheHit": true
+        }
+      },
+      {
+        "name": "render:DashboardChartPlataforma",
+        "category": "chart",
+        "ms": 3.400000035762787,
+        "at": 114234.40000003576,
+        "meta": {
+          "days": 28,
+          "records": 0,
+          "gateSkip": false
+        }
+      }
+    ],
+    "end": 114235,
+    "durationMs": 5.699999988079071,
+    "extra": {
+      "subtab": "plataforma",
+      "crmLeads": 0,
+      "modelo": 0
+    }
+  },
+  "flameEdges": [
+    {
+      "edge": "(root) → render:DashboardChartPlataforma",
+      "count": 3,
+      "totalMs": 11.400000035762787
+    },
+    {
+      "edge": "(root) → render:DashboardKpisPlataforma",
+      "count": 3,
+      "totalMs": 1.699999988079071
+    },
+    {
+      "edge": "(root) → render:DashboardTablaPlataforma",
+      "count": 3,
+      "totalMs": 1.4999999403953552
+    },
+    {
+      "edge": "render:DashboardInit → data:getDashboardFilteredData",
+      "count": 15,
+      "totalMs": 0.09999996423721313
+    },
+    {
+      "edge": "(root) → data:getDashboardFilteredData",
+      "count": 26,
+      "totalMs": 0.09999996423721313
+    }
+  ]
+}

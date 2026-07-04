@@ -666,33 +666,56 @@
           <span class="bitacora-saas-label">Tipo de programa</span>
           <select id="bitacoraFormTipo" class="bitacora-saas-input bitacora-saas-select" aria-label="Tipo de programa"></select>
         </label>
-        <div class="bitacora-saas-field bitacora-saas-field-span2">
+        <div class="bitacora-saas-field bitacora-saas-field-span2 bitacora-saas-field-programas">
           <span class="bitacora-saas-label">Programas afectados</span>
-          <div id="bitacoraFormProgramasWrap" class="bitacora-programas-checklist" role="group" aria-label="Programas afectados">
-            <p class="bitacora-programas-checklist-hint">Selecciona tipo de programa primero</p>
+          <div class="bitacora-programas-layout">
+            <div class="bitacora-programas-main">
+              <div class="bitacora-saas-search-wrap">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input
+                  id="bitacoraFormProgramasSearch"
+                  class="bitacora-saas-input bitacora-saas-input-search"
+                  type="search"
+                  placeholder="Buscar programa..."
+                  autocomplete="off"
+                  aria-label="Buscar programa"
+                />
+              </div>
+              <div id="bitacoraFormProgramasWrap" class="bitacora-programas-checklist" role="group" aria-label="Programas afectados">
+                <p class="bitacora-programas-checklist-hint">Selecciona tipo de programa primero</p>
+              </div>
+            </div>
+            <aside class="bitacora-programas-side" aria-label="Opciones de programas seleccionados">
+              <div class="bitacora-programas-side-selected">
+                <span id="bitacoraFormProgramasCount" class="bitacora-programas-count" aria-live="polite">Seleccionados: 0</span>
+                <button type="button" id="bitacoraFormProgramasLimpiarBtn" class="bitacora-saas-btn bitacora-saas-btn--ghost bitacora-programas-limpiar-btn">
+                  Limpiar
+                </button>
+              </div>
+              <label class="bitacora-saas-field bitacora-programas-side-field">
+                <span class="bitacora-saas-label">Impacto <span class="bitacora-saas-optional">(opcional)</span></span>
+                <select id="bitacoraFormImpacto" class="bitacora-saas-input bitacora-saas-select" aria-label="Impacto">
+                  <option value="">Sin especificar</option>
+                  <option value="alto">Alto</option>
+                  <option value="medio">Medio</option>
+                  <option value="bajo">Bajo</option>
+                </select>
+              </label>
+              <label class="bitacora-saas-switch bitacora-programas-side-switch">
+                <input type="checkbox" id="bitacoraFormImportante" />
+                <span class="bitacora-saas-switch-track" aria-hidden="true"></span>
+                <span class="bitacora-saas-switch-label"><i class="fa-solid fa-star" aria-hidden="true"></i> Marcar como importante</span>
+              </label>
+            </aside>
           </div>
         </div>
-        <label class="bitacora-saas-field bitacora-saas-field-span2">
-          <span class="bitacora-saas-label">Impacto <span class="bitacora-saas-optional">(opcional)</span></span>
-          <select id="bitacoraFormImpacto" class="bitacora-saas-input bitacora-saas-select" aria-label="Impacto">
-            <option value="">Sin especificar</option>
-            <option value="alto">Alto</option>
-            <option value="medio">Medio</option>
-            <option value="bajo">Bajo</option>
-          </select>
-        </label>
         <label class="bitacora-saas-field bitacora-saas-field-span2">
           <span class="bitacora-saas-label">Cambio / mejora realizada</span>
           <textarea id="bitacoraFormCambios" class="bitacora-saas-textarea" rows="5" maxlength="1000" placeholder="Describe el cambio, la hipótesis o el resultado esperado"></textarea>
           <span id="bitacoraFormCharCount" class="bitacora-saas-char-count" aria-live="polite">0 / 1000</span>
         </label>
       </div>
-      <div class="bitacora-saas-form-actions">
-        <label class="bitacora-saas-switch">
-          <input type="checkbox" id="bitacoraFormImportante" />
-          <span class="bitacora-saas-switch-track" aria-hidden="true"></span>
-          <span class="bitacora-saas-switch-label"><i class="fa-solid fa-star" aria-hidden="true"></i> Marcar como importante</span>
-        </label>
+      <div class="bitacora-saas-form-actions bitacora-saas-form-actions--footer">
         <div class="bitacora-saas-form-actions-btns">
           <button type="button" id="bitacoraCancelarEdicionBtn" class="bitacora-saas-btn bitacora-saas-btn--ghost">Cancelar</button>
           <button type="button" id="bitacoraGuardarEntradaBtn" class="bitacora-saas-btn bitacora-saas-btn--primary">
@@ -1556,23 +1579,38 @@
                 <th class="tipo-col dash-th-sticky-corner" rowspan="2">Tipo</th>
                 <th class="dash-int-col dash-th-sticky-corner" rowspan="2" title="Intake">Int</th>
                 <th class="dash-plat-col dash-th-sticky-corner" rowspan="2" title="Plataforma">Plat.</th>
-                <th id="dashProgramaHead" class="programa-col dash-th-sticky-corner dash-col-separador-right" rowspan="2">
+                <th id="dashProgramaHead" class="programa-col dash-th-sticky-corner dash-grp-sticky-sep" rowspan="2">
                   <span class="dash-programa-head-label">Programa</span>
                   <button id="dashExpandMetaGlobal" type="button" class="btn-expand-meta-floating btn-toggle-meta" aria-label="Expandir META GLOBAL" style="display:none;">+</button>
                 </th>
-                <th id="dashMetaGlobalGroupHead" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-th-meta-global" colspan="24">
-                  <button id="dashToggleMetaGlobal" type="button" class="dash-meta-toggle-btn" aria-label="Colapsar META GLOBAL">��</button>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta dash-grp-col-first" rowspan="2">Inicio</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta" rowspan="2">Fin</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta" rowspan="2">Días<br>Pauta</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-grp-col dash-grp-col-meta dash-grp-col-last dash-grp-sep-right grupo-separador" rowspan="2">Días<br>aun</th>
+                <th id="dashPlatHeaderCrmLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="5">Leads</th>
+                <th id="dashPlatHeaderCrmInt" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Interesados</th>
+                <th id="dashPlatHeaderCrmPost" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Postulantes</th>
+                <th id="dashPlatHeaderCrmMat" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Matriculados</th>
+                <th id="dashMetaGlobalGroupHead" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-th-meta-global dash-meta-global-col" colspan="20">
+                  <button id="dashToggleMetaGlobal" type="button" class="dash-meta-toggle-btn" aria-label="Colapsar META GLOBAL">−</button>
                   <span id="dashMetaGlobalLabel">META Y AVANCE GENERAL</span>
                 </th>
                 <th id="dashHeaderLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="10">LEADS</th>
                 <th id="dashHeaderGasto" class="dash-grp-h1" colspan="8">GASTO</th>
               </tr>
               <tr class="dash-thead-row-columns">
-                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta dash-grp-col-first">Inicio</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Fin</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Días<br>Pauta</th>
-                <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-grp-col dash-grp-col-meta">Días<br>aun</th>
-                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta">Meta<br>Gasto<br>Total</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-first">Meta<br>Leads</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads">Leads<br>Plataforma</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads">Leads<br>CRM</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads">%<br>Diferencia</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">% Avance<br>Meta</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-first">Meta</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-first">Meta</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-first">Meta</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-last">Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta dash-grp-col-first">Meta<br>Gasto<br>Total</th>
                 <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Meta<br>Gasto<br>Hoy</th>
                 <th class="dash-th-sub dash-meta-global-col dash-th-real-metric dash-grp-col dash-grp-col-meta">Gasto<br>Real</th>
                 <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Avance<br>Ideal<br>Gasto</th>

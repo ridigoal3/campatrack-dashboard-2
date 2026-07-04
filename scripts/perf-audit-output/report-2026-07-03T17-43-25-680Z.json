@@ -1,0 +1,276 @@
+{
+  "generatedAt": "2026-07-03T17:43:25.673Z",
+  "note": "CampaTrack usa vanilla JS (no React). 'Componentes' = funciones render/medición instrumentadas.",
+  "summary": {
+    "measureCount": 2,
+    "interactionCount": 4,
+    "memorySnapshots": 9,
+    "sharedDashboardFilterState": "estadoFiltrosDashboard (Plataforma + CRM comparten objeto)"
+  },
+  "top20": [
+    {
+      "name": "render:DashboardInit",
+      "category": "render",
+      "count": 1,
+      "totalMs": 5.7,
+      "avgMs": 5.7,
+      "maxMs": 5.7,
+      "avgRecords": null
+    },
+    {
+      "name": "render:BitacoraTable",
+      "category": "table",
+      "count": 1,
+      "totalMs": 5.3,
+      "avgMs": 5.3,
+      "maxMs": 5.3,
+      "avgRecords": 16
+    }
+  ],
+  "renders": [
+    {
+      "name": "render:DashboardInit",
+      "count": 1,
+      "totalMs": 5.699999988079071
+    }
+  ],
+  "kpis": [],
+  "charts": [],
+  "tables": [
+    {
+      "name": "render:BitacoraTable",
+      "category": "table",
+      "count": 1,
+      "totalMs": 5.3,
+      "avgMs": 5.3,
+      "maxMs": 5.3,
+      "avgRecords": 16
+    }
+  ],
+  "dataOps": [],
+  "arrayOps": [],
+  "moduleLoads": {
+    "planning": {
+      "count": 1,
+      "totalMs": 1.800000011920929,
+      "maxMs": 1.800000011920929,
+      "lastMeta": {}
+    },
+    "bitacora": {
+      "count": 1,
+      "totalMs": 7.699999988079071,
+      "maxMs": 7.699999988079071,
+      "lastMeta": {}
+    },
+    "relaciones": {
+      "count": 1,
+      "totalMs": 6.5,
+      "maxMs": 6.5,
+      "lastMeta": {}
+    },
+    "dashboard": {
+      "count": 1,
+      "totalMs": 8.300000011920929,
+      "maxMs": 8.300000011920929,
+      "lastMeta": {}
+    }
+  },
+  "stateChanges": [
+    {
+      "at": 12320.799999952316,
+      "module": "dashboard",
+      "field": "plataforma",
+      "value": "Meta"
+    },
+    {
+      "at": 16383.199999988079,
+      "module": "dashboard",
+      "field": "plataforma",
+      "value": ""
+    }
+  ],
+  "memory": [
+    {
+      "label": "post-interaction",
+      "at": 12332.799999952316,
+      "mb": 21.2,
+      "ts": 1783100592755
+    },
+    {
+      "label": "post-interaction",
+      "at": 13925.399999976158,
+      "mb": 21.2,
+      "ts": 1783100594348
+    },
+    {
+      "label": "post-interaction",
+      "at": 16397.399999976158,
+      "mb": 21.2,
+      "ts": 1783100596820
+    },
+    {
+      "label": "module:planning",
+      "at": 17967.799999952316,
+      "mb": 21.2,
+      "ts": 1783100598390
+    },
+    {
+      "label": "module:bitacora",
+      "at": 19983.299999952316,
+      "mb": 21.6,
+      "ts": 1783100600406
+    },
+    {
+      "label": "module:relaciones",
+      "at": 21779.399999976158,
+      "mb": 22.2,
+      "ts": 1783100602202
+    },
+    {
+      "label": "post-interaction",
+      "at": 23585.099999964237,
+      "mb": 22.5,
+      "ts": 1783100604008
+    },
+    {
+      "label": "module:dashboard",
+      "at": 23586,
+      "mb": 22.5,
+      "ts": 1783100604009
+    },
+    {
+      "label": "scenario-end",
+      "at": 25246.399999976158,
+      "mb": 22.7,
+      "ts": 1783100605669
+    }
+  ],
+  "interactions": [
+    {
+      "id": 3,
+      "trigger": "dashboard:filter-render",
+      "start": 12330,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "Meta",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 12332.799999952316,
+      "durationMs": 2.799999952316284,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 4,
+      "trigger": "dashboard:filter-render",
+      "start": 13922.599999964237,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "Meta",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 13925.399999976158,
+      "durationMs": 2.800000011920929,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 5,
+      "trigger": "dashboard:filter-render",
+      "start": 16395.69999998808,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 16397.399999976158,
+      "durationMs": 1.699999988079071,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 6,
+      "trigger": "dashboard:filter-render",
+      "start": 23583,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 23585.099999964237,
+      "durationMs": 2.099999964237213,
+      "extra": {
+        "empty": true
+      }
+    }
+  ],
+  "lastInteractionTimeline": {
+    "id": 6,
+    "trigger": "dashboard:filter-render",
+    "start": 23583,
+    "meta": {
+      "subtab": "plataforma",
+      "filtros": {
+        "mes": "Jul-2026",
+        "fechaInicio": "2026-07-01",
+        "fechaFin": "2026-07-31",
+        "tipo": "",
+        "intake": "",
+        "tracking": "",
+        "plataforma": "",
+        "estado": "",
+        "busquedaPrograma": ""
+      }
+    },
+    "phases": [],
+    "end": 23585.099999964237,
+    "durationMs": 2.099999964237213,
+    "extra": {
+      "empty": true
+    }
+  },
+  "flameEdges": []
+}

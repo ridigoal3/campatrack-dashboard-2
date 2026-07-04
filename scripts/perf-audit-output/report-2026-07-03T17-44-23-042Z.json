@@ -1,0 +1,375 @@
+{
+  "generatedAt": "2026-07-03T17:44:23.040Z",
+  "note": "CampaTrack usa vanilla JS (no React). 'Componentes' = funciones render/medición instrumentadas.",
+  "summary": {
+    "measureCount": 6,
+    "interactionCount": 7,
+    "memorySnapshots": 13,
+    "sharedDashboardFilterState": "estadoFiltrosDashboard (Plataforma + CRM comparten objeto)"
+  },
+  "top20": [
+    {
+      "name": "render:DashboardInit",
+      "category": "render",
+      "count": 3,
+      "totalMs": 8.9,
+      "avgMs": 2.97,
+      "maxMs": 4,
+      "avgRecords": null
+    },
+    {
+      "name": "render:BitacoraTable",
+      "category": "table",
+      "count": 3,
+      "totalMs": 1.4,
+      "avgMs": 0.47,
+      "maxMs": 0.7,
+      "avgRecords": 0
+    }
+  ],
+  "renders": [
+    {
+      "name": "render:DashboardInit",
+      "count": 3,
+      "totalMs": 8.899999976158142
+    }
+  ],
+  "kpis": [],
+  "charts": [],
+  "tables": [
+    {
+      "name": "render:BitacoraTable",
+      "category": "table",
+      "count": 3,
+      "totalMs": 1.4,
+      "avgMs": 0.47,
+      "maxMs": 0.7,
+      "avgRecords": 0
+    }
+  ],
+  "dataOps": [],
+  "arrayOps": [],
+  "moduleLoads": {
+    "dashboard": {
+      "count": 2,
+      "totalMs": 13.399999976158142,
+      "maxMs": 7.600000023841858,
+      "lastMeta": {}
+    },
+    "planning": {
+      "count": 1,
+      "totalMs": 4.800000011920929,
+      "maxMs": 4.800000011920929,
+      "lastMeta": {}
+    },
+    "bitacora": {
+      "count": 1,
+      "totalMs": 1.100000023841858,
+      "maxMs": 1.100000023841858,
+      "lastMeta": {}
+    },
+    "relaciones": {
+      "count": 1,
+      "totalMs": 2.100000023841858,
+      "maxMs": 2.100000023841858,
+      "lastMeta": {}
+    }
+  },
+  "stateChanges": [
+    {
+      "at": 9310,
+      "module": "dashboard",
+      "field": "plataforma",
+      "value": "Meta"
+    },
+    {
+      "at": 13308.5,
+      "module": "dashboard",
+      "field": "plataforma",
+      "value": ""
+    }
+  ],
+  "memory": [
+    {
+      "label": "post-interaction",
+      "at": 5427.699999988079,
+      "mb": 13,
+      "ts": 1783100646843
+    },
+    {
+      "label": "module:dashboard",
+      "at": 5428.799999952316,
+      "mb": 13,
+      "ts": 1783100646844
+    },
+    {
+      "label": "post-interaction",
+      "at": 9325.199999988079,
+      "mb": 13.1,
+      "ts": 1783100650740
+    },
+    {
+      "label": "post-interaction",
+      "at": 10857.899999976158,
+      "mb": 13.1,
+      "ts": 1783100652273
+    },
+    {
+      "label": "post-interaction",
+      "at": 13310.399999976158,
+      "mb": 13.1,
+      "ts": 1783100654725
+    },
+    {
+      "label": "module:planning",
+      "at": 14859,
+      "mb": 13.1,
+      "ts": 1783100656274
+    },
+    {
+      "label": "module:bitacora",
+      "at": 16625.099999964237,
+      "mb": 13.2,
+      "ts": 1783100658040
+    },
+    {
+      "label": "module:relaciones",
+      "at": 18292.69999998808,
+      "mb": 13.2,
+      "ts": 1783100659708
+    },
+    {
+      "label": "post-interaction",
+      "at": 19988.799999952316,
+      "mb": 13.2,
+      "ts": 1783100661404
+    },
+    {
+      "label": "module:dashboard",
+      "at": 19990.899999976158,
+      "mb": 13.2,
+      "ts": 1783100661406
+    },
+    {
+      "label": "post-interaction",
+      "at": 20209.399999976158,
+      "mb": 9.8,
+      "ts": 1783100661625
+    },
+    {
+      "label": "post-interaction",
+      "at": 20219.599999964237,
+      "mb": 9.8,
+      "ts": 1783100661635
+    },
+    {
+      "label": "scenario-end",
+      "at": 21622.599999964237,
+      "mb": 9.9,
+      "ts": 1783100663038
+    }
+  ],
+  "interactions": [
+    {
+      "id": 3,
+      "trigger": "dashboard:filter-render",
+      "start": 5425.699999988079,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 5427.699999988079,
+      "durationMs": 2,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 4,
+      "trigger": "dashboard:filter-render",
+      "start": 9323,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "Meta",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 9325.199999988079,
+      "durationMs": 2.199999988079071,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 5,
+      "trigger": "dashboard:filter-render",
+      "start": 10855.699999988079,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "Meta",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 10857.799999952316,
+      "durationMs": 2.099999964237213,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 6,
+      "trigger": "dashboard:filter-render",
+      "start": 13309,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 13310.399999976158,
+      "durationMs": 1.399999976158142,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 7,
+      "trigger": "dashboard:filter-render",
+      "start": 19987.299999952316,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 19988.799999952316,
+      "durationMs": 1.5,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 8,
+      "trigger": "dashboard:filter-render",
+      "start": 20208.399999976158,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 20209.399999976158,
+      "durationMs": 1,
+      "extra": {
+        "empty": true
+      }
+    },
+    {
+      "id": 9,
+      "trigger": "dashboard:filter-render",
+      "start": 20218.299999952316,
+      "meta": {
+        "subtab": "plataforma",
+        "filtros": {
+          "mes": "Jul-2026",
+          "fechaInicio": "2026-07-01",
+          "fechaFin": "2026-07-31",
+          "tipo": "",
+          "intake": "",
+          "tracking": "",
+          "plataforma": "",
+          "estado": "",
+          "busquedaPrograma": ""
+        }
+      },
+      "phases": [],
+      "end": 20219.599999964237,
+      "durationMs": 1.300000011920929,
+      "extra": {
+        "empty": true
+      }
+    }
+  ],
+  "lastInteractionTimeline": {
+    "id": 9,
+    "trigger": "dashboard:filter-render",
+    "start": 20218.299999952316,
+    "meta": {
+      "subtab": "plataforma",
+      "filtros": {
+        "mes": "Jul-2026",
+        "fechaInicio": "2026-07-01",
+        "fechaFin": "2026-07-31",
+        "tipo": "",
+        "intake": "",
+        "tracking": "",
+        "plataforma": "",
+        "estado": "",
+        "busquedaPrograma": ""
+      }
+    },
+    "phases": [],
+    "end": 20219.599999964237,
+    "durationMs": 1.300000011920929,
+    "extra": {
+      "empty": true
+    }
+  },
+  "flameEdges": []
+}
