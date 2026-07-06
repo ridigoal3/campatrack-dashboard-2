@@ -1491,19 +1491,35 @@
 
       <div class="dash-toolbar dash-seg-toolbar filters-bar" role="toolbar" aria-label="Segmentadores del dashboard">
         <div class="dash-toolbar-start-cluster">
-          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-busca-prog">
-            <span class="dash-toolbar-label dash-toolbar-label-prog segmentador-header">PROGRAMA</span>
-            <input id="dashBusquedaPrograma" type="search" class="dash-busqueda-programa" placeholder="Buscar⬦" autocomplete="off" />
-          </div>
           <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-tipo">
             <span class="dash-toolbar-label segmentador-header">Tipo</span>
             <div id="dashSegTipo" class="dash-seg-btns"></div>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-busca-prog">
+            <span class="dash-toolbar-label dash-toolbar-label-prog segmentador-header">PROGRAMA</span>
+            <input id="dashBusquedaPrograma" type="search" class="dash-busqueda-programa" placeholder="Buscar programa..." autocomplete="off" />
           </div>
           <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-busca-prog segmentador-intake">
             <span class="segmentador-header segmentador-intake-header">INTAKE</span>
             <select id="dashFiltroIntake" class="dash-month-select segmentador-intake-select" aria-label="Filtrar por intake">
               <option value="">Todos</option>
             </select>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-toque-crm" aria-label="Toques">
+            <span class="dash-crm-toolbar-kpi-label">Toques</span>
+            <span class="dash-crm-toolbar-kpi-val">2.5</span>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-leads-crm" aria-label="Leads">
+            <span class="dash-crm-toolbar-kpi-label">Leads</span>
+            <span class="dash-crm-toolbar-kpi-val">1,241</span>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-cpl-crm" aria-label="CPL">
+            <span class="dash-crm-toolbar-kpi-label">CPL</span>
+            <span class="dash-crm-toolbar-kpi-val">S/ 18.35</span>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-inversion-crm" aria-label="Inversión">
+            <span class="dash-crm-toolbar-kpi-label">Inversión</span>
+            <span class="dash-crm-toolbar-kpi-val">S/ 23,495</span>
           </div>
           <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-tracking">
             <span class="dash-toolbar-label segmentador-header">Tracking</span>
@@ -1559,6 +1575,7 @@
           </div>
         </div>
         <div class="dash-toolbar-end-group">
+          <div class="dash-toolbar-item dash-toolbar-periodo-crm" id="dashCrmV2PeriodoSlot" aria-label="Periodo"></div>
           <div class="dash-toolbar-item dash-toolbar-actualizado">
             <div id="fecha-actualizacion" class="fecha-badge fecha-badge--dash-toolbar hidden" aria-live="polite" role="status"></div>
           </div>
@@ -1676,73 +1693,130 @@
           </div>
         </div>
         <div class="dash-side-insights">
-          <div class="table-card dash-side-card chart-card dash-insights-split">
-            <div class="dash-insight-col dash-insight-col--donut">
-              <h3 class="dash-chart-title">Distribución por plataforma</h3>
-              <div class="dash-donut-body">
-                <div class="dash-donut-chart-stage">
-                  <div id="dashGastoPlatDonut" class="dash-donut-chart"></div>
-                </div>
-                <div id="dashGastoPlatLegend" class="dash-donut-legend" role="region" aria-label="Leyenda gasto por plataforma"></div>
+          <div class="table-card dash-side-card chart-card dash-bitacora-card" aria-label="Bitácora de campaña">
+            <div class="dash-bitacora-head">
+              <h3 class="dash-chart-title dash-bitacora-title">Bitácora de campaña</h3>
+              <span class="dash-bitacora-count" id="dashBitacoraCount">0 registros</span>
+            </div>
+            <div class="dash-bitacora-scroll" role="region" aria-label="Registros de bitácora">
+              <table class="dash-bitacora-table">
+                <colgroup>
+                  <col class="dash-bitacora-col-fecha" />
+                  <col class="dash-bitacora-col-desc" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Descripción</th>
+                  </tr>
+                </thead>
+                <tbody id="dashBitacoraTbody"></tbody>
+              </table>
+            </div>
+            <div class="dash-bitacora-pager" aria-label="Paginación bitácora">
+              <span class="dash-bitacora-pager-label" id="dashBitacoraPagerLabel">0-0 de 0</span>
+              <div class="dash-bitacora-pager-btns">
+                <button type="button" class="dash-bitacora-pager-btn" id="dashBitacoraPrevBtn" aria-label="Página anterior" disabled>&lsaquo;</button>
+                <button type="button" class="dash-bitacora-pager-btn" id="dashBitacoraNextBtn" aria-label="Página siguiente" disabled>&rsaquo;</button>
               </div>
             </div>
-            <div class="dash-insight-col dash-insight-col--topcpl">
-              <h3 class="dash-chart-title">Top 5 CPL</h3>
-              <ul id="dashTopCplList" class="dash-topcpl-list"></ul>
-            </div>
+          </div>
+          <div class="dash-insights-legacy-host" hidden aria-hidden="true">
+            <div id="dashGastoPlatDonut" class="dash-donut-chart"></div>
+            <div id="dashGastoPlatLegend" class="dash-donut-legend"></div>
+            <ul id="dashTopCplList" class="dash-topcpl-list"></ul>
           </div>
         </div>
       </div>
       </div>
 
       <div id="dashShellCrm" class="dash-shell-crm hidden" aria-label="Dashboard comercial CRM">
-        <div class="dash-crm-shell-grid">
-          <div class="dash-crm-main-column">
-            <div class="table-card dash-table-hero dash-table-primary dash-crm-main-panel">
-              <div class="dash-table-scroll table-container">
-                <table class="dash-table data-table dash-crm-main-table">
-              <thead>
-                <tr class="dash-thead-row-groups">
-                  <th class="dash-estado-col dash-th-sticky-corner" rowspan="2" title="Estado">Est.</th>
-                  <th class="tipo-col dash-th-sticky-corner" rowspan="2">Tipo</th>
-                  <th class="dash-int-col dash-th-sticky-corner" rowspan="2" title="Intake">Int.</th>
-                  <th class="dash-plat-col dash-th-sticky-corner" rowspan="2" title="Plataforma">Plat.</th>
-                  <th id="dashCrmProgramaHead" class="programa-col dash-th-sticky-corner" rowspan="2">Programa</th>
-                  <th id="dashCrmFuenteHead" class="dash-tracking-col dash-th-sticky-corner dash-col-separador-right dash-grp-sep-right grupo-separador" rowspan="2" title="Fuente / tracking">Fuente</th>
-                  <th id="dashCrmInicioHead" class="dash-th-sub dash-grp-col dash-grp-col-meta dash-grp-col-first" rowspan="2">Inicio</th>
-                  <th id="dashCrmFinHead" class="dash-th-sub dash-grp-col dash-grp-col-meta" rowspan="2">Fin</th>
-                  <th id="dashCrmDiasPautaHead" class="dash-th-sub dash-grp-col dash-grp-col-meta" rowspan="2">Días<br>Pauta</th>
-                  <th id="dashCrmDiasAunHead" class="dash-th-sub dash-grp-col dash-grp-col-meta dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador" rowspan="2">Días<br>aun</th>
-                  <th id="dashCrmHeaderLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="5">Leads</th>
-                  <th id="dashCrmHeaderInt" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="2">Interesados</th>
-                  <th id="dashCrmHeaderPost" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="2">Postulantes</th>
-                  <th id="dashCrmHeaderMat" class="dash-grp-h1" colspan="2">Matriculados</th>
-                </tr>
-                <tr class="dash-thead-row-columns">
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-first">Meta<br>Leads</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Leads<br>Plataforma</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Leads<br>CRM</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads">%<br>Diferencia</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">% Avance<br>Meta</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-first">Meta</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-first">Meta</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-first">Meta</th>
-                  <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-last">Real</th>
-                </tr>
-              </thead>
-              <tbody id="dashCrmTbody"></tbody>
-              <tfoot id="dashCrmTfoot"></tfoot>
-                </table>
+        <div class="dash-crm-v2-shell">
+          <!-- Bloque campaña / detalle (oculto — UI retirada; DOM conservado para funciones) -->
+          <div class="dash-crm-v2-topbar hidden" aria-hidden="true">
+            <div class="dash-crm-v2-topbar-end">
+              <button type="button" id="dashCrmV2DetalleBtn" class="dash-crm-v2-detalle-btn">Ver detalle de campaña</button>
+            </div>
+          </div>
+
+          <div class="table-card dash-crm-v2-campana-header hidden" aria-hidden="true">
+            <div class="dash-crm-v2-campana-grid">
+              <div class="dash-crm-v2-field dash-crm-v2-field--campana">
+                <label class="dash-crm-v2-label" for="dashCrmV2Campana">Campaña</label>
+                <select id="dashCrmV2Campana" class="dash-crm-v2-select" aria-label="Campaña">
+                  <option value="1" selected>Maestría en Ciencia Criminalística</option>
+                  <option value="2">Doctorado en Derecho Penal</option>
+                  <option value="3">Especialización en Criminalística</option>
+                </select>
+                <span class="dash-crm-v2-hint">ID: 23874 · Tipo: Maestría · Intake: Junio 2026</span>
+              </div>
+              <div class="dash-crm-v2-field dash-crm-v2-field--fuente">
+                <label class="dash-crm-v2-label" for="dashCrmV2FuenteSelect">Fuente</label>
+                <select id="dashCrmV2FuenteSelect" class="dash-crm-v2-select" aria-label="Fuente">
+                  <option value="crm" selected>CRM Leads</option>
+                  <option value="web">Web Leads</option>
+                </select>
               </div>
             </div>
+          </div>
 
-            <div class="dash-crm-bottom-layout">
+          <div class="dash-crm-v2-grid">
+            <!-- Desempeño por plataforma (mock) -->
+            <section class="table-card dash-crm-v2-plat-card dash-crm-v2-area-plat" aria-label="Desempeño por plataforma">
+              <h3 class="dash-chart-title dash-crm-v2-block-title">Desempeño por plataforma</h3>
+              <div class="dash-crm-v2-plat-scroll">
+                <table class="dash-crm-v2-plat-table" id="dashCrmV2PlatTable">
+                  <thead id="dashCrmV2PlatThead"></thead>
+                  <tbody id="dashCrmV2PlatTbody"></tbody>
+                  <tfoot id="dashCrmV2PlatTfoot"></tfoot>
+                </table>
+              </div>
+            </section>
+
+            <!-- Resumen general (mock) -->
+            <section class="table-card dash-crm-v2-resumen-block dash-crm-v2-area-resumen" aria-label="Resumen general de la campaña">
+              <h3 class="dash-chart-title dash-crm-v2-block-title">Resumen general de la campaña</h3>
+              <div class="dash-crm-v2-resumen-track" id="dashCrmV2ResumenTrack" role="list"></div>
+            </section>
+
+            <!-- Etapa seleccionada (mock) -->
+            <section class="table-card dash-crm-v2-etapa-block dash-crm-v2-area-etapa" aria-label="Etapa seleccionada">
+              <div class="dash-crm-v2-etapa-head" id="dashCrmV2EtapaHead"></div>
+              <div class="dash-crm-v2-etapa-cards" id="dashCrmV2EtapaCards"></div>
+            </section>
+
+            <aside class="dash-crm-v2-side dash-crm-side-panel dash-crm-v2-area-side" aria-label="Paneles laterales CRM">
+              <div class="table-card dash-chart-card dash-crm-interval-card" aria-label="Intervalo de gestión">
+                <div class="dash-crm-interval-head">
+                  <h3 class="dash-chart-title dash-crm-interval-title">Intervalo de Gestión</h3>
+                  <div class="dash-crm-view-toggle dash-crm-side-scope-toggle" role="group" aria-label="Alcance temporal intervalo de gestión">
+                    <button type="button" id="dashCrmScopeTotal" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Total</button>
+                    <button type="button" id="dashCrmScopeMes" class="dash-crm-toggle-btn">Mes</button>
+                  </div>
+                </div>
+                <div class="dash-crm-interval-body">
+                  <table class="dash-crm-interval-table" aria-label="Intervalo de gestión">
+                    <thead class="dash-crm-interval-thead">
+                      <tr>
+                        <th scope="col" class="dash-crm-interval-th dash-crm-interval-th-lab">Intervalo</th>
+                        <th scope="col" class="dash-crm-interval-th dash-crm-interval-th-num">Leads</th>
+                        <th scope="col" class="dash-crm-interval-th dash-crm-interval-th-pct">%</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashCrmIntervalTbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </aside>
+
+            <!-- Gráfico inferior (datos reales — sin cambiar lógica) -->
+            <div class="dash-crm-bottom-layout dash-crm-v2-chart-wrap dash-crm-v2-area-chart">
               <div class="table-card dash-chart-card dash-crm-dynamic-card">
-                <div class="dash-crm-dynamic-head">
-                  <h3 class="dash-chart-title" id="dashCrmDynamicTitle">Vista operativa</h3>
-                  <div class="dash-crm-view-toggle" role="group" aria-label="Modo de visualización">
+                <div class="dash-crm-dynamic-head dash-crm-v2-chart-head">
+                  <div class="dash-crm-v2-chart-head-text">
+                    <h3 class="dash-chart-title" id="dashCrmDynamicTitle">Vista operativa diaria (Leads)</h3>
+                  </div>
+                  <div class="dash-crm-view-toggle dash-crm-v2-chart-toggle" role="group" aria-label="Modo de visualización">
                     <button type="button" id="dashCrmViewPlatVsCrm" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Plataforma vs CRM</button>
                     <button type="button" id="dashCrmViewFuente" class="dash-crm-toggle-btn">Por fuente</button>
                   </div>
@@ -1764,39 +1838,163 @@
             </div>
           </div>
 
-          <aside class="dash-crm-side-panel" aria-label="Paneles laterales CRM">
-            <div class="table-card dash-chart-card dash-crm-motivos-card" aria-label="Motivos de no interés">
-              <div class="dash-crm-motivos-head">
-                <h3 class="dash-chart-title dash-crm-motivos-title" id="dashCrmMotivosTitle">Gestionados</h3>
-                <div class="dash-crm-view-toggle dash-crm-side-scope-toggle" role="group" aria-label="Alcance temporal tablas laterales CRM">
-                  <button type="button" id="dashCrmScopeTotal" class="dash-crm-toggle-btn dash-crm-toggle-btn--active">Total</button>
-                  <button type="button" id="dashCrmScopeMes" class="dash-crm-toggle-btn">Mes</button>
-                </div>
-              </div>
-              <div class="dash-crm-motivos-body">
-                <table class="dash-crm-motivos-table" aria-label="Motivos de no interés">
+          <!-- Legacy: tabla CRM y paneles antiguos (ocultos, lógica intacta) -->
+          <div class="dash-crm-legacy hidden" aria-hidden="true">
+            <div class="dash-crm-shell-grid">
+              <div class="dash-crm-main-column">
+                <div class="table-card dash-table-hero dash-table-primary dash-crm-main-panel">
+                  <div class="dash-table-scroll table-container">
+                    <table class="dash-table data-table dash-crm-main-table">
                   <thead>
-                    <tr>
-                      <th scope="col" class="dash-crm-motivos-th-lab">Motivo</th>
-                      <th scope="col" class="dash-crm-motivos-th-num">#</th>
-                      <th scope="col" class="dash-crm-motivos-th-pct">%</th>
+                    <tr class="dash-thead-row-groups">
+                      <th class="dash-estado-col dash-th-sticky-corner" rowspan="2" title="Estado">Est.</th>
+                      <th class="tipo-col dash-th-sticky-corner" rowspan="2">Tipo</th>
+                      <th class="dash-int-col dash-th-sticky-corner" rowspan="2" title="Intake">Int.</th>
+                      <th class="dash-plat-col dash-th-sticky-corner" rowspan="2" title="Plataforma">Plat.</th>
+                      <th id="dashCrmProgramaHead" class="programa-col dash-th-sticky-corner" rowspan="2">Programa</th>
+                      <th id="dashCrmFuenteHead" class="dash-tracking-col dash-th-sticky-corner dash-col-separador-right dash-grp-sep-right grupo-separador" rowspan="2" title="Fuente / tracking">Fuente</th>
+                      <th id="dashCrmInicioHead" class="dash-th-sub dash-grp-col dash-grp-col-meta dash-grp-col-first" rowspan="2">Inicio</th>
+                      <th id="dashCrmFinHead" class="dash-th-sub dash-grp-col dash-grp-col-meta" rowspan="2">Fin</th>
+                      <th id="dashCrmDiasPautaHead" class="dash-th-sub dash-grp-col dash-grp-col-meta" rowspan="2">Días<br>Pauta</th>
+                      <th id="dashCrmDiasAunHead" class="dash-th-sub dash-grp-col dash-grp-col-meta dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador" rowspan="2">Días<br>aun</th>
+                      <th id="dashCrmHeaderLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="5">Leads</th>
+                      <th id="dashCrmHeaderInt" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="2">Interesados</th>
+                      <th id="dashCrmHeaderPost" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="2">Postulantes</th>
+                      <th id="dashCrmHeaderMat" class="dash-grp-h1" colspan="2">Matriculados</th>
+                    </tr>
+                    <tr class="dash-thead-row-columns">
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-first">Meta<br>Leads</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Leads<br>Plataforma</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-leads">Leads<br>CRM</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-leads">%<br>Diferencia</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">% Avance<br>Meta</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-first">Meta</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-first">Meta</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-first">Meta</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-last">Real</th>
                     </tr>
                   </thead>
-                  <tbody id="dashCrmMotivosTbody"></tbody>
+                  <tbody id="dashCrmTbody"></tbody>
+                  <tfoot id="dashCrmTfoot"></tfoot>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <aside class="dash-crm-side-panel" aria-label="Paneles laterales CRM legacy">
+                <div class="table-card dash-chart-card dash-crm-motivos-card" aria-label="Motivos de no interés">
+                  <div class="dash-crm-motivos-head">
+                    <h3 class="dash-chart-title dash-crm-motivos-title" id="dashCrmMotivosTitle">Gestionados</h3>
+                  </div>
+                  <div class="dash-crm-motivos-body">
+                    <table class="dash-crm-motivos-table" aria-label="Motivos de no interés">
+                      <thead>
+                        <tr>
+                          <th scope="col" class="dash-crm-motivos-th-lab">Motivo</th>
+                          <th scope="col" class="dash-crm-motivos-th-num">#</th>
+                          <th scope="col" class="dash-crm-motivos-th-pct">%</th>
+                        </tr>
+                      </thead>
+                      <tbody id="dashCrmMotivosTbody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detalle de campaña (maqueta UI — solo diseño) -->
+        <div id="dashShellCrmDetalle" class="dash-crm-detalle hidden" aria-label="Detalle de campaña CRM">
+          <div class="dash-crm-detalle-shell">
+            <header class="table-card dash-crm-detalle-header">
+              <div class="dash-crm-detalle-header-top">
+                <button type="button" id="dashCrmDetalleBackBtn" class="dash-crm-detalle-back-btn">← Volver al Dashboard CRM</button>
+                <span class="dash-crm-detalle-badge">Ficha de campaña</span>
+              </div>
+              <div class="dash-crm-detalle-header-main">
+                <h2 class="dash-crm-detalle-title" id="dashCrmDetalleTitle">Maestría en Ciencia Criminalística</h2>
+                <p class="dash-crm-detalle-subtitle" id="dashCrmDetalleSubtitle">ID 23874 · Análisis profundo de embudo y gestión comercial</p>
+              </div>
+              <dl class="dash-crm-detalle-meta" id="dashCrmDetalleMeta"></dl>
+            </header>
+
+            <div class="dash-crm-detalle-kpis" id="dashCrmDetalleKpis" role="list" aria-label="KPIs principales"></div>
+
+            <section class="table-card dash-crm-detalle-section dash-crm-detalle-funnel-wrap" aria-label="Embudo CRM ampliado">
+              <div class="dash-crm-detalle-section-head">
+                <h3 class="dash-chart-title dash-crm-detalle-section-title">Embudo CRM</h3>
+                <span class="dash-crm-detalle-section-hint">Vista ampliada del recorrido comercial</span>
+              </div>
+              <div class="dash-crm-detalle-funnel" id="dashCrmDetalleFunnel"></div>
+              <div class="dash-crm-detalle-funnel-bar" id="dashCrmDetalleFunnelBar" aria-hidden="true"></div>
+            </section>
+
+            <div class="dash-crm-detalle-triple-grid">
+              <section class="table-card dash-crm-detalle-section" aria-label="Barrido comercial">
+                <div class="dash-crm-detalle-section-head">
+                  <h3 class="dash-chart-title dash-crm-detalle-section-title">Barrido</h3>
+                </div>
+                <div class="dash-crm-detalle-barrido" id="dashCrmDetalleBarrido"></div>
+              </section>
+              <section class="table-card dash-crm-detalle-section" aria-label="Número de vueltas">
+                <div class="dash-crm-detalle-section-head">
+                  <h3 class="dash-chart-title dash-crm-detalle-section-title">Número de vueltas</h3>
+                </div>
+                <div class="dash-crm-detalle-vueltas" id="dashCrmDetalleVueltas"></div>
+              </section>
+              <section class="table-card dash-crm-detalle-section dash-crm-detalle-motivos-wrap" aria-label="Motivos principales">
+                <div class="dash-crm-detalle-section-head">
+                  <h3 class="dash-chart-title dash-crm-detalle-section-title">Motivos principales</h3>
+                </div>
+                <div class="dash-crm-detalle-motivos" id="dashCrmDetalleMotivos"></div>
+              </section>
+            </div>
+
+            <div class="dash-crm-detalle-charts-grid">
+              <section class="table-card dash-crm-detalle-section" aria-label="Evolución temporal">
+                <div class="dash-crm-detalle-section-head">
+                  <h3 class="dash-chart-title dash-crm-detalle-section-title">Evolución temporal</h3>
+                </div>
+                <div class="dash-crm-detalle-line-chart" id="dashCrmDetalleLineChart"></div>
+              </section>
+              <section class="table-card dash-crm-detalle-section" aria-label="Distribución por etapa">
+                <div class="dash-crm-detalle-section-head">
+                  <h3 class="dash-chart-title dash-crm-detalle-section-title">Distribución por etapa</h3>
+                </div>
+                <div class="dash-crm-detalle-donut-wrap" id="dashCrmDetalleDonut"></div>
+              </section>
+            </div>
+
+            <section class="table-card dash-crm-detalle-section" aria-label="Tabla detallada de motivos">
+              <div class="dash-crm-detalle-section-head">
+                <h3 class="dash-chart-title dash-crm-detalle-section-title">Tabla detallada</h3>
+              </div>
+              <div class="dash-crm-detalle-table-scroll">
+                <table class="dash-crm-detalle-table" id="dashCrmDetalleTable">
+                  <thead>
+                    <tr>
+                      <th scope="col">Motivo</th>
+                      <th scope="col">Cantidad</th>
+                      <th scope="col">%</th>
+                      <th scope="col">Variación</th>
+                      <th scope="col">Tendencia</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashCrmDetalleTableBody"></tbody>
                 </table>
               </div>
-            </div>
-            <div class="table-card dash-chart-card dash-crm-interval-card" aria-label="Intervalo de gestión">
-              <div class="dash-crm-interval-head">
-                <h3 class="dash-chart-title dash-crm-interval-title">Intervalo de Gestión</h3>
+            </section>
+
+            <section class="table-card dash-crm-detalle-section dash-crm-detalle-obs-wrap" aria-label="Observaciones">
+              <div class="dash-crm-detalle-section-head">
+                <h3 class="dash-chart-title dash-crm-detalle-section-title">Observaciones</h3>
+                <span class="dash-crm-detalle-section-hint">Resumen ejecutivo</span>
               </div>
-              <div class="dash-crm-interval-body">
-                <table class="dash-crm-interval-table" aria-label="Intervalo de gestión">
-                  <tbody id="dashCrmIntervalTbody"></tbody>
-                </table>
-              </div>
-            </div>
-          </aside>
+              <div class="dash-crm-detalle-obs" id="dashCrmDetalleObs"></div>
+            </section>
+          </div>
         </div>
       </div>
     </div>

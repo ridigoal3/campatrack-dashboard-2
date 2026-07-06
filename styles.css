@@ -4230,7 +4230,7 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
 
 .dash-insights-layout {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 73fr) minmax(0, 27fr);
   gap: 10px;
   align-items: stretch;
   margin-top: 6px;
@@ -12669,7 +12669,7 @@ body.dark-mode #mainAppShell #planningModule .planning-categoria-badge--branding
     var(--dash-crm-motivos-card-head-h) + var(--dash-crm-motivos-body-pad-v) +
       var(--dash-crm-motivos-thead-h) + var(--dash-crm-motivos-max-rows) * var(--dash-crm-motivos-row-h)
   );
-  --dash-crm-interval-side-row-h: 23px;
+  --dash-crm-interval-side-row-h: 38px;
 }
 
 #dashboardModule.dash-module-saas .dashboard-container,
@@ -13517,8 +13517,174 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   max-height: none;
 }
 
-#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-end-group {
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dashboard-kpis.dash-dashboard-shared-bar {
   display: none !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-end-group {
+  display: flex !important;
+  align-items: stretch !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-actualizado,
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-export {
+  display: none !important;
+}
+
+#dashboardModule.dash-module-saas .dash-toolbar-periodo-crm {
+  display: none;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-seg-toolbar.filters-bar {
+  margin-bottom: 0 !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-seg-toolbar.filters-bar .dash-toolbar-start-cluster {
+  flex: 1 1 auto !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  min-width: 0;
+  gap: 0 !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-periodo-crm {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  flex: 0 0 auto !important;
+  min-width: 0;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) #dashCrmV2PeriodoSlot #dashPeriodoCard.dash-periodo {
+  display: flex !important;
+  flex-direction: column !important;
+  width: auto !important;
+  min-width: 200px !important;
+  max-width: none !important;
+  height: auto !important;
+  align-self: stretch !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) #dashCrmV2PeriodoSlot #dashPeriodoCard .dash-periodo-fechas {
+  display: flex !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-item.dash-toolbar-busca-prog:not(.segmentador-intake) {
+  flex: 1 1 520px !important;
+  min-width: 300px !important;
+  max-width: 580px !important;
+  width: auto !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-seg-toolbar.filters-bar {
+  padding: 6px 8px !important;
+  gap: 4px 6px !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-seg-toolbar .dash-toolbar-item {
+  min-height: 0 !important;
+  justify-content: center !important;
+}
+
+#dashboardModule.dash-module-saas .dash-toolbar-crm-kpi {
+  display: none !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-crm-kpi {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  min-width: 0 !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 1px !important;
+  padding: 0 10px 0 0 !important;
+  margin: 0 8px 0 0 !important;
+  border: none !important;
+  border-right: 1px solid rgba(15, 23, 42, 0.14) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-toolbar-kpi-label {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  font-size: 0.62rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  color: #64748b !important;
+  line-height: 1.15 !important;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-toolbar-kpi-val {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-toque-crm .dash-crm-toolbar-kpi-val {
+  color: #7c3aed;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-leads-crm .dash-crm-toolbar-kpi-val {
+  color: #2563eb;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-cpl-crm .dash-crm-toolbar-kpi-val {
+  color: #15803d;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-inversion-crm .dash-crm-toolbar-kpi-val {
+  color: #c2410c;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-item.dash-toolbar-busca-prog:not(.segmentador-intake) .dash-toolbar-label-prog {
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-item.dash-toolbar-busca-prog:not(.segmentador-intake) .dash-busqueda-programa {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) #dashShellCrm {
+  margin-top: 0 !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-tracking,
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-plataforma,
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-branding {
+  display: none !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dashboard-container,
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)).dash-dashboard-container {
+  padding: 2px 14px 6px !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-layout.dashboard-container {
+  gap: 2px !important;
 }
 
 #mainAppShell:has(#dashboardModule:not(.hidden)) #dashCrmActualizadoHeader.fecha-badge--header {
@@ -13534,12 +13700,1385 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   display: none !important;
 }
 
-#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)):not(:has(#dashShellPlataforma:not(.hidden))) #dashCrmOperCardsWrap {
-  display: flex !important;
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: none;
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) #dashCrmOperCardsWrap {
+  display: none !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) #dashboardKpisCrmHolder {
+  display: none !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-toolbar-estado {
+  display: none !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) {
+  --dash-crm-bottom-chart-block-h: calc(4px + 188px);
+  --dash-crm-interval-side-row-h: 34px;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-chart-wrap > .dash-crm-dynamic-card.dash-chart-card {
+  padding: 8px 10px !important;
+  max-height: var(--dash-crm-bottom-chart-block-h);
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-chart-wrap .dash-crm-v2-chart-head.dash-crm-dynamic-head {
+  margin-bottom: 2px;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-chart-head-text .dash-chart-title {
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-chart-wrap .dash-chart-crm-compare {
+  min-height: 178px;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-chart-wrap .dash-evolucion-chart .full-width-chart svg.dash-chart.dash-chart-crm-compare {
+  min-height: 178px !important;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-etapa-card-motivos {
+  margin: 2px 0 0;
+  gap: 2px;
+  min-height: 0;
   overflow: hidden;
+  max-height: 52px;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-verpor-select {
+  min-width: 138px;
+  min-height: 28px;
+  font-size: 11px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-etapa-title {
+  font-size: 10px;
+}
+
+#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-crm-v2-etapa-sub {
+  font-size: 10px;
+}
+
+/* === Dashboard Comercial CRM v2 (layout referencial) === */
+#dashboardModule.dash-module-saas #dashShellCrm .dash-crm-v2-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas #dashShellCrm .dash-crm-v2-shell > .dash-crm-v2-topbar.hidden,
+#dashboardModule.dash-module-saas #dashShellCrm .dash-crm-v2-shell > .dash-crm-v2-campana-header.hidden {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-topbar-end {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-topbar-periodo,
+#dashboardModule.dash-module-saas .dash-toolbar-periodo-crm {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-campana-header {
+  padding: 12px 14px !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-campana-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px 20px;
+  align-items: start;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-field--campana {
+  grid-column: 1;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-select {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #fff;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  min-height: 36px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-hint {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-detalle-btn {
+  border: 1.5px solid #2563eb;
+  background: #fff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-detalle-btn::after {
+  content: "↗";
+  font-size: 13px;
+  line-height: 1;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-detalle-btn:hover {
+  background: #eff6ff;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(248px, 278px);
+  grid-template-areas:
+    "plat side"
+    "resumen side"
+    "etapa side"
+    "chart chart";
+  column-gap: 8px;
+  row-gap: 4px;
+  align-items: start;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-area-plat,
+#dashboardModule.dash-module-saas .dash-crm-v2-area-resumen,
+#dashboardModule.dash-module-saas .dash-crm-v2-area-etapa {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-area-side {
+  align-self: stretch;
+  min-height: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-area-plat { grid-area: plat; }
+#dashboardModule.dash-module-saas .dash-crm-v2-area-resumen { grid-area: resumen; }
+#dashboardModule.dash-module-saas .dash-crm-v2-area-etapa { grid-area: etapa; }
+#dashboardModule.dash-module-saas .dash-crm-v2-area-side { grid-area: side; }
+#dashboardModule.dash-module-saas .dash-crm-v2-area-chart { grid-area: chart; }
+
+#dashboardModule.dash-module-saas .dash-crm-v2-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-block-title {
+  margin: 0 0 4px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left !important;
+  color: #0f172a !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-card,
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-block,
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-block {
+  padding: 8px 10px !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 980px;
+  color: #1e293b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-table th,
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-table td {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 7px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-table thead th {
+  font-size: 12px;
+  font-weight: 800;
+  background: #f1f5f9;
+  color: #1e293b;
+  line-height: 1.25;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-th-plat {
+  text-align: left !important;
+  min-width: 140px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-th-leads {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-th-avance {
+  background: rgba(34, 197, 94, 0.08) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-th-contact {
+  background: rgba(59, 130, 246, 0.06) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-th-inter {
+  background: rgba(34, 197, 94, 0.06) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-th-post {
+  background: rgba(168, 85, 247, 0.08) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-th-mat {
+  background: rgba(21, 128, 61, 0.08) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-td-plat {
+  text-align: left !important;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-badge--google {
+  background: #4285f4;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-badge--meta {
+  background: #1877f2;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-badge--tiktok {
+  background: #010101;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-badge--linkedin {
+  background: #0a66c2;
+  font-size: 8px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-td-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-td-pct--ok {
+  color: #15803d !important;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-plat-total td {
+  background: #e2e8f0;
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-track {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-track > .dash-crm-v2-resumen-card {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 6px !important;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #fff;
+  min-width: 0;
+  width: 100%;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  font: inherit;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-card:hover {
+  border-color: color-mix(in srgb, var(--dash-crm-v2-accent, #64748b) 45%, #cbd5e1);
+  background: #f8fafc;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-card:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-card--active {
+  border-color: var(--dash-crm-v2-accent, #3b82f6);
+  background: color-mix(in srgb, var(--dash-crm-v2-accent, #3b82f6) 7%, #fff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dash-crm-v2-accent, #3b82f6) 22%, transparent);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-card--active:hover {
+  background: color-mix(in srgb, var(--dash-crm-v2-accent, #3b82f6) 10%, #fff);
+  border-color: var(--dash-crm-v2-accent, #3b82f6);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-card--danger .dash-crm-v2-resumen-count,
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-card--danger .dash-crm-v2-resumen-pct {
+  color: #ef4444 !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dash-crm-v2-accent, #64748b) 14%, #fff);
+  color: var(--dash-crm-v2-accent, #64748b);
+  flex-shrink: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-label {
+  font-size: 8px;
+  font-weight: 800;
+  color: #64748b;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-count {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-resumen-pct {
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: nowrap;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dash-crm-v2-accent, #3b82f6) 14%, #fff);
+  color: var(--dash-crm-v2-accent, #3b82f6);
+  flex-shrink: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-head-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-sub {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-verpor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-verpor-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-verpor-select {
+  min-width: 150px;
+  min-height: 32px;
+  font-size: 12px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-cards {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  align-items: stretch;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #fff;
+  min-width: 0;
+  min-height: 156px;
+  max-height: 156px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card--highlight {
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.15);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-title {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1.2;
+  min-height: 2.2em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-count {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-pct {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-motivos {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-motivo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  line-height: 1.25;
+  color: #475569;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-motivo-lab {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-motivo-val {
+  flex-shrink: 0;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-bar span {
+  display: block;
+  height: 100%;
+  background: #2563eb;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-btn {
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 10px;
+  font-weight: 800;
+  color: #2563eb;
+  text-align: left;
+  cursor: pointer;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-btn:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-card-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-etapa-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-side.dash-crm-side-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-side.dash-crm-side-panel > .dash-crm-interval-card {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-head.dash-crm-dynamic-head {
+  align-items: flex-start;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-head-text .dash-chart-title {
+  margin: 0 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap > .dash-crm-dynamic-card {
+  min-height: var(--dash-crm-bottom-chart-block-h, 168px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap .dash-crm-v2-chart-head.dash-crm-dynamic-head {
+  margin-bottom: 4px;
+  flex: 0 0 auto;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap .dash-crm-dynamic-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap #dashCrmPanelCompare {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap .dash-evolucion-chart.full-width-chart {
+  flex: 1 1 auto !important;
+  flex-shrink: 1 !important;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap .dash-chart-crm-compare {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 178px;
+  height: auto;
+  max-height: none;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap .dash-evolucion-chart .full-width-chart svg.dash-chart.dash-chart-crm-compare {
+  flex: 1 1 auto;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 178px !important;
+  max-height: none !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-toggle .dash-crm-toggle-btn--active,
+#dashboardModule.dash-module-saas .dash-crm-v2-side .dash-crm-side-scope-toggle .dash-crm-toggle-btn--active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: none;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-chart-wrap {
+  margin-top: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-side.dash-crm-side-panel .dash-crm-interval-table {
+  --dash-crm-interval-visible-rows: 11;
+}
+
+@media (max-width: 1280px) {
+  #dashboardModule.dash-module-saas .dash-crm-v2-resumen-track {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-v2-etapa-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  #dashboardModule.dash-module-saas .dash-crm-v2-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "plat"
+      "side"
+      "resumen"
+      "etapa"
+      "chart";
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-v2-body {
+    grid-template-columns: 1fr;
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-v2-campana-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-v2-topbar-end {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 720px) {
+  #dashboardModule.dash-module-saas .dash-crm-v2-resumen-track {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-v2-etapa-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-v2-campana-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === Detalle de campaña CRM (maqueta UI) === */
+#dashboardModule.dash-module-saas:has(#dashShellCrm.dash-shell-crm--detalle) .dashboard-kpis.dash-dashboard-shared-bar,
+#dashboardModule.dash-module-saas:has(#dashShellCrm.dash-shell-crm--detalle) .dash-seg-toolbar.filters-bar {
+  display: none !important;
+}
+
+#dashboardModule.dash-module-saas #dashShellCrm.dash-shell-crm--detalle {
+  min-height: calc(100vh - 120px);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 12px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-header {
+  padding: 12px 16px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-back-btn {
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-back-btn:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meta-item dt {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meta-item dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meta-val--ok {
+  color: #15803d;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-kpis {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-kpi {
+  padding: 8px 10px !important;
+  min-height: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-kpi .dash-kpi-head {
+  font-size: 9px !important;
+  letter-spacing: 0.04em;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-kpi .dash-kpi-main {
+  font-size: 1.15rem !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-section {
+  padding: 10px 14px !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-section-title {
+  margin: 0 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  text-align: left !important;
+  color: #0f172a !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-section-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-step {
+  width: var(--dash-crm-det-width, 80%);
+  max-width: 100%;
+  transition: width 0.2s ease;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-step-inner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--dash-crm-det-accent, #3b82f6) 16%, #fff), #fff);
+  border: 1.5px solid color-mix(in srgb, var(--dash-crm-det-accent, #3b82f6) 35%, #e2e8f0);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-step-idx {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--dash-crm-det-accent, #3b82f6);
+  background: color-mix(in srgb, var(--dash-crm-det-accent, #3b82f6) 14%, #fff);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-step-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-step-count {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-step-pct {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--dash-crm-det-accent, #3b82f6);
+  font-variant-numeric: tabular-nums;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+  background: #e2e8f0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-funnel-bar span {
+  min-width: 2px;
+  height: 100%;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-triple-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meter + .dash-crm-detalle-meter {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meter-head strong {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meter-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meter-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-meter-bar--vueltas span {
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-motivos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-motivo-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #fff;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-motivo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dash-crm-det-accent, #3b82f6);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-motivo-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-motivo-count {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-charts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-line-chart {
+  min-height: 200px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-line-svg {
+  display: block;
+  max-height: 240px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-line-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-line-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-donut-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 200px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-donut-legend li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-donut-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-donut-pct {
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-table-scroll {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  color: #0f172a;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-td-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-td-motivo {
+  font-weight: 700;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-td-var {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-td-var--up {
+  color: #15803d;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-td-var--down {
+  color: #dc2626;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-td-var--flat {
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-td-trend {
+  text-align: center;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-trend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-trend--up {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-trend--down {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-trend--flat {
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-detalle-obs {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+@media (max-width: 1280px) {
+  #dashboardModule.dash-module-saas .dash-crm-detalle-kpis {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-detalle-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-detalle-triple-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-detalle-motivos-wrap {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  #dashboardModule.dash-module-saas .dash-crm-detalle-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-detalle-charts-grid,
+  #dashboardModule.dash-module-saas .dash-crm-detalle-triple-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #dashboardModule.dash-module-saas .dash-crm-detalle-meta {
+    grid-template-columns: 1fr;
+  }
 }
 
 #dashboardModule.dash-module-saas .dash-crm-oper-kpis {
@@ -13625,17 +15164,6 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   color: #ffffff;
 }
 
-#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-seg-toolbar.filters-bar .dash-toolbar-start-cluster {
-  flex-wrap: nowrap !important;
-  align-items: stretch !important;
-}
-
-#dashboardModule.dash-module-saas:has(#dashShellCrm:not(.hidden)) .dash-seg-toolbar.filters-bar .dash-toolbar-start-cluster > #dashCrmOperCardsWrap {
-  display: flex !important;
-  flex: 1 1 0 !important;
-  align-self: stretch;
-}
-
 @media (max-width: 1200px) {
   #dashboardModule.dash-module-saas .dash-crm-shell-grid {
     grid-template-columns: minmax(0, 1fr) minmax(200px, 240px);
@@ -13683,7 +15211,7 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-body {
   justify-content: flex-start;
-  padding: 6px 8px 8px !important;
+  padding: 10px 16px 16px !important;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -13698,47 +15226,99 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   min-height: 0;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.35;
+  border: 1px solid #e8ecf5;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-thead {
+  display: block;
+  width: 100%;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-thead tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 56px;
+  width: 100%;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-th {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border: none;
+  border-bottom: 1px solid #e8ecf5;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-th-lab,
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab {
+  border-right: 1px solid #e8ecf5;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-th-num,
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-num {
+  border-right: 1px solid #e8ecf5;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-th-num,
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-th-pct {
+  justify-content: center;
+  text-align: center;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-table tbody {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  grid-template-columns: minmax(0, 1fr) 88px 56px;
   grid-template-rows: repeat(
     var(--dash-crm-interval-visible-rows, 1),
     minmax(var(--dash-crm-interval-side-row-h), 1fr)
   );
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
   width: 100%;
   align-content: stretch;
   overflow: hidden;
 }
 
-#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-table tr {
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-table tbody tr {
   display: contents;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-table td {
   display: flex;
   align-items: center;
-  border: 1px solid #0f172a;
-  padding: 3px 8px;
+  border: none;
+  border-bottom: 1px solid #e8ecf5;
+  padding: 10px 14px;
   box-sizing: border-box;
   min-width: 0;
-  min-height: 0;
+  min-height: var(--dash-crm-interval-side-row-h);
   overflow: hidden;
   flex: unset;
   width: auto;
+  background: #fff;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab {
   flex: unset;
-  font-size: 14px;
-  line-height: 1.45;
-  font-weight: 700;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 500;
   color: #2563eb;
   text-align: left;
   justify-content: flex-start;
@@ -13747,15 +15327,36 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   text-overflow: ellipsis;
 }
 
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:not(.dash-crm-interval-total)::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #94a3b8;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(1)::before { background: #22c55e; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(4)::before { background: #22c55e; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(7)::before { background: #f59e0b; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(10)::before { background: #38bdf8; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(13)::before { background: #3b82f6; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(16)::before { background: #a855f7; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(19)::before { background: #9333ea; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(22)::before { background: #7c3aed; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(25)::before { background: #6366f1; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(28)::before { background: #94a3b8; }
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab:nth-child(3n+1):nth-child(31)::before { background: #cbd5e1; }
+
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-num,
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-pct {
   flex: unset;
   width: auto;
   min-width: 0;
   max-width: none;
-  font-size: 14px;
-  line-height: 1.45;
-  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #0f172a;
   white-space: nowrap;
@@ -13764,40 +15365,45 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-num {
   text-align: center;
   justify-content: center;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-pct {
   font-weight: 700;
-  text-align: right;
-  justify-content: flex-end;
-  min-width: 3.25rem;
-  padding-right: 4px;
+  text-align: center;
+  justify-content: center;
+  padding-right: 8px;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab.dash-crm-interval-total,
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-num.dash-crm-interval-total,
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-pct.dash-crm-interval-total {
-  background: #0f172a !important;
-  color: #ffffff !important;
+  background: #fff !important;
+  color: #0f172a !important;
   font-weight: 700 !important;
-  justify-content: center !important;
-  text-align: center !important;
+  border-top: 1px solid #e8ecf5 !important;
+  border-bottom: none !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-lab.dash-crm-interval-total {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  color: #0f172a !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-side-panel .dash-crm-interval-empty {
   grid-column: 1 / -1;
   grid-row: 1 / -1;
   margin: 0;
-  padding: 16px 10px;
-  font-size: 14px;
-  line-height: 1.45;
+  padding: 20px 12px;
+  font-size: 13px;
+  line-height: 1.35;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  border: 1px solid #0f172a;
+  border: none;
   color: #64748b;
 }
 
@@ -14082,31 +15688,68 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   overflow: hidden !important;
   overflow-x: hidden !important;
   overflow-y: hidden !important;
+  border: 1px solid #e8ecf5 !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04) !important;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-v2-side.dash-crm-side-panel > .dash-crm-interval-card.dash-chart-card {
+  border: 1px solid #e8ecf5 !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04) !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-interval-head {
   flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 8px;
-  padding: 8px 12px 6px !important;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
-  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 16px 6px !important;
+  border-bottom: none !important;
+  background: #fff !important;
 }
 
-#dashboardModule.dash-module-saas .dash-crm-interval-scope-toggle {
+#dashboardModule.dash-module-saas .dash-crm-interval-scope-toggle,
+#dashboardModule.dash-module-saas .dash-crm-side-scope-toggle {
   flex: 0 0 auto;
+  padding: 3px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  gap: 2px;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-head .dash-crm-side-scope-toggle .dash-crm-toggle-btn,
+#dashboardModule.dash-module-saas .dash-crm-interval-head .dash-crm-scope-toggle .dash-crm-toggle-btn {
+  min-width: 64px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  color: #64748b;
+  background: transparent;
+  box-shadow: none;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-head .dash-crm-side-scope-toggle .dash-crm-toggle-btn--active,
+#dashboardModule.dash-module-saas .dash-crm-interval-head .dash-crm-scope-toggle .dash-crm-toggle-btn--active {
+  background: #2563eb !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.35) !important;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-interval-title.dash-chart-title {
   margin: 0 !important;
   padding: 0 !important;
-  font-size: 13px !important;
+  font-size: 11px !important;
   font-weight: 800 !important;
-  line-height: 1.35 !important;
-  letter-spacing: 0.01em !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
   text-align: left !important;
   color: #0f172a !important;
 }
@@ -14115,7 +15758,7 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  padding: 6px 8px 8px !important;
+  padding: 4px 16px 16px !important;
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
@@ -14128,42 +15771,98 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   width: 100%;
   height: 100%;
   flex: 1 1 auto;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
-  font-size: 10px;
-  line-height: 1.1;
+  font-size: 13px;
+  line-height: 1.35;
+  border: 1px solid #e8ecf5;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-thead {
+  display: block;
+  width: 100%;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-thead tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 56px;
+  width: 100%;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-th {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border: none;
+  border-bottom: 1px solid #e8ecf5;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-th-lab,
+#dashboardModule.dash-module-saas .dash-crm-interval-lab {
+  border-right: 1px solid #e8ecf5;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-th-num,
+#dashboardModule.dash-module-saas .dash-crm-interval-num {
+  border-right: 1px solid #e8ecf5;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-th-num,
+#dashboardModule.dash-module-saas .dash-crm-interval-th-pct {
+  justify-content: center;
+  text-align: center;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-interval-table tbody {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 56px;
+  grid-template-rows: repeat(
+    var(--dash-crm-interval-visible-rows, 6),
+    minmax(var(--dash-crm-interval-side-row-h, 38px), 1fr)
+  );
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
   width: 100%;
+  align-content: stretch;
 }
 
-#dashboardModule.dash-module-saas .dash-crm-interval-table tr {
-  display: flex;
-  flex: 1 1 0;
-  min-height: 0;
-  width: 100%;
+#dashboardModule.dash-module-saas .dash-crm-interval-table tbody tr {
+  display: contents;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-interval-table td {
   display: flex;
   align-items: center;
-  border: 1px solid #0f172a;
-  padding: 0 3px;
+  border: none;
+  border-bottom: 1px solid #e8ecf5;
+  padding: 10px 14px;
   overflow: hidden;
   box-sizing: border-box;
   min-width: 0;
+  min-height: var(--dash-crm-interval-side-row-h, 38px);
+  background: #fff;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-interval-lab {
-  flex: 1.35 1 0;
-  font-size: 10px;
-  font-weight: 700;
+  flex: unset;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
   color: #2563eb;
   text-align: left;
   justify-content: flex-start;
@@ -14172,10 +15871,30 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
   text-overflow: ellipsis;
 }
 
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:not(.dash-crm-interval-total)::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #94a3b8;
+}
+
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(1)::before { background: #22c55e; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(4)::before { background: #22c55e; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(7)::before { background: #f59e0b; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(10)::before { background: #38bdf8; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(13)::before { background: #3b82f6; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(16)::before { background: #a855f7; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(19)::before { background: #9333ea; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(22)::before { background: #7c3aed; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(25)::before { background: #6366f1; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(28)::before { background: #94a3b8; }
+#dashboardModule.dash-module-saas .dash-crm-interval-lab:nth-child(3n+1):nth-child(31)::before { background: #cbd5e1; }
+
 #dashboardModule.dash-module-saas .dash-crm-interval-num {
-  flex: 0.65 1 0;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #0f172a;
   text-align: center;
@@ -14186,13 +15905,12 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 }
 
 #dashboardModule.dash-module-saas .dash-crm-interval-pct {
-  flex: 0.5 1 0;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #0f172a;
-  text-align: right;
-  justify-content: flex-end;
+  text-align: center;
+  justify-content: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -14200,26 +15918,34 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 
 #dashboardModule.dash-module-saas .dash-crm-interval-lab--empty,
 #dashboardModule.dash-module-saas .dash-crm-interval-num--empty {
-  border-color: rgba(15, 23, 42, 0.35);
+  border-color: #e8ecf5;
 }
 
 #dashboardModule.dash-module-saas .dash-crm-interval-lab.dash-crm-interval-total,
 #dashboardModule.dash-module-saas .dash-crm-interval-num.dash-crm-interval-total,
 #dashboardModule.dash-module-saas .dash-crm-interval-pct.dash-crm-interval-total {
-  background: #0f172a !important;
-  color: #ffffff !important;
+  background: #fff !important;
+  color: #0f172a !important;
   font-weight: 700 !important;
+  border-top: 1px solid #e8ecf5 !important;
+  border-bottom: none !important;
   justify-content: center !important;
   text-align: center !important;
 }
 
+#dashboardModule.dash-module-saas .dash-crm-interval-lab.dash-crm-interval-total {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
 #dashboardModule.dash-module-saas .dash-crm-interval-empty {
   margin: 0;
-  padding: 4px 3px;
-  font-size: 10px;
+  padding: 20px 12px;
+  font-size: 13px;
   text-align: center;
-  border: 1px solid #0f172a;
+  border: none;
   color: #64748b;
+  grid-column: 1 / -1;
 }
 
 #dashboardModule.dash-module-saas .dash-chart-crm-compare {
@@ -14228,8 +15954,8 @@ body.dark-mode #mainAppShell .dash-dashboard-header-tab--crm.dash-dashboard-head
 }
 
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-head {
-  background: linear-gradient(to bottom, rgba(30, 41, 59, 0.55), rgba(15, 23, 42, 0.45));
-  border-bottom-color: rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.55) !important;
+  border-bottom: none !important;
 }
 
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-title.dash-chart-title {
@@ -14240,12 +15966,39 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interva
   color: #60a5fa;
 }
 
-body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-num {
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-num,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-pct {
   color: #f8fafc;
 }
 
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-table,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-table td {
-  border-color: rgba(148, 163, 184, 0.45);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-th-lab,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-lab,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-th-num,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-num {
+  border-right-color: rgba(148, 163, 184, 0.22);
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-table td {
+  background: rgba(15, 23, 42, 0.25);
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-th {
+  background: rgba(30, 41, 59, 0.45);
+  color: #94a3b8;
+  border-bottom-color: rgba(148, 163, 184, 0.22);
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-lab.dash-crm-interval-total,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-num.dash-crm-interval-total,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-interval-pct.dash-crm-interval-total {
+  background: rgba(15, 23, 42, 0.35) !important;
+  color: #f8fafc !important;
+  border-top-color: rgba(148, 163, 184, 0.22) !important;
 }
 
 #dashboardModule.dash-module-saas #dashShellCrm .dash-crm-main-table tbody tr {
@@ -15777,9 +17530,192 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 
 /* Gráficos e insights compactos */
 #dashboardModule.dash-module-saas .dash-insights-layout {
-  gap: 10px;
+  gap: 8px;
   margin-top: 0;
   align-items: stretch;
+  grid-template-columns: minmax(0, 73fr) minmax(0, 27fr);
+}
+
+#dashboardModule.dash-module-saas .dash-insights-legacy-host {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+#dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card.chart-card {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 220px !important;
+  max-height: 220px !important;
+  min-height: 220px !important;
+  padding: 8px 10px !important;
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  gap: 6px !important;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-title {
+  margin: 0 !important;
+  font-size: 0.74rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-count {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #2563eb;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: #fff;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.55);
+  border-radius: 999px;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #334155;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-col-fecha {
+  width: 74px;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 5px 6px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+  text-align: left;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-table tbody td {
+  padding: 5px 6px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  vertical-align: top;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-fecha {
+  width: 74px;
+  max-width: 74px;
+  white-space: nowrap;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #475569;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-desc {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-pager {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 22px;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-pager-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-pager-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-pager-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-pager-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-table tbody tr.dash-bitacora-empty td {
+  padding: 14px 8px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.67rem;
+  font-style: italic;
+  line-height: 1.4;
+  border-bottom: none;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-table tbody tr.dash-bitacora-empty td {
+  color: #94a3b8 !important;
+}
+
+#dashboardModule.dash-module-saas .dash-bitacora-pager-btn:not(:disabled):hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 #dashboardModule.dash-module-saas .dash-chart-card.chart-card,
@@ -17168,6 +19104,48 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.d
 
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-insights-split > .dash-insight-col--topcpl > .dash-chart-title {
   color: #c4b5fd !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-title {
+  color: #e2e8f0 !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-count {
+  color: #60a5fa !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-scroll {
+  background: rgba(15, 23, 42, 0.55) !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-table thead th {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #94a3b8 !important;
+  border-bottom-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-table tbody td {
+  border-bottom-color: rgba(148, 163, 184, 0.18) !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-fecha {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-pager-label {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-pager-btn {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(148, 163, 184, 0.35) !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-side-card.dash-bitacora-card .dash-bitacora-pager-btn:not(:disabled):hover {
+  background: rgba(30, 41, 59, 0.95) !important;
 }
 
 /* Evolución diaria: cabecera y leyendas legibles (barras/línea sin tocar en JS) */
