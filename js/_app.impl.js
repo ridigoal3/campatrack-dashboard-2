@@ -292,6 +292,7 @@ const planningBody = document.getElementById("planningBody");
 /** Instancias de tablas virtualizadas (antes del init planning ~6018). */
 let planningVirtualTable = null;
 let dashPlatVirtualTable = null;
+let dashResumenVirtualTable = null;
 let dashCrmVirtualTable = null;
 let relacionesVirtualTable = null;
 const campaignModal = document.getElementById("campaignModal");
@@ -8141,6 +8142,21 @@ function dashboardAnalyticsSignature(extra = "") {
   ]);
 }
 
+/** Firma analítica Vista Resumen: tipo, intake, programa, branding; sin mes, rango ni tracking/plataforma/estado. */
+function dashboardResumenAnalyticsSignature(extra = "") {
+  return createDashSignature([
+    dashModeloIndexGen,
+    modeloAnalitico.length,
+    crmLeads.length,
+    relacionesCrm.length,
+    incluirBrandingDashboard ? 1 : 0,
+    estadoFiltrosDashboard.tipo,
+    estadoFiltrosDashboard.intake,
+    estadoFiltrosDashboard.busquedaPrograma,
+    extra
+  ]);
+}
+
 function ensureDashboardModeloIndex() {
   const len = modeloAnalitico.length;
   if (dashModeloIndex && dashModeloIndex.gen === dashModeloIndexGen && dashModeloIndex.len === len) {
@@ -8181,6 +8197,25 @@ function ensureDashPlatVirtualTable() {
     dashPlatVirtualTable._tbody = tbody;
   }
   return dashPlatVirtualTable;
+}
+
+function ensureDashResumenVirtualTable() {
+  const tbody = document.getElementById("dashResumenTbody");
+  const scrollEl = document.querySelector("#dashShellPlataforma .dash-table-scroll");
+  if (!tbody) return null;
+  if (!dashResumenVirtualTable || dashResumenVirtualTable._tbody !== tbody) {
+    dashResumenVirtualTable = createVirtualTbody({
+      scrollEl,
+      tbody,
+      rowHeight: 36,
+      overscan: 12,
+      threshold: 40,
+      colspan: 27,
+      uid: "dash-resumen"
+    });
+    dashResumenVirtualTable._tbody = tbody;
+  }
+  return dashResumenVirtualTable;
 }
 
 function ensureDashCrmVirtualTable() {
@@ -8261,8 +8296,65 @@ function syncDashboardTableRowDomSelectionHighlight() {
 let incluirBrandingDashboard = false;
 const LS_DASH_MOSTRAR_META_GLOBAL = "dashboard_mostrar_meta_global";
 const LS_DASH_ACTIVE_SUBTAB = "dashboard_active_subtab";
+const LS_DASH_TIPO_CAMBIO = "dashboard_tipo_cambio";
+const DASH_TIPO_CAMBIO_DEFAULT = 3.5;
 /** `"plataforma"` | `"crm"` — vista activa dentro del módulo Dashboard. */
 let dashboardActiveSubtab = "plataforma";
+/** Vista de tabla Plataforma: "detalle" | "resumen" */
+let dashboardTableView = "detalle";
+
+function isDashboardPlatTableViewResumen() {
+  return dashboardTableView === "resumen" && getDashboardEffectiveSubtab() === "plataforma";
+}
+
+/** Segmentadores aplicables en Vista Resumen (sin tracking, plataforma ni estado). */
+function dashboardModeloFiltroSegmentosResumen(r) {
+  if (estadoFiltrosDashboard.tipo && String(r.tipo) !== estadoFiltrosDashboard.tipo) return false;
+  if (estadoFiltrosDashboard.intake && String(r.intake) !== estadoFiltrosDashboard.intake) return false;
+  return true;
+}
+
+function dashboardPlanningRecordMatchesSegmentsResumen(rec) {
+  if (estadoFiltrosDashboard.tipo && String(rec.tipo) !== estadoFiltrosDashboard.tipo) return false;
+  if (estadoFiltrosDashboard.intake && String(rec.intake) !== estadoFiltrosDashboard.intake) return false;
+  return true;
+}
+
+/** Habilita/deshabilita controles que no aplican en Vista Resumen Plataforma. */
+function applyDashboardPlatTableViewControlsState() {
+  const disabled = isDashboardPlatTableViewResumen();
+  const periodoCard = document.getElementById("dashPeriodoCard");
+  periodoCard?.classList.toggle("dash-periodo--view-disabled", disabled);
+  periodoCard?.setAttribute("aria-disabled", disabled ? "true" : "false");
+
+  const mesSel = document.getElementById("dashFiltroMes");
+  const fi = document.getElementById("dashFechaInicio");
+  const ff = document.getElementById("dashFechaFin");
+  [mesSel, fi, ff].forEach((el) => {
+    if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+      el.disabled = disabled;
+    }
+  });
+
+  const segGroups = [
+    { containerId: "dashSegTracking", field: "tracking", toolbarClass: "dash-toolbar-tracking" },
+    { containerId: "dashSegPlataforma", field: "plataforma", toolbarClass: "dash-toolbar-plataforma" },
+    { containerId: "dashSegEstado", field: "estado", toolbarClass: "dash-toolbar-estado" }
+  ];
+  segGroups.forEach(({ containerId, field, toolbarClass }) => {
+    const box = document.getElementById(containerId);
+    const toolbarItem = box?.closest(`.${toolbarClass}`) || box?.closest(".dash-toolbar-item");
+    toolbarItem?.classList.toggle("dash-toolbar-item--view-disabled", disabled);
+    toolbarItem?.setAttribute("aria-disabled", disabled ? "true" : "false");
+    box?.querySelectorAll(`[data-dash-seg="${field}"]`).forEach((btn) => {
+      if (btn instanceof HTMLButtonElement) btn.disabled = disabled;
+    });
+  });
+}
+/** Filas consolidadas Vista Resumen Plataforma (1 fila = 1 registro Planning). */
+let dashboardResumenRows = [];
+/** Cache HTML filas Resumen (actualización parcial CPA S/ sin rebuild completo). */
+let dashboardResumenRowHtmlCache = [];
 /** `"platVsCrm"` | `"fuente"` — panel inferior del dashboard CRM. */
 let dashboardCrmBottomMode = "platVsCrm";
 /** `"total"` | `"mes"` — alcance temporal solo tabla Intervalo de Gestión (respeta fila seleccionada). */
@@ -8272,11 +8364,21 @@ let dashboardCrmOperActiveTab = "gestionados";
 /** PERF_AUDIT — recorridos completos de crmLeads por ciclo BottomPanels (Sprint 2). */
 let dashCrmLeadScanCount = 0;
 let mostrarMetaGlobal = true;
+let dashboardTipoCambio = DASH_TIPO_CAMBIO_DEFAULT;
 try {
   const rawMostrarMetaGlobal = appMemoryKV.getItem(LS_DASH_MOSTRAR_META_GLOBAL);
   if (rawMostrarMetaGlobal === "false") mostrarMetaGlobal = false;
 } catch (err) {
   console.warn("No se pudo leer estado de columnas META GLOBAL", err);
+}
+try {
+  const rawTipoCambio = appMemoryKV.getItem(LS_DASH_TIPO_CAMBIO);
+  if (rawTipoCambio != null && String(rawTipoCambio).trim() !== "") {
+    const parsed = Number(String(rawTipoCambio).replace(/,/g, "").trim());
+    if (Number.isFinite(parsed) && parsed > 0) dashboardTipoCambio = parsed;
+  }
+} catch (err) {
+  console.warn("No se pudo leer tipo de cambio del dashboard", err);
 }
 const MESES_LARGOS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 let filtrosCache = {
@@ -15052,21 +15154,23 @@ function syncDashboardCrmHeaderBadges() {
   const teamEl = document.getElementById("appTeamHeaderBadge");
   const headerFechaEl = document.getElementById("dashCrmActualizadoHeader");
   const toolbarEnd = document.querySelector("#dashboardModule .dash-toolbar-end-group");
+  const viewSwitcher = document.getElementById("dashTableViewSwitcher");
   const operWrap = document.getElementById("dashCrmOperCardsWrap");
   const headerFechaText = headerFechaEl instanceof HTMLElement ? String(headerFechaEl.textContent || "").trim() : "";
 
   toolbarEnd?.classList.toggle("hidden", crmOn);
+  viewSwitcher?.classList.toggle("hidden", crmOn || !onDash);
   operWrap?.classList.toggle("hidden", !crmOn);
   operWrap?.setAttribute("aria-hidden", crmOn ? "false" : "true");
 
   if (crmOn) {
     teamEl?.classList.add("hidden");
-    if (headerFechaText) headerFechaEl?.classList.remove("hidden");
-    else headerFechaEl?.classList.add("hidden");
-  } else {
-    headerFechaEl?.classList.add("hidden");
-    if (onDash) refreshCampatrackTeamHeader();
+  } else if (onDash) {
+    refreshCampatrackTeamHeader();
   }
+
+  if (onDash && headerFechaText) headerFechaEl?.classList.remove("hidden");
+  else headerFechaEl?.classList.add("hidden");
 }
 
 const DASH_CRM_OPER_TAB_LABELS = {
@@ -15754,36 +15858,10 @@ function initDashboardCrmOperTabs() {
 
 /** Última fecha en `appState.dataDraft.data_general` (módulo DATA). */
 function mostrarFechaActualizacion() {
-  const el = document.getElementById("fecha-actualizacion");
   const headerEl = document.getElementById("dashCrmActualizadoHeader");
   const text = computeDashboardFechaActualizacionTexto();
-  const vaciar = () => {
-    if (el) {
-      el.innerText = "";
-      el.classList.add("hidden");
-    }
-    if (headerEl) {
-      headerEl.textContent = "";
-      headerEl.classList.add("hidden");
-    }
-  };
-  if (!text) {
-    vaciar();
-    syncDashboardCrmHeaderBadges();
-    return;
-  }
-  const crmOn =
-    (() => {
-      const dash = document.getElementById("dashboardModule");
-      return !!(dash && !dash.classList.contains("hidden") && getDashboardEffectiveSubtab() === "crm");
-    })();
-  if (el) {
-    el.innerText = text;
-    if (crmOn) el.classList.add("hidden");
-    else el.classList.remove("hidden");
-  }
   if (headerEl) {
-    headerEl.textContent = text;
+    headerEl.textContent = text || "";
   }
   syncDashboardCrmHeaderBadges();
 }
@@ -20421,6 +20499,599 @@ function renderDashboardKpis() {
   end({ records: dataFiltrada.length });
 }
 
+/**
+ * Modelo Plataforma para Vista Resumen: segmentadores + branding; vida completa de campaña (sin mes/rango).
+ */
+function getDashboardResumenModeloFiltered() {
+  const sig = dashboardResumenAnalyticsSignature("resumenModeloSeg");
+  const hit = dashQueryMemo.get("resumenModeloSeg");
+  if (hit && hit.sig === sig) return hit.val;
+  let val = modeloAnalitico.filter((r) => {
+    if (!(r.fecha instanceof Date) || !String(r.idCampania ?? "").trim()) return false;
+    return dashboardModeloFiltroSegmentosResumen(r);
+  });
+  if (!incluirBrandingDashboard) {
+    val = filtrarDashboardSinBranding(val);
+  }
+  dashQueryMemo.set("resumenModeloSeg", { sig, val });
+  return val;
+}
+
+/** Claves visibles en Vista Resumen (segmentadores + branding; ignora mes y rango de fechas). */
+function getDashboardResumenVisibleRowKeysSet() {
+  const sig = dashboardResumenAnalyticsSignature(`resumenVisibleRowKeys|${dashBitacoraDataContentSig()}`);
+  const hit = dashQueryMemo.get("resumenVisibleRowKeys");
+  if (hit && hit.sig === sig) return hit.val;
+
+  const dataGlob = getDashboardResumenModeloFiltered();
+  const mapAll = new Map();
+  dataGlob.forEach((r) => {
+    const key = dashboardRowKeyFromModelo(r) || "|||";
+    if (!mapAll.has(key)) mapAll.set(key, []);
+    mapAll.get(key).push(r);
+  });
+
+  let keys = Array.from(mapAll.keys()).filter((rowKey) => (mapAll.get(rowKey) || []).length > 0);
+  const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
+  if (busq) {
+    keys = keys.filter((rowKey) => dashboardRowSearchHaystackFromKey(rowKey).includes(busq));
+  }
+
+  const val = new Set(keys);
+  dashQueryMemo.set("resumenVisibleRowKeys", { sig, val });
+  return val;
+}
+
+function dashboardResumenPlanningRecordHasLifetimePlatformData(rec, baseSegModelo) {
+  const rowKey = planningKeyToDashboardRowKey(planningKeyFromRecord(rec));
+  const fechaInMin = parseDateInput(rec.fechaInicio);
+  const fechaFinMax = parseDateInput(rec.fechaFin);
+  return baseSegModelo.some((r) => {
+    if (dashboardRowKeyFromModelo(r) !== rowKey) return false;
+    if (!(fechaInMin instanceof Date) || !(fechaFinMax instanceof Date)) return true;
+    return modeloRowFechaEnRangoCampania(r, fechaInMin, fechaFinMax);
+  });
+}
+
+/**
+ * Construye una fila del modelo Resumen para un registro Planning (consolidación Plataforma + CRM).
+ * @param {object} rec
+ * @param {object} ctx
+ */
+function buildDashboardResumenRowForPlanningRecord(rec, ctx) {
+  const rowKey = planningKeyToDashboardRowKey(planningKeyFromRecord(rec));
+  const fechaInMin = parseDateInput(rec.fechaInicio);
+  const fechaFinMax = parseDateInput(rec.fechaFin);
+
+  const rowsForKey = ctx.baseSegModelo.filter((r) => dashboardRowKeyFromModelo(r) === rowKey);
+  const winCamp =
+    fechaInMin && fechaFinMax
+      ? rowsForKey.filter((r) => modeloRowFechaEnRangoCampania(r, fechaInMin, fechaFinMax))
+      : [];
+  const rowsGlobalAll = incluirBrandingDashboard ? winCamp : filtrarDashboardSinBranding(winCamp);
+  const rowsGlobal = incluirBrandingDashboard ? winCamp : filtrarDashboardSinBranding(winCamp);
+  const gastoRealGlobal = rowsGlobalAll.reduce((a, r) => a + (Number(r.gasto) || 0), 0);
+  const leadsRealGlobal = rowsGlobal.reduce((a, r) => a + (Number(r.leads) || 0), 0);
+
+  const planningRowsOperativas =
+    incluirBrandingDashboard || planningRecordEsCaptacion(rec) ? [rec] : [];
+  const pmGlobal = computeDashboardPlanningGlobalMeta(planningRowsOperativas);
+
+  const diasPauta = fechaInMin && fechaFinMax ? getDaysTotalInclusive(fechaInMin, fechaFinMax) : 0;
+  const diasTranscurridos =
+    fechaInMin && fechaFinMax ? getDaysElapsedInclusive(fechaInMin, fechaFinMax, ctx.fechaActualData) : 0;
+  const ratioAvIdealGlobal = diasPauta > 0 ? diasTranscurridos / diasPauta : 0;
+  const metaGastoHoyGlobal = pmGlobal.presupuestoPeriod * ratioAvIdealGlobal;
+  const metaGastoDiarioGlobal = diasPauta > 0 ? pmGlobal.presupuestoPeriod / diasPauta : 0;
+  const gastoPendGlobal = pmGlobal.presupuestoPeriod - gastoRealGlobal;
+  const gastoDiarioRealGlobal = diasTranscurridos > 0 ? gastoRealGlobal / diasTranscurridos : 0;
+
+  const planningRowsCrmMeta = getDashboardPlanningRecordsLinkedViaRelaciones(rowKey).filter((r) =>
+    planningRecordEsCaptacion(r)
+  );
+  const crmOfficialMetas = computeDashboardPlanningOfficialCrmFunnelMetas(planningRowsCrmMeta);
+  const crmRow = ctx.crmMap.get(rowKey) || { crmLeads: 0, crmCont: 0, crmInt: 0, crmPost: 0, crmMat: 0 };
+
+  const diasRestantes =
+    fechaInMin && fechaFinMax
+      ? getDashboardDiasRestantesMetaGlobal(fechaInMin, fechaFinMax, ctx.fechaActualData)
+      : 0;
+
+  return {
+    planningId: rec.id,
+    programa: String(rec.programa ?? "").trim(),
+    tipo: String(rec.tipo ?? "").trim(),
+    intake: String(rec.intake ?? "").trim(),
+    estado: getDashboardRowDeliveryEstado(rowKey),
+    tracking: String(rec.tracking ?? "").trim(),
+    fechaInicio: rec.fechaInicio ?? "",
+    fechaFin: rec.fechaFin ?? "",
+    diasPauta,
+    diasRestantes,
+    gastoTotal: gastoRealGlobal,
+    gastoHoy: metaGastoHoyGlobal,
+    gastoPendiente: gastoPendGlobal,
+    metaGastoDiario: metaGastoDiarioGlobal,
+    gastoDiarioReal: gastoDiarioRealGlobal,
+    registros: leadsRealGlobal,
+    metaLeads: Number(crmOfficialMetas.metaLeads) || 0,
+    leadsCRM: crmRow.crmLeads,
+    metaContactados: Number(crmOfficialMetas.metaContactados) || 0,
+    contactados: crmRow.crmCont,
+    metaInteresados: Number(crmOfficialMetas.metaInteresados) || 0,
+    interesados: crmRow.crmInt,
+    metaPostulantes: Number(crmOfficialMetas.metaPostulantes) || 0,
+    postulantes: crmRow.crmPost,
+    metaMatriculados: Number(crmOfficialMetas.metaMatriculados) || 0,
+    matriculados: crmRow.crmMat
+  };
+}
+
+/** Modelo consolidado Vista Resumen: 1 fila por campaña Planning (segmentadores; sin mes/rango). */
+function buildDashboardResumenRows() {
+  const sig = dashboardResumenAnalyticsSignature(`resumenRows|${dashBitacoraDataContentSig()}`);
+  const hit = dashQueryMemo.get("resumenRows");
+  if (hit && hit.sig === sig) return hit.val;
+
+  const visibleRowKeys = getDashboardResumenVisibleRowKeysSet();
+  const baseSegModelo = getDashboardResumenModeloFiltered();
+  const crmMap = aggregateDashboardCrmMetricsByRowKey();
+  setFechaActualData();
+
+  const ctx = {
+    baseSegModelo,
+    crmMap,
+    fechaActualData
+  };
+
+  const rows = [];
+  planningDraftRecords().forEach((rec) => {
+    if (!dashboardPlanningRecordMatchesSegmentsResumen(rec)) return;
+    if (!incluirBrandingDashboard && !planningRecordEsCaptacion(rec)) return;
+    const rowKey = planningKeyToDashboardRowKey(planningKeyFromRecord(rec));
+    if (!visibleRowKeys.has(rowKey)) return;
+    if (!dashboardResumenPlanningRecordHasLifetimePlatformData(rec, baseSegModelo)) return;
+    rows.push(buildDashboardResumenRowForPlanningRecord(rec, ctx));
+  });
+
+  dashQueryMemo.set("resumenRows", { sig, val: rows });
+  return rows;
+}
+
+/** Consola: validación bloque LEADS + embudo CRM (Vista Resumen). */
+function logDashboardResumenRowsValidation(rows) {
+  const list = rows || [];
+  console.log(`[Dashboard Resumen] Filas generadas: ${list.length}`);
+  console.table(
+    list.map((r) => {
+      const lb = dashResumenLeadsBlockFromRow(r);
+      return {
+        Programa: r.programa,
+        Gasto: lb.gasto,
+        Registros: lb.registros,
+        "CPL$": dashResumenFmtCpl(lb.cplPlat),
+        "Meta Leads": lb.metaLeads,
+        Leads: lb.leads,
+        "Dif.": lb.dif,
+        "Tasa Leads %": dashResumenFmtTasaLeadsPct(lb.tasaRatio),
+        CPL: dashResumenFmtCpl(lb.cpl)
+      };
+    })
+  );
+  console.table(
+    list.map((r) => {
+      const fb = dashResumenCrmFunnelBlockFromRow(r);
+      return {
+        Programa: r.programa,
+        "Meta Contactado": fb.metaContactados,
+        Contactado: fb.contactados,
+        "Meta Interesados": fb.metaInteresados,
+        Interesados: fb.interesados,
+        "Meta Postulantes": fb.metaPostulantes,
+        Postulantes: fb.postulantes,
+        "Meta Matriculados": fb.metaMatriculados,
+        Matriculados: fb.matriculados
+      };
+    })
+  );
+  console.table(
+    list.map((r) => {
+      const lb = dashResumenLeadsBlockFromRow(r);
+      const fin = dashResumenFinancialBlockFromRow(r, lb);
+      return {
+        Programa: r.programa,
+        "Tasa Matrícula %": dashResumenFmtTasaLeadsPct(fin.tasaMatriculaRatio),
+        "CPA$": dashResumenFmtCpl(fin.cpaUsd),
+        "CPA S/": dashResumenFmtCpaPen(fin.cpaPen)
+      };
+    })
+  );
+}
+
+/** Etiqueta Q1…Qn para columna Intake en Vista Resumen. */
+function dashboardResumenIntakeQLabel(intake) {
+  const t = String(intake ?? "").trim();
+  if (!t) return "—";
+  const mq = t.match(/^q\s*([1-4])$/i);
+  if (mq) return `Q${mq[1]}`;
+  const digits = t.replace(/[^0-9]/g, "");
+  if (digits) return `Q${digits}`;
+  return t;
+}
+
+function dashResumenEstadoDotClass(estado) {
+  if (estado === "Activo") return "dash-delivery-dot--on";
+  if (estado === "Inactivo") return "dash-delivery-dot--off";
+  return "dash-delivery-dot--nodata";
+}
+
+/** Métricas derivadas bloque LEADS (Vista Resumen) desde fila consolidada. */
+function dashResumenLeadsBlockFromRow(r) {
+  const gasto = Number(r.gastoTotal) || 0;
+  const registros = Number(r.registros) || 0;
+  const metaLeads = Number(r.metaLeads) || 0;
+  const leads = Number(r.leadsCRM) || 0;
+  const dif = Math.round(leads - metaLeads);
+  const tasaRatio = metaLeads > 0 ? leads / metaLeads : null;
+  const cplPlat = registros > 0 ? gasto / registros : null;
+  const cpl = leads > 0 ? gasto / leads : null;
+  return { gasto, registros, metaLeads, leads, dif, tasaRatio, cplPlat, cpl };
+}
+
+function dashResumenFmtLeadsDif(dif) {
+  const n = Math.round(Number(dif) || 0);
+  if (n > 0) return dashFmtLeads(n);
+  if (n < 0) return `-${dashFmtLeads(Math.abs(n))}`;
+  return dashFmtLeads(0);
+}
+
+/** Clase visual condicional columnas DIF. (solo presentación; no altera el valor.) */
+function dashResumenDifToneClass(dif) {
+  const n = Math.round(Number(dif) || 0);
+  if (n > 0) return "dash-resumen-dif-pos";
+  if (n < 0) return "dash-resumen-dif-neg";
+  return "";
+}
+
+function dashResumenFmtTasaLeadsPct(tasaRatio) {
+  if (tasaRatio == null || !Number.isFinite(tasaRatio)) return "—";
+  return dashFmtPctFromRatio(tasaRatio);
+}
+
+function dashResumenFmtCpl(cpl) {
+  if (cpl == null || !Number.isFinite(cpl)) return "—";
+  const rounded = Math.round(Number(cpl) * 100) / 100;
+  if (Number.isInteger(rounded)) return dashFmtMoney(rounded);
+  return dashFmtMoneyFixed2(rounded);
+}
+
+/** Punto único USD→PEN del dashboard (control Tipo Cambio en segmentadores). */
+function getDashboardUsdToPenExchangeRate() {
+  const rate = Number(dashboardTipoCambio);
+  if (Number.isFinite(rate) && rate > 0) return rate;
+  return DASH_TIPO_CAMBIO_DEFAULT;
+}
+
+function dashFmtTipoCambioDisplay(rate) {
+  const n = Number(rate);
+  if (!Number.isFinite(n) || n <= 0) return dashFmtTipoCambioDisplay(DASH_TIPO_CAMBIO_DEFAULT);
+  return n.toFixed(2);
+}
+
+function persistDashboardTipoCambio() {
+  try {
+    appMemoryKV.setItem(LS_DASH_TIPO_CAMBIO, String(dashboardTipoCambio));
+  } catch (err) {
+    console.warn("No se pudo guardar tipo de cambio del dashboard", err);
+  }
+}
+
+function syncDashboardTipoCambioDisplay() {
+  const display = document.getElementById("dashTipoCambioDisplay");
+  if (display) display.textContent = dashFmtTipoCambioDisplay(dashboardTipoCambio);
+}
+
+function sanitizeDashTipoCambioDraft(raw) {
+  let s = String(raw ?? "").replace(/[^\d.]/g, "");
+  const dot = s.indexOf(".");
+  if (dot !== -1) {
+    s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "");
+  }
+  return s;
+}
+
+function parseDashTipoCambioValue(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s || s === ".") return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+function dashResumenCpaPenFromCpaUsd(cpaUsd) {
+  if (cpaUsd == null || !Number.isFinite(Number(cpaUsd))) return null;
+  return Number(cpaUsd) * getDashboardUsdToPenExchangeRate();
+}
+
+function patchDashboardResumenRowHtmlCpaPen(html) {
+  return String(html).replace(
+    /(<td class="[^"]*dash-resumen-col-cpa-pen[^"]*" data-cpa-usd="([^"]*)"[^>]*>)([^<]*)(<\/td>)/g,
+    (_m, open, cpaUsdAttr, _old, close) => {
+      const cpaUsd = cpaUsdAttr === "" ? null : Number(cpaUsdAttr);
+      const pen = dashResumenFmtCpaPen(dashResumenCpaPenFromCpaUsd(cpaUsd));
+      return `${open}${pen}${close}`;
+    }
+  );
+}
+
+/** Recalcula solo CPA S/ en filas sin reconstruir la tabla Resumen. */
+function refreshDashboardResumenCpaPenOnly() {
+  if (dashboardResumenRowHtmlCache.length) {
+    dashboardResumenRowHtmlCache = dashboardResumenRowHtmlCache.map(patchDashboardResumenRowHtmlCpaPen);
+  }
+  const virtResumen = dashResumenVirtualTable;
+  if (virtResumen && dashboardResumenRowHtmlCache.length) {
+    virtResumen.mount(dashboardResumenRowHtmlCache, null);
+  } else {
+    document.querySelectorAll("#dashResumenTbody td.dash-resumen-col-cpa-pen").forEach((td) => {
+      const raw = td.getAttribute("data-cpa-usd");
+      const cpaUsd = raw === "" || raw == null ? null : Number(raw);
+      td.textContent = dashResumenFmtCpaPen(dashResumenCpaPenFromCpaUsd(cpaUsd));
+    });
+  }
+}
+
+function initDashboardTipoCambioControl() {
+  const box = document.getElementById("dashTipoCambioBox");
+  const display = document.getElementById("dashTipoCambioDisplay");
+  const input = document.getElementById("dashTipoCambioInput");
+  if (!box || !display || !input) return;
+
+  syncDashboardTipoCambioDisplay();
+
+  let editDraft = "";
+  let editing = false;
+
+  const exitEditMode = () => {
+    editing = false;
+    box.classList.remove("dash-tipo-cambio-box--editing");
+    box.setAttribute("aria-readonly", "true");
+    input.classList.add("hidden");
+    display.classList.remove("hidden");
+  };
+
+  const cancelEdit = () => {
+    exitEditMode();
+    syncDashboardTipoCambioDisplay();
+  };
+
+  const commitEdit = () => {
+    const parsed = parseDashTipoCambioValue(input.value);
+    exitEditMode();
+    if (parsed == null) {
+      syncDashboardTipoCambioDisplay();
+      return;
+    }
+    if (Math.abs(parsed - dashboardTipoCambio) < 0.0001) {
+      syncDashboardTipoCambioDisplay();
+      return;
+    }
+    dashboardTipoCambio = parsed;
+    persistDashboardTipoCambio();
+    syncDashboardTipoCambioDisplay();
+    if (dashboardTableView === "resumen") refreshDashboardResumenCpaPenOnly();
+  };
+
+  const enterEditMode = () => {
+    if (editing) return;
+    editing = true;
+    editDraft = dashFmtTipoCambioDisplay(dashboardTipoCambio);
+    box.classList.add("dash-tipo-cambio-box--editing");
+    box.setAttribute("aria-readonly", "false");
+    display.classList.add("hidden");
+    input.classList.remove("hidden");
+    input.value = editDraft;
+    input.focus();
+    input.select();
+  };
+
+  box.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    enterEditMode();
+  });
+
+  input.addEventListener("input", () => {
+    input.value = sanitizeDashTipoCambioDraft(input.value);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEdit();
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    if (editing) commitEdit();
+  });
+}
+
+function dashFmtMoneyPen(n) {
+  if (!Number.isFinite(Number(n))) return "—";
+  const rounded = Math.round(Number(n) * 100) / 100;
+  if (Number.isInteger(rounded)) {
+    return rounded.toLocaleString("es-PE", {
+      style: "currency",
+      currency: "PEN",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+  }
+  return rounded.toLocaleString("es-PE", {
+    style: "currency",
+    currency: "PEN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function dashResumenFmtCpaPen(cpaPen) {
+  if (cpaPen == null || !Number.isFinite(cpaPen)) return "—";
+  return dashFmtMoneyPen(cpaPen);
+}
+
+/** Métricas derivadas bloque financiero (Vista Resumen) desde fila consolidada. */
+function dashResumenFinancialBlockFromRow(r, lb) {
+  const leads = Number(lb?.leads) || 0;
+  const gasto = Number(lb?.gasto) || 0;
+  const matriculados = Math.round(Number(r.matriculados) || 0);
+  const tasaMatriculaRatio = leads > 0 ? matriculados / leads : null;
+  const cpaUsd = matriculados > 0 ? gasto / matriculados : null;
+  const rate = getDashboardUsdToPenExchangeRate();
+  const cpaPen = cpaUsd != null ? cpaUsd * rate : null;
+  return { tasaMatriculaRatio, cpaUsd, cpaPen };
+}
+
+/** Métricas derivadas embudo CRM (Vista Resumen) desde fila consolidada. */
+function dashResumenCrmFunnelBlockFromRow(r) {
+  const metaContactados = Math.round(Number(r.metaContactados) || 0);
+  const contactados = Math.round(Number(r.contactados) || 0);
+  const metaInteresados = Math.round(Number(r.metaInteresados) || 0);
+  const interesados = Math.round(Number(r.interesados) || 0);
+  const metaPostulantes = Math.round(Number(r.metaPostulantes) || 0);
+  const postulantes = Math.round(Number(r.postulantes) || 0);
+  const metaMatriculados = Math.round(Number(r.metaMatriculados) || 0);
+  const matriculados = Math.round(Number(r.matriculados) || 0);
+  return {
+    metaContactados,
+    contactados,
+    difContactados: contactados - metaContactados,
+    metaInteresados,
+    interesados,
+    difInteresados: interesados - metaInteresados,
+    metaPostulantes,
+    postulantes,
+    difPostulantes: postulantes - metaPostulantes,
+    metaMatriculados,
+    matriculados,
+    difMatriculados: matriculados - metaMatriculados
+  };
+}
+
+function dashResumenCrmFunnelCellsHtml(fb) {
+  return `
+        <td class="dash-grp-col dash-grp-col-cont dash-grp-col-first dash-res-col-crm-num">${dashFmtLeads(fb.metaContactados)}</td>
+        <td class="dash-grp-col dash-grp-col-cont dash-res-col-crm-num">${dashFmtLeads(fb.contactados)}</td>
+        <td class="dash-grp-col dash-grp-col-cont dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num dash-resumen-col-dif ${dashResumenDifToneClass(fb.difContactados)}">${escapeHtml(dashResumenFmtLeadsDif(fb.difContactados))}</td>
+        <td class="dash-grp-col dash-grp-col-int dash-grp-col-first dash-res-col-crm-num">${dashFmtLeads(fb.metaInteresados)}</td>
+        <td class="dash-grp-col dash-grp-col-int dash-res-col-crm-num">${dashFmtLeads(fb.interesados)}</td>
+        <td class="dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num dash-resumen-col-dif ${dashResumenDifToneClass(fb.difInteresados)}">${escapeHtml(dashResumenFmtLeadsDif(fb.difInteresados))}</td>
+        <td class="dash-grp-col dash-grp-col-post dash-grp-col-first dash-res-col-crm-num">${dashFmtLeads(fb.metaPostulantes)}</td>
+        <td class="dash-grp-col dash-grp-col-post dash-res-col-crm-num">${dashFmtLeads(fb.postulantes)}</td>
+        <td class="dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num dash-resumen-col-dif ${dashResumenDifToneClass(fb.difPostulantes)}">${escapeHtml(dashResumenFmtLeadsDif(fb.difPostulantes))}</td>
+        <td class="dash-grp-col dash-grp-col-mat dash-grp-col-first dash-res-col-crm-num">${dashFmtLeads(fb.metaMatriculados)}</td>
+        <td class="dash-grp-col dash-grp-col-mat dash-res-col-crm-num">${dashFmtLeads(fb.matriculados)}</td>
+        <td class="dash-grp-col dash-grp-col-mat dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num dash-resumen-col-dif ${dashResumenDifToneClass(fb.difMatriculados)}">${escapeHtml(dashResumenFmtLeadsDif(fb.difMatriculados))}</td>`;
+}
+
+function dashResumenFinancialCellsHtml(fin) {
+  const cpaUsdAttr =
+    fin.cpaUsd != null && Number.isFinite(fin.cpaUsd) ? String(fin.cpaUsd) : "";
+  return `
+        <td class="dash-grp-col dash-grp-col-fin dash-grp-col-first dash-res-col-num">${escapeHtml(dashResumenFmtTasaLeadsPct(fin.tasaMatriculaRatio))}</td>
+        <td class="dash-grp-col dash-grp-col-fin dash-res-col-num dash-resumen-col-cpa-usd" data-cpa-usd="${escapeHtml(cpaUsdAttr)}">${escapeHtml(dashResumenFmtCpl(fin.cpaUsd))}</td>
+        <td class="dash-grp-col dash-grp-col-fin dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num dash-resumen-col-cpa-pen" data-cpa-usd="${escapeHtml(cpaUsdAttr)}">${escapeHtml(dashResumenFmtCpaPen(fin.cpaPen))}</td>`;
+}
+
+/** Renderiza la tabla Vista Resumen usando exclusivamente \`dashboardResumenRows\`. */
+function renderDashboardResumenTabla() {
+  const end = perfMeasureStart("render:DashboardTablaResumen", "table");
+  const rows = dashboardResumenRows || [];
+  const tbody = document.getElementById("dashResumenTbody");
+  if (!tbody) {
+    end({ skipped: true });
+    return;
+  }
+
+  const rowsHtml = rows.map((r) => {
+    const estadoTitle = String(r.estado || "Sin data");
+    const deliveryDotClass = dashResumenEstadoDotClass(estadoTitle);
+    const qLabel = dashboardResumenIntakeQLabel(r.intake);
+    const tipo = String(r.tipo ?? "").trim() || "—";
+    const programa = String(r.programa ?? "").trim() || "—";
+    const lb = dashResumenLeadsBlockFromRow(r);
+    const fin = dashResumenFinancialBlockFromRow(r, lb);
+    const fb = dashResumenCrmFunnelBlockFromRow(r);
+
+    return `
+      <tr data-dash-resumen-row="${escapeHtml(String(r.planningId ?? ""))}">
+        <td class="dash-estado-col dash-res-col-estado" title="${escapeHtml(estadoTitle)}" role="img" aria-label="${escapeHtml(estadoTitle)}"><span class="dash-delivery-dot ${deliveryDotClass}" aria-hidden="true"></span></td>
+        <td class="tipo-col dash-td-tipo">${escapeHtml(tipo)}</td>
+        <td class="dash-int-col dash-res-col-q">${escapeHtml(qLabel)}</td>
+        <td class="programa-col dash-td-prog dash-grp-sticky-sep dash-res-col-programa" title="${escapeHtml(programa)}">${escapeHtml(programa)}</td>
+        <td class="dash-grp-col dash-grp-col-gasto dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-gasto">${dashFmtMoney(r.gastoTotal)}</td>
+        <td class="dash-grp-col dash-grp-col-leads dash-grp-col-first dash-res-col-num">${dashFmtLeads(Math.round(Number(r.registros) || 0))}</td>
+        <td class="dash-grp-col dash-grp-col-leads dash-res-col-num">${escapeHtml(dashResumenFmtCpl(lb.cplPlat))}</td>
+        <td class="dash-grp-col dash-grp-col-leads dash-res-col-num">${dashFmtLeads(Math.round(Number(r.metaLeads) || 0))}</td>
+        <td class="dash-grp-col dash-grp-col-leads dash-res-col-num">${dashFmtLeads(Math.round(Number(r.leadsCRM) || 0))}</td>
+        <td class="dash-grp-col dash-grp-col-leads dash-res-col-num dash-resumen-col-dif ${dashResumenDifToneClass(lb.dif)}">${escapeHtml(dashResumenFmtLeadsDif(lb.dif))}</td>
+        <td class="dash-grp-col dash-grp-col-leads dash-res-col-num">${escapeHtml(dashResumenFmtTasaLeadsPct(lb.tasaRatio))}</td>
+        <td class="dash-grp-col dash-grp-col-leads dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num">${escapeHtml(dashResumenFmtCpl(lb.cpl))}</td>
+        ${dashResumenCrmFunnelCellsHtml(fb)}
+        ${dashResumenFinancialCellsHtml(fin)}
+      </tr>
+    `;
+  });
+
+  const resumenFp = dashboardResumenAnalyticsSignature(`resumenTabla|${rows.length}`);
+  dashboardResumenRowHtmlCache = rowsHtml.slice();
+  const virtResumen = ensureDashResumenVirtualTable();
+  if (virtResumen) virtResumen.mount(rowsHtml, resumenFp);
+  else tbody.innerHTML = rowsHtml.join("");
+
+  end({ rows: rows.length, virtualized: Boolean(virtResumen) });
+}
+
+function applyDashboardTableViewUi() {
+  const isResumen = dashboardTableView === "resumen";
+  const detalleEl = document.getElementById("dashPlatViewDetalle");
+  const resumenEl = document.getElementById("dashPlatViewResumen");
+  const btnDet = document.getElementById("dashTableViewDetalle");
+  const btnRes = document.getElementById("dashTableViewResumen");
+
+  detalleEl?.classList.toggle("hidden", isResumen);
+  resumenEl?.classList.toggle("hidden", !isResumen);
+
+  if (btnDet instanceof HTMLButtonElement) {
+    btnDet.classList.toggle("dash-table-view-btn--active", !isResumen);
+    btnDet.setAttribute("aria-selected", !isResumen ? "true" : "false");
+  }
+  if (btnRes instanceof HTMLButtonElement) {
+    btnRes.classList.toggle("dash-table-view-btn--active", isResumen);
+    btnRes.setAttribute("aria-selected", isResumen ? "true" : "false");
+  }
+  applyDashboardPlatTableViewControlsState();
+}
+
+/** Alterna vista Detalle / Resumen de la tabla Plataforma (sin tocar KPIs ni filtros). */
+function renderDashboardTableView() {
+  if (getDashboardEffectiveSubtab() !== "plataforma") return;
+  applyDashboardTableViewUi();
+  if (dashboardTableView === "detalle") {
+    renderDashboardTabla();
+    if (hasAnyDataLoaded()) {
+      renderDashboardChart(getDashboardKpiDataset());
+    }
+  } else {
+    dashboardResumenRows = buildDashboardResumenRows();
+    logDashboardResumenRowsValidation(dashboardResumenRows);
+    renderDashboardResumenTabla();
+  }
+}
+
 function renderDashboardTabla() {
   const end = perfMeasureStart("render:DashboardTablaPlataforma", "table");
   renderDashboardTableFooter();
@@ -21658,9 +22329,11 @@ function renderDashboardFromFiltersNow() {
   if (vis.plataforma && eff === "plataforma") {
     renderDashboardKpis();
     renderDashboardGastoDiffBanner();
-    renderDashboardTabla();
-    renderDashboardChart(getDashboardKpiDataset());
-    renderDashboardDemographicGeoPanels();
+    renderDashboardTableView();
+    if (!isDashboardPlatTableViewResumen()) {
+      renderDashboardChart(getDashboardKpiDataset());
+      renderDashboardDemographicGeoPanels();
+    }
   } else if (vis.plataforma) {
     const kpiEl = document.getElementById("dashboardKpis");
     if (kpiEl) kpiEl.innerHTML = "";
@@ -21684,6 +22357,7 @@ function renderDashboardFromFiltersNow() {
   }
 
   mostrarFechaActualizacion();
+  applyDashboardPlatTableViewControlsState();
   perfEndInteraction({
     subtab: eff,
     crmLeads: crmLeads.length,
@@ -21713,8 +22387,10 @@ function renderDashboardKpisChartOnly() {
   if (vis.plataforma && eff === "plataforma") {
     renderDashboardKpis();
     renderDashboardGastoDiffBanner();
-    renderDashboardChart(getDashboardKpiDataset());
-    renderDashboardDemographicGeoPanels();
+    if (!isDashboardPlatTableViewResumen()) {
+      renderDashboardChart(getDashboardKpiDataset());
+      renderDashboardDemographicGeoPanels();
+    }
   }
   if (vis.crm && eff === "crm") {
     dashCrmPerfResetLeadScanCount();
@@ -21733,8 +22409,10 @@ function renderDashboardChartsOnly() {
   if (vis.plataforma && eff === "plataforma") {
     renderDashboardKpis();
     renderDashboardGastoDiffBanner();
-    renderDashboardChart(getDashboardKpiDataset());
-    renderDashboardDemographicGeoPanels();
+    if (!isDashboardPlatTableViewResumen()) {
+      renderDashboardChart(getDashboardKpiDataset());
+      renderDashboardDemographicGeoPanels();
+    }
   }
   if (vis.crm && eff === "crm") {
     dashCrmPerfResetLeadScanCount();
@@ -21795,6 +22473,16 @@ function initDashboardModule() {
   document.getElementById("closeDashEndingSoonModalTop")?.addEventListener("click", () => closeDashEndingSoonModal());
   document.getElementById("dashGastoDiffExportBtn")?.addEventListener("click", () => exportDashGastoDiffToExcel());
   document.getElementById("dashExportTableBtn")?.addEventListener("click", () => exportDashboardTableToExcel());
+  document.getElementById("dashTableViewDetalle")?.addEventListener("click", () => {
+    if (dashboardTableView === "detalle") return;
+    dashboardTableView = "detalle";
+    renderDashboardTableView();
+  });
+  document.getElementById("dashTableViewResumen")?.addEventListener("click", () => {
+    if (dashboardTableView === "resumen") return;
+    dashboardTableView = "resumen";
+    renderDashboardTableView();
+  });
   document.getElementById("dashGastoDiffModal")?.addEventListener("click", (e) => {
     if (e.target instanceof HTMLElement && e.target.id === "dashGastoDiffModal") closeDashGastoDiffModal();
   });
@@ -21831,6 +22519,10 @@ function initDashboardModule() {
     const seg = e.target instanceof HTMLElement ? e.target.closest("[data-dash-seg]") : null;
     if (seg) {
       const field = seg.getAttribute("data-dash-seg") || "";
+      if (isDashboardPlatTableViewResumen() && (field === "tracking" || field === "plataforma" || field === "estado")) {
+        return;
+      }
+      if (seg instanceof HTMLButtonElement && seg.disabled) return;
       const val = seg.getAttribute("data-dash-val") || "";
       if (!field) return;
       estadoFiltrosDashboard[field] = estadoFiltrosDashboard[field] === val ? "" : val;
@@ -21849,6 +22541,7 @@ function initDashboardModule() {
     }
     const tr = e.target instanceof HTMLElement ? e.target.closest("#dashTbody tr[data-dash-row]") : null;
     if (tr) {
+      if (isDashboardPlatTableViewResumen()) return;
       const p = tr.getAttribute("data-dash-row") || "";
       programaSeleccionado = programaSeleccionado === p ? null : p;
       syncDashboardTableRowDomSelectionHighlight();
@@ -21857,6 +22550,7 @@ function initDashboardModule() {
   });
 
   document.getElementById("dashFiltroMes")?.addEventListener("change", (e) => {
+    if (isDashboardPlatTableViewResumen()) return;
     estadoFiltrosDashboard.mes = e.target.value || "";
     perfTrackFilterChange("mes", estadoFiltrosDashboard.mes, "dashboard");
     if (!isDashboardComercialCrmActiveView()) programaSeleccionado = null;
@@ -21878,6 +22572,7 @@ function initDashboardModule() {
     renderDashboardFromFilters();
   });
   document.getElementById("dashFechaInicio")?.addEventListener("change", (e) => {
+    if (isDashboardPlatTableViewResumen()) return;
     estadoFiltrosDashboard.fechaInicio = e.target instanceof HTMLInputElement ? e.target.value : "";
     perfTrackFilterChange("fechaInicio", estadoFiltrosDashboard.fechaInicio, "dashboard");
     validateDashboardRangoFechas({ silent: false });
@@ -21890,6 +22585,7 @@ function initDashboardModule() {
     }
   });
   document.getElementById("dashFechaFin")?.addEventListener("change", (e) => {
+    if (isDashboardPlatTableViewResumen()) return;
     estadoFiltrosDashboard.fechaFin = e.target instanceof HTMLInputElement ? e.target.value : "";
     perfTrackFilterChange("fechaFin", estadoFiltrosDashboard.fechaFin, "dashboard");
     validateDashboardRangoFechas({ silent: false });
@@ -21906,7 +22602,7 @@ function initDashboardModule() {
   const runDashProgramaSearchRender = () => {
     requestAnimationFrame(() => {
       try {
-        renderDashboardTabla();
+        renderDashboardTableView();
         if (getDashboardSubtabVisibility().crm && getDashboardEffectiveSubtab() === "crm") {
           renderDashboardCrmTabla();
         }
@@ -21967,6 +22663,7 @@ function initDashboardModule() {
     const crmScroll = document.querySelector("#dashShellCrm .dash-table-scroll.table-container");
     const virtRo = new ResizeObserver(() => {
       dashPlatVirtualTable?.refreshLayout?.();
+      dashResumenVirtualTable?.refreshLayout?.();
       dashCrmVirtualTable?.refreshLayout?.();
       planningVirtualTable?.refreshLayout?.();
       relacionesVirtualTable?.refreshLayout?.();
@@ -22023,6 +22720,7 @@ function initDashboardModule() {
   });
   initDashboardCrmOperTabs();
   initDashboardCrmCampaignUiV2();
+  initDashboardTipoCambioControl();
   const crmChartResizeHost = document.getElementById("dashCrmPanelCompare")?.querySelector(".full-width-chart");
   if (crmChartResizeHost && typeof ResizeObserver !== "undefined") {
     let dashCrmRoTimer = null;
@@ -22188,6 +22886,7 @@ const CAMPATRACK_LS_PRESERVE_ON_LOGIN = [
   "programas",
   LS_CAMPATRACK_TEAMS,
   LS_DASH_MOSTRAR_META_GLOBAL,
+  LS_DASH_TIPO_CAMBIO,
   LS_ADS_REPORT_THUMBS
 ];
 
@@ -22720,6 +23419,7 @@ function applyDashboardShellVisibilityForSubtab() {
   document.getElementById("dashShellCrm")?.classList.toggle("hidden", !crmOn);
   document.getElementById("dashboardKpis")?.classList.toggle("hidden", crmOn);
   document.getElementById("dashboardKpisCrmHolder")?.classList.toggle("hidden", !crmOn);
+  if (!crmOn) applyDashboardTableViewUi();
   const tabP = document.getElementById("dashTabPlataforma");
   const tabC = document.getElementById("dashTabComercialCrm");
   if (tabP instanceof HTMLButtonElement) {

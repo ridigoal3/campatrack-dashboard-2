@@ -220,8 +220,8 @@
       </div>
     </div>
     <span id="appTeamHeaderBadge" class="app-team-header-badge hidden" aria-live="polite"></span>
-    <span id="dashCrmActualizadoHeader" class="fecha-badge fecha-badge--header hidden" aria-live="polite" role="status"></span>
     <div class="campatrack-top-header-end">
+      <span id="dashCrmActualizadoHeader" class="fecha-badge fecha-badge--header hidden" aria-live="polite" role="status"></span>
       <div class="app-draft-toolbar" role="group" aria-label="Borrador y publicación">
         <button type="button" id="appDraftDiscardBtn" class="app-draft-btn app-draft-btn--ghost" disabled aria-disabled="true">
           Descartar borradores
@@ -1540,6 +1540,13 @@
             <span class="dash-toolbar-label segmentador-header">Estado</span>
             <div id="dashSegEstado" class="dash-seg-btns"></div>
           </div>
+          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-tipo-cambio" aria-label="Tipo de cambio">
+            <span class="dash-toolbar-label segmentador-header">TIPO CAMBIO</span>
+            <div id="dashTipoCambioBox" class="dash-tipo-cambio-box" tabindex="0" role="textbox" aria-readonly="true" aria-label="Tipo de cambio USD a soles. Doble clic para editar.">
+              <span id="dashTipoCambioDisplay" class="dash-tipo-cambio-display">3.50</span>
+              <input id="dashTipoCambioInput" class="dash-tipo-cambio-input hidden" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Editar tipo de cambio" />
+            </div>
+          </div>
           <div id="dashCrmOperCardsWrap" class="dash-crm-oper-kpis hidden" role="tablist" aria-label="Vista operativa CRM">
             <button type="button" class="dash-crm-oper-kpi dash-crm-oper-kpi--active" data-crm-oper-tab="gestionados" role="tab" aria-selected="true">
               <span class="dash-crm-oper-kpi-label">Gestionados</span>
@@ -1583,8 +1590,11 @@
         </div>
         <div class="dash-toolbar-end-group">
           <div class="dash-toolbar-item dash-toolbar-periodo-crm" id="dashCrmV2PeriodoSlot" aria-label="Periodo"></div>
-          <div class="dash-toolbar-item dash-toolbar-actualizado">
-            <div id="fecha-actualizacion" class="fecha-badge fecha-badge--dash-toolbar hidden" aria-live="polite" role="status"></div>
+          <div class="dash-toolbar-item dash-toolbar-table-view" id="dashTableViewSwitcher" role="presentation">
+            <div class="dash-table-view-toggle" role="tablist" aria-label="Vista de tabla Plataforma">
+              <button type="button" id="dashTableViewDetalle" class="dash-table-view-btn dash-table-view-btn--active" role="tab" aria-selected="true">Detalle</button>
+              <button type="button" id="dashTableViewResumen" class="dash-table-view-btn" role="tab" aria-selected="false">Resumen</button>
+            </div>
           </div>
           <div class="dash-toolbar-item dash-toolbar-export">
             <button type="button" id="dashExportTableBtn" class="dash-export-btn dash-export-btn--toolbar-icon" aria-label="Exportar tabla del dashboard a Excel" title="Exportar Excel"><span class="dash-export-excel-x" aria-hidden="true">X</span></button>
@@ -1596,6 +1606,7 @@
 
       <div class="table-card dash-table-hero dash-table-primary">
         <div class="dash-table-scroll table-container">
+          <div id="dashPlatViewDetalle" class="dash-plat-table-view dash-plat-table-view--detalle">
           <table class="dash-table data-table">
             <thead>
               <tr class="dash-thead-row-groups">
@@ -1681,6 +1692,79 @@
             <tbody id="dashTbody"></tbody>
             <tfoot id="dashTfoot"></tfoot>
           </table>
+          </div>
+          <div id="dashPlatViewResumen" class="dash-plat-table-view dash-plat-table-view--resumen hidden" aria-label="Vista resumen consolidado">
+            <table class="dash-table data-table dash-table-resumen">
+              <colgroup>
+                <col class="dash-res-col-estado" />
+                <col class="dash-res-col-tipo" />
+                <col class="dash-res-col-q" />
+                <col class="dash-res-col-programa" />
+                <col class="dash-res-col-gasto" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-crm-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+                <col class="dash-res-col-num" />
+              </colgroup>
+              <thead>
+                <tr class="dash-thead-row-groups">
+                  <th class="dash-estado-col dash-th-sticky-corner dash-res-col-estado" rowspan="2" aria-label="Estado de campaña" title="Estado">Est.</th>
+                  <th class="tipo-col dash-th-sticky-corner" rowspan="2">Tipo</th>
+                  <th class="dash-int-col dash-th-sticky-corner dash-res-col-q" rowspan="2" title="Intake">Q</th>
+                  <th id="dashResumenProgramaHead" class="programa-col dash-th-sticky-corner dash-grp-sticky-sep dash-res-col-programa" rowspan="2">Programa</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-gasto dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-gasto" rowspan="2">Gasto</th>
+                  <th id="dashResumenHeaderLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="7">LEADS</th>
+                  <th id="dashResumenHeaderCont" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="3">CONTACTADOS</th>
+                  <th id="dashResumenHeaderInt" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="3">INTERESADOS</th>
+                  <th id="dashResumenHeaderPost" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="3">POSTULANTES</th>
+                  <th id="dashResumenHeaderMat" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="3">MATRICULADOS</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-fin dash-grp-col-first dash-res-col-num" rowspan="2">Tasa Mat.</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-fin dash-res-col-num" rowspan="2">CPA$</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-fin dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num" rowspan="2">CPA S/</th>
+                </tr>
+                <tr class="dash-thead-row-columns">
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-first dash-res-col-num">Registros</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-res-col-num">CPL$</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-res-col-num">M. Leads</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-res-col-num">Leads</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-res-col-num">Dif.</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-res-col-num">Tasa Leads %</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-leads dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num">CPL</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-cont dash-grp-col-first dash-res-col-crm-num">META</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-cont dash-res-col-crm-num">REAL</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-cont dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num">DIF.</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-first dash-res-col-crm-num">META</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-res-col-crm-num">REAL</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num">DIF.</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-first dash-res-col-crm-num">META</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-res-col-crm-num">REAL</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num">DIF.</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-first dash-res-col-crm-num">META</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-res-col-crm-num">REAL</th>
+                  <th class="dash-th-sub dash-grp-col dash-grp-col-mat dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-crm-num">DIF.</th>
+                </tr>
+              </thead>
+              <tbody id="dashResumenTbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
