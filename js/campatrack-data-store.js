@@ -121,6 +121,43 @@ export function partitionRowsByMonth(rows) {
   return map;
 }
 
+/** @param {string[]} keys claves "YYYY/MM" */
+function sortMetaMonthKeysChrono(keys) {
+  return [...new Set((keys || []).map((k) => String(k).trim()).filter(Boolean))].sort((a, b) => {
+    const [ay, am] = String(a).split("/").map(Number);
+    const [by, bm] = String(b).split("/").map(Number);
+    if (ay !== by) return ay - by;
+    return am - bm;
+  });
+}
+
+/**
+ * Une meses del manifest remoto con los publicados en esta sesión (sin eliminar remotos).
+ * @param {string[]} remoteKeys meses ya indexados en GitHub
+ * @param {string[]} publishedKeys meses con shard a escribir desde memoria
+ * @returns {string[]}
+ */
+export function mergeMetaManifestKeys(remoteKeys, publishedKeys) {
+  const remote = Array.isArray(remoteKeys) ? remoteKeys : [];
+  const published = Array.isArray(publishedKeys) ? publishedKeys : [];
+  return sortMetaMonthKeysChrono([...remote, ...published]);
+}
+
+/** @returns {Promise<string[]>} meses en data_manifest.meta del data.json remoto */
+async function fetchRemoteMetaManifestFromGithub() {
+  try {
+    const core = await readGithubJsonFile(MAIN_JSON_PATH);
+    if (!core || typeof core !== "object") return [];
+    const manifest = core.data_manifest;
+    if (!manifest || typeof manifest !== "object") return [];
+    const meta = manifest.meta;
+    return Array.isArray(meta) ? meta.map((k) => String(k).trim()).filter(Boolean) : [];
+  } catch (e) {
+    console.warn("[data-store] No se pudo leer manifest.meta remoto:", e);
+    return [];
+  }
+}
+
 /**
  * Separa bundle monolítico en núcleo + shards mensuales.
  * @param {object} bundle
@@ -227,8 +264,9 @@ export function planCrmShardWrites(monthKey, rows) {
 }
 
 /** Índice mínimo de backup (solo metadatos; evita límite 1 MB de GitHub). */
-function buildSlimGithubBackup(bundle, split) {
+function buildSlimGithubBackup(bundle, split, mergedMetaManifest = null) {
   const { metaShards, crmShards, manifest } = split;
+  const publishedMetaMonths = sortMetaMonthKeysChrono([...metaShards.keys()]);
   return {
     _campatrack_backup: {
       version: 2,
@@ -238,7 +276,8 @@ function buildSlimGithubBackup(bundle, split) {
         data_general: Array.isArray(bundle.data_general) ? bundle.data_general.length : 0,
         relaciones_crm: Array.isArray(bundle.relaciones_crm) ? bundle.relaciones_crm.length : 0
       },
-      meta_months: [...metaShards.keys()].sort(),
+      meta_months: publishedMetaMonths,
+      meta_months_manifest: mergedMetaManifest ?? publishedMetaMonths,
       crm_months: manifest?.crm ?? [...crmShards.keys()].sort(),
       note: "Índice de backup; datos en data.json, meta/*, crm/*, extras/*"
     }
@@ -579,12 +618,21 @@ export async function publishModularBundleToGithub(bundle, usernameLabel) {
   crmDebugBundleMeta(bundle, "github publish (entrada bundle completo)");
   const split = splitBundleForModularStorage(bundle);
   const { core, metaShards, crmShards } = split;
+  const publishedMetaMonths = sortMetaMonthKeysChrono([...metaShards.keys()]);
+  const remoteMetaManifest = await fetchRemoteMetaManifestFromGithub();
+  const mergedMetaManifest = mergeMetaManifestKeys(remoteMetaManifest, publishedMetaMonths);
   crmDebugLog("github publish (split modular)", {
     origen: "publishModularBundleToGithub",
     core_crm_leads_inline: Array.isArray(core.crm_leads) ? core.crm_leads.length : 0,
     crm_shard_months: Array.from(crmShards.keys()),
     crm_rows_total: Array.isArray(bundle.crm_leads) ? bundle.crm_leads.length : 0,
     crm_rows_en_shards: [...crmShards.values()].reduce((n, rows) => n + (rows?.length || 0), 0)
+  });
+  crmDebugLog("github publish (meta manifest)", {
+    origen: "publishModularBundleToGithub",
+    remote_meta_months: remoteMetaManifest,
+    published_meta_months: publishedMetaMonths,
+    merged_meta_months: mergedMetaManifest
   });
   const safeUser = String(usernameLabel || "user").replace(/[^a-zA-Z0-9_-]/g, "_");
   const pad = (n) => String(n).padStart(2, "0");
@@ -595,7 +643,7 @@ export async function publishModularBundleToGithub(bundle, usernameLabel) {
 
   const backupRes = await upsertGithubJsonFile(
     backupPath,
-    buildSlimGithubBackup(bundle, split),
+    buildSlimGithubBackup(bundle, split, mergedMetaManifest),
     `CampaTrack backup ${stamp}`
   );
   if (!backupRes.ok) {
@@ -636,6 +684,7 @@ export async function publishModularBundleToGithub(bundle, usernameLabel) {
   errors.push(...extrasResult.errors);
 
   core.data_manifest = core.data_manifest && typeof core.data_manifest === "object" ? core.data_manifest : { meta: [], crm: [] };
+  core.data_manifest.meta = mergedMetaManifest;
   core.data_manifest.crm = crmManifestKeys.sort();
   core.data_manifest.compression = {
     version: COMPRESSION_VERSION,
@@ -660,6 +709,7 @@ export async function publishModularBundleToGithub(bundle, usernameLabel) {
       ? coreForGithub.campatrack_users_db.length
       : 0,
     data_manifest_crm: coreForGithub.data_manifest?.crm ?? null,
+    data_manifest_meta: coreForGithub.data_manifest?.meta ?? null,
     github_partial_errors: errors.length ? errors : undefined
   });
 

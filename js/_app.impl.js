@@ -105,6 +105,15 @@ import {
   createDashVirtualTbody
 } from "./campatrack-dashboard-perf.js";
 import { createVirtualTbody } from "./campatrack-virtual-table.js";
+import {
+  CRM_IMPORT_FORMAT_V2,
+  crmMergeV2ExtensionFields,
+  crmHydrateV2ExtensionFields,
+  crmSerializeV2ExtensionFields,
+  crmRowsFromSheetMatrixV2,
+  detectCrmImportFormat,
+  validateCrmImportFormatColumns
+} from "./crm-import-formats.js";
 /* PERF_AUDIT — import temporal; eliminar al concluir auditoría */
 import {
   perfAuditEnabled,
@@ -9718,7 +9727,8 @@ function serializeCrmLeads(list) {
         ? ""
         : Number.isFinite(Number(r.crmTiempoTranscurridoMin))
           ? Number(r.crmTiempoTranscurridoMin)
-          : String(r.crmTiempoTranscurridoMin).trim()
+          : String(r.crmTiempoTranscurridoMin).trim(),
+    ...crmSerializeV2ExtensionFields(r)
   }));
 }
 
@@ -9762,8 +9772,10 @@ function deserializeCrmLeads(list) {
         ...r,
         nombreCampania: String(r?.nombreCampania ?? r?.nombre ?? "").trim()
       });
+      const v2Ext = crmHydrateV2ExtensionFields(r, parseFechaData, crmNormalizeCalendarDateLocalNoon);
       const rowOut = {
         ...r,
+        ...v2Ext,
         _id: String(r?._id || generateDataRowId()),
         nombreCampania: merged.nombreCampania,
         crmTipo: merged.tipo,
@@ -13377,7 +13389,8 @@ function crmRowsFromSheetMatrix(matrix, options = {}) {
       esMatriculado,
       intervaloGestion,
       fuenteCrm: fuenteCrmRaw,
-      teamId
+      teamId,
+      crmImportFormat: "legacy"
     });
   }
 
@@ -13385,6 +13398,8 @@ function crmRowsFromSheetMatrix(matrix, options = {}) {
   return {
     rows: out,
     stats: {
+      format: "legacy",
+      formatLabel: String(options.formatLabel || "CRM legacy (Flujo / Fecha ingreso)"),
       totalFilasExcelCuerpo,
       totalFilasLeidas,
       filasValidas: out.length,
@@ -13408,21 +13423,56 @@ function crmRowsFromSheetMatrix(matrix, options = {}) {
 
 async function parseCrmUploadFile(file, options = {}) {
   const name = String(file?.name || "").toLowerCase();
+  let matrix;
   if (name.endsWith(".csv") || name.endsWith(".txt")) {
     const text = await file.text();
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
-    const matrix = lines.map((l) => l.split(/[,;\t]/).map((c) => c.trim().replace(/^"|"$/g, "")));
-    return crmRowsFromSheetMatrix(matrix, options);
-  }
-  if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+    matrix = lines.map((l) => l.split(/[,;\t]/).map((c) => c.trim().replace(/^"|"$/g, "")));
+  } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
     if (typeof XLSX === "undefined") throw new Error("Lector XLSX no disponible.");
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array", cellDates: true });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-    return crmRowsFromSheetMatrix(matrix, options);
+    matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+  } else {
+    throw new Error("Formato no soportado. Usa CSV o XLSX.");
   }
-  throw new Error("Formato no soportado. Usa CSV o XLSX.");
+
+  const detected = detectCrmImportFormat(matrix);
+  if (detected.format === CRM_IMPORT_FORMAT_V2) {
+    const validation = validateCrmImportFormatColumns(detected.format, detected.norms);
+    if (!validation.ok) {
+      throw new Error(
+        `Formato CRM v2 detectado. Faltan columnas obligatorias: ${validation.missing.join(", ")}.`
+      );
+    }
+    return crmRowsFromSheetMatrixV2(
+      matrix,
+      { ...options, headerIdx: detected.headerIdx, formatLabel: detected.label },
+      crmV2ImportDeps()
+    );
+  }
+
+  return crmRowsFromSheetMatrix(matrix, { ...options, formatLabel: detected.label });
+}
+
+/** Dependencias del parser v2 (reutiliza helpers legacy sin duplicar lógica de negocio). */
+function crmV2ImportDeps() {
+  return {
+    crmNormalizeIntakeCellValue,
+    crmNormalizedTrafficFromFuenteVF,
+    crmComposeDisplayDimensional,
+    crmParseLeadCountFromCell,
+    crmParseBoolish,
+    crmParseTiempoMinutosCell,
+    crmFormatTimeCellToHhMm,
+    crmNormalizeCalendarDateLocalNoon,
+    crmDateFromMonthKeyDay1,
+    crmParseDateFromCell,
+    crmCampaignKeyFromRow,
+    generateDataRowId,
+    getCurrentTeamId
+  };
 }
 
 async function prepareCrmImportRowsFromFile(file, monthSel) {
@@ -13497,6 +13547,7 @@ function consolidateCrmIncomingByUpsertKey(rows) {
       if (inc.crmTiempoTranscurridoMin != null && inc.crmTiempoTranscurridoMin !== "")
         cur.crmTiempoTranscurridoMin = inc.crmTiempoTranscurridoMin;
     }
+    crmMergeV2ExtensionFields(cur, inc);
   }
   return Array.from(map.values());
 }
@@ -13539,8 +13590,13 @@ function mergeCrmLeadsImportUpsert(incomingRows) {
           Number(inc.crmImportSheetRow) > 0 ? inc.crmImportSheetRow : cur.crmImportSheetRow,
         nombreCampania: String(inc.nombreCampania ?? cur.nombreCampania ?? ""),
         fuenteCrm: String(inc.fuenteCrm ?? cur.fuenteCrm ?? ""),
-        crmFlujoRaw: String(inc.crmFlujoRaw ?? cur.crmFlujoRaw ?? "")
+        crmFlujoRaw: String(inc.crmFlujoRaw ?? cur.crmFlujoRaw ?? ""),
+        crmTipo: String(inc.crmTipo ?? cur.crmTipo ?? ""),
+        crmPrograma: String(inc.crmPrograma ?? cur.crmPrograma ?? ""),
+        crmIntake: String(inc.crmIntake ?? cur.crmIntake ?? ""),
+        crmTrafficType: String(inc.crmTrafficType ?? cur.crmTrafficType ?? "")
       };
+      crmMergeV2ExtensionFields(draft[idx], inc);
       updated += 1;
     } else {
       draft.push(inc);
@@ -13584,9 +13640,13 @@ function initCrmImportModule() {
       const parsed = await prepareCrmImportRowsFromFile(file, monthSel);
       const rowsFromFile = parsed.rows || [];
       if (!rowsFromFile.length) {
-        const col = parsed.stats?.columnas?.campania || "Flujo";
+        const formatLabel = String(parsed.stats?.formatLabel || parsed.stats?.format || "CRM");
+        const col =
+          parsed.stats?.format === CRM_IMPORT_FORMAT_V2
+            ? parsed.stats?.columnas?.campana || "Campaña"
+            : parsed.stats?.columnas?.campania || "Flujo";
         showCampatrackToast(
-          `No hay filas válidas para importar. ¿Columna «${col}», intake, FuenteVF reconocible y fecha de ingreso?`,
+          `[${formatLabel}] No hay filas válidas. Revisa «${col}», intake, FuenteVF y fecha (Año/Mes/Día o Fecha ingreso).`,
           "error"
         );
         return;
@@ -13598,7 +13658,10 @@ function initCrmImportModule() {
           ? rowsFromFile.length - consolidatedIncoming.length
           : 0;
       const omitidasParseTotal = Number(st.omitidasParseTotal ?? 0) || 0;
+      const formatLabel = String(st.formatLabel || st.format || "CRM legacy");
       console.info("[CRM import — diagnóstico]", {
+        formatoDetectado: formatLabel,
+        format: st.format ?? "legacy",
         totalFilasExcel: st.totalFilasExcelCuerpo ?? "—",
         filasFilasVaciasSinContarParse: st.diferenciaFilasVaciasVsTotal ?? 0,
         filasDatosNoVaciasExcel: st.totalFilasLeidas ?? rowsFromFile.length,
@@ -13629,7 +13692,7 @@ function initCrmImportModule() {
       const draft = ensureCrmLeadsDraftShape();
       registerUnpublishedDraftMutation();
       showCampatrackToast(
-        `CRM importado: ${merge.inserted} nuevo(s), ${merge.updated} actualizado(s). Total en borrador: ${draft.length}. Usa «Publicar» para guardar.`,
+        `[${formatLabel}] Importado: ${merge.inserted} nuevo(s), ${merge.updated} actualizado(s). Total en borrador: ${draft.length}. Usa «Publicar» para guardar.`,
         "success"
       );
       renderRelacionesEstado();
