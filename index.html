@@ -388,7 +388,7 @@
               <th class="sticky-col-tipo group-header" rowspan="2">Tipo</th>
               <th class="sticky-col-program group-header" rowspan="2">Programa</th>
               <th class="sticky-col-categoria group-header group-end" rowspan="2">Categoría</th>
-              <th class="group-header group-end" colspan="5">METAS PLANNING</th>
+              <th class="group-header group-end" colspan="6">METAS PLANNING</th>
               <th class="group-header group-end" colspan="7">CONFIGURACI�N</th>
               <th class="group-header group-end" colspan="12">DISTRIBUCI�N INVERSI�N</th>
               <th class="group-header group-end" colspan="12">DISTRIBUCI�N LEADS</th>
@@ -396,6 +396,7 @@
             </tr>
             <tr>
               <th class="planning-th-meta-plan">Leads</th>
+              <th class="planning-th-meta-plan">Contac.</th>
               <th class="planning-th-meta-plan">Inte.</th>
               <th class="planning-th-meta-plan">Post</th>
               <th class="planning-th-meta-plan">Matri</th>
@@ -1000,6 +1001,9 @@
           <button type="button" id="crmImportBtn" class="btn-toolbar btn-primary data-saas-btn-primary">
             <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Importar y guardar
           </button>
+          <button type="button" class="btn-toolbar btn-danger data-saas-btn-secondary crm-clear-trigger" aria-label="Limpiar CRM">
+            <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Limpiar CRM
+          </button>
         </div>
 
         <div class="data-filters-panel data-filters-saas">
@@ -1337,6 +1341,9 @@
           </div>
           <div class="rel-filters-bar-actions">
             <button type="button" id="crmRelLimpiarFiltrosBtn" class="btn-toolbar rel-btn-filter-secondary"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Limpiar</button>
+            <button type="button" class="btn-toolbar rel-btn-filter-secondary crm-clear-trigger" aria-label="Limpiar CRM">
+              <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Limpiar CRM
+            </button>
           </div>
         </div>
         <div class="relaciones-layout rel-tri-grid">
@@ -1596,6 +1603,7 @@
                 <th class="tipo-col dash-th-sticky-corner" rowspan="2">Tipo</th>
                 <th class="dash-int-col dash-th-sticky-corner" rowspan="2" title="Intake">Int</th>
                 <th class="dash-plat-col dash-th-sticky-corner" rowspan="2" title="Plataforma">Plat.</th>
+                <th class="dash-trak-col dash-th-sticky-corner" rowspan="2" title="Tracking">Trak</th>
                 <th id="dashProgramaHead" class="programa-col dash-th-sticky-corner dash-grp-sticky-sep" rowspan="2">
                   <span class="dash-programa-head-label">Programa</span>
                   <button id="dashExpandMetaGlobal" type="button" class="btn-expand-meta-floating btn-toggle-meta" aria-label="Expandir META GLOBAL" style="display:none;">+</button>
@@ -1605,9 +1613,10 @@
                 <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta" rowspan="2">Días<br>Pauta</th>
                 <th class="dash-th-sub dash-meta-global-col dash-col-separador-right dash-grp-col dash-grp-col-meta dash-grp-col-last dash-grp-sep-right grupo-separador" rowspan="2">Días<br>aun</th>
                 <th id="dashPlatHeaderCrmLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="5">Leads</th>
-                <th id="dashPlatHeaderCrmInt" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Interesados</th>
-                <th id="dashPlatHeaderCrmPost" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Postulantes</th>
-                <th id="dashPlatHeaderCrmMat" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Matriculados</th>
+                <th id="dashPlatHeaderCrmCont" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Contac.</th>
+                <th id="dashPlatHeaderCrmInt" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Inter.</th>
+                <th id="dashPlatHeaderCrmPost" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Post.</th>
+                <th id="dashPlatHeaderCrmMat" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-meta-global-col" colspan="2">Matr.</th>
                 <th id="dashMetaGlobalGroupHead" class="dash-grp-h1 dash-grp-sep-right grupo-separador dash-th-meta-global dash-meta-global-col" colspan="20">
                   <button id="dashToggleMetaGlobal" type="button" class="dash-meta-toggle-btn" aria-label="Colapsar META GLOBAL">−</button>
                   <span id="dashMetaGlobalLabel">META Y AVANCE GENERAL</span>
@@ -1621,12 +1630,14 @@
                 <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads">Leads<br>CRM</th>
                 <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads">%<br>Diferencia</th>
                 <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">% Avance<br>Meta</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-first">Meta</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-first">Meta</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador">Real</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-first">Meta</th>
-                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-last">Real</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-cont dash-grp-col-first dash-th-funnel-sub" title="Meta Contactados">M</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-cont dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-th-funnel-sub" title="Real Contactados">R</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-first dash-th-funnel-sub" title="Meta Interesados">M</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-th-funnel-sub" title="Real Interesados">R</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-first dash-th-funnel-sub" title="Meta Postulantes">M</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-th-funnel-sub" title="Real Postulantes">R</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-first dash-th-funnel-sub" title="Meta Matriculados">M</th>
+                <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-mat dash-grp-col-last dash-th-funnel-sub" title="Real Matriculados">R</th>
                 <th class="dash-th-sub dash-meta-global-col dash-col-separador-left dash-grp-col dash-grp-col-meta dash-grp-col-first">Meta<br>Gasto<br>Total</th>
                 <th class="dash-th-sub dash-meta-global-col dash-grp-col dash-grp-col-meta">Meta<br>Gasto<br>Hoy</th>
                 <th class="dash-th-sub dash-meta-global-col dash-th-real-metric dash-grp-col dash-grp-col-meta">Gasto<br>Real</th>
@@ -2464,6 +2475,34 @@
       <div class="app-dialog-actions">
         <button type="button" id="catalogAdminModalCancel" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
         <button type="button" id="catalogAdminModalOk" class="app-dialog-btn app-dialog-btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="crmClearModalOverlay" class="app-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="crmClearModalTitle">
+    <div class="app-dialog app-dialog--wide app-dialog-crm-clear" role="document">
+      <h3 id="crmClearModalTitle" class="app-dialog-heading">¿Deseas eliminar toda la información del módulo CRM?</h3>
+      <p class="app-dialog-message">Esta acción eliminará completamente:</p>
+      <ul class="crm-clear-modal-list crm-clear-modal-list--remove">
+        <li>Todos los Leads CRM importados.</li>
+        <li>Todas las Campañas únicas CRM.</li>
+        <li>Todas las Relaciones CRM.</li>
+        <li>Todos los índices y estructuras derivadas.</li>
+        <li>Todos los borradores relacionados.</li>
+        <li>Toda la información publicada del CRM en GitHub.</li>
+      </ul>
+      <p class="app-dialog-message">NO eliminará:</p>
+      <ul class="crm-clear-modal-list crm-clear-modal-list--keep">
+        <li>Planning</li>
+        <li>META</li>
+        <li>Bitácora</li>
+        <li>Configuración</li>
+        <li>Usuarios</li>
+      </ul>
+      <p class="app-dialog-warning">Esta acción no se puede deshacer.</p>
+      <div class="app-dialog-actions">
+        <button type="button" id="crmClearCancelBtn" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+        <button type="button" id="crmClearConfirmBtn" class="app-dialog-btn app-dialog-btn-primary app-dialog-btn-danger">Eliminar CRM</button>
       </div>
     </div>
   </div>

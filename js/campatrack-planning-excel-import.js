@@ -11,8 +11,29 @@ import {
 
 export const PLANNING_IMPORT_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-/** Formato actual: metas + Categoría + distribuciones (38 columnas). */
+/** Formato actual: metas (incl. Contactados) + Categoría + distribuciones (39 columnas). */
 export const PLANNING_IMPORT_COL = {
+  ID: 0,
+  TIPO: 1,
+  PROGRAMA: 2,
+  CATEGORIA: 3,
+  META_LEADS: 4,
+  META_CONTACTADOS: 5,
+  META_INTERESADOS: 6,
+  META_POSTULANTES: 7,
+  META_MATRICULADOS: 8,
+  META_CPL: 9,
+  INTAKE: 10,
+  INICIO: 11,
+  FIN: 12,
+  PLATAFORMA: 13,
+  TRACKING: 14,
+  INV_START: 15,
+  LEADS_START: 27
+};
+
+/** Formato con Categoría sin columna Contactados (38 columnas, export legacy). */
+export const PLANNING_IMPORT_COL_NO_CONTACTADOS = {
   ID: 0,
   TIPO: 1,
   PROGRAMA: 2,
@@ -31,8 +52,28 @@ export const PLANNING_IMPORT_COL = {
   LEADS_START: 26
 };
 
-/** Formato sin columna Categoría (37 columnas, export legacy). */
+/** Formato sin columna Categoría (con Contactados). */
 export const PLANNING_IMPORT_COL_NO_CATEGORIA = {
+  ID: 0,
+  TIPO: 1,
+  PROGRAMA: 2,
+  META_LEADS: 3,
+  META_CONTACTADOS: 4,
+  META_INTERESADOS: 5,
+  META_POSTULANTES: 6,
+  META_MATRICULADOS: 7,
+  META_CPL: 8,
+  INTAKE: 9,
+  INICIO: 10,
+  FIN: 11,
+  PLATAFORMA: 12,
+  TRACKING: 13,
+  INV_START: 14,
+  LEADS_START: 26
+};
+
+/** Formato sin columna Categoría ni Contactados (37 columnas, export legacy). */
+export const PLANNING_IMPORT_COL_NO_CATEGORIA_NO_CONTACTADOS = {
   ID: 0,
   TIPO: 1,
   PROGRAMA: 2,
@@ -76,6 +117,19 @@ export const PLANNING_IMPORT_MIN_COLS = PLANNING_IMPORT_COL.LEADS_START + 12;
 
 const MONTHS_EN_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+function planningImportHeaderNorm(s) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function planningImportMetaFollowsContactados(headerRow, metaLeadsCol) {
+  const label = planningImportHeaderNorm(headerRow[metaLeadsCol + 1]);
+  return label === "contactados" || label.startsWith("contact");
+}
+
 export function normalizePlanningImportCell(v) {
   if (v == null) return "";
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
@@ -111,18 +165,23 @@ export function resolvePlanningImportColumnMap(headerRow) {
   if (col13Legacy === "presupuesto") {
     return { ...PLANNING_IMPORT_COL_LEGACY, _legacy: true, _hasCategoria: false };
   }
-  const col3 = String(h[3] || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  const col3 = planningImportHeaderNorm(h[3]);
   if (col3 === "categoria" || col3 === "categoría") {
-    return { ...PLANNING_IMPORT_COL, _legacy: false, _hasCategoria: true };
+    const hasContactados = planningImportMetaFollowsContactados(h, PLANNING_IMPORT_COL.META_LEADS);
+    return hasContactados
+      ? { ...PLANNING_IMPORT_COL, _legacy: false, _hasCategoria: true }
+      : { ...PLANNING_IMPORT_COL_NO_CONTACTADOS, _legacy: false, _hasCategoria: true };
   }
   if (col3 === "leads") {
-    return { ...PLANNING_IMPORT_COL_NO_CATEGORIA, _legacy: false, _hasCategoria: false };
+    const hasContactados = planningImportMetaFollowsContactados(h, PLANNING_IMPORT_COL_NO_CATEGORIA.META_LEADS);
+    return hasContactados
+      ? { ...PLANNING_IMPORT_COL_NO_CATEGORIA, _legacy: false, _hasCategoria: false }
+      : { ...PLANNING_IMPORT_COL_NO_CATEGORIA_NO_CONTACTADOS, _legacy: false, _hasCategoria: false };
   }
-  return { ...PLANNING_IMPORT_COL, _legacy: false, _hasCategoria: true };
+  const hasContactados = planningImportMetaFollowsContactados(h, PLANNING_IMPORT_COL.META_LEADS);
+  return hasContactados
+    ? { ...PLANNING_IMPORT_COL, _legacy: false, _hasCategoria: true }
+    : { ...PLANNING_IMPORT_COL_NO_CONTACTADOS, _legacy: false, _hasCategoria: true };
 }
 
 /**
@@ -190,9 +249,7 @@ export function parsePlanningExcelMatrix(aoa) {
   const colMap = resolvePlanningImportColumnMap(header);
   const minCols = colMap._legacy
     ? PLANNING_IMPORT_COL_LEGACY.LEADS_START + 12
-    : colMap._hasCategoria
-      ? PLANNING_IMPORT_MIN_COLS
-      : PLANNING_IMPORT_COL_NO_CATEGORIA.LEADS_START + 12;
+    : colMap.LEADS_START + 12;
 
   if (String(header[colMap.ID] || "").toUpperCase() !== "ID") {
     errors.push('La primera columna debe ser "ID" (usa un Excel exportado desde Planning).');
@@ -210,6 +267,11 @@ export function parsePlanningExcelMatrix(aoa) {
   if (!colMap._hasCategoria && !colMap._legacy) {
     warnings.push(
       "Formato sin columna Categoría: se inferirá Captación / Informativa / Branding desde tipo, programa y tracking."
+    );
+  }
+  if (!colMap._legacy && colMap.META_CONTACTADOS == null) {
+    warnings.push(
+      "Formato sin columna Contactados: la meta contactados no se importará desde este Excel."
     );
   }
 

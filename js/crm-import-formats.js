@@ -18,6 +18,7 @@ export const CRM_V2_REQUIRED_COLUMNS = [
 
 /** Campos extra persistidos en crm_leads (además de los legacy). */
 export const CRM_LEAD_V2_EXTENSION_KEYS = [
+  "crmCampania",
   "crmImportFormat",
   "crmAnio",
   "crmMes",
@@ -43,12 +44,121 @@ export const CRM_LEAD_V2_EXTENSION_KEYS = [
 ];
 
 export function crmImportNormalizeHeader(h) {
-  return String(h || "")
+  let s = String(h ?? "");
+  if (s.charCodeAt(0) === 0xfeff) s = s.slice(1);
+  s = s
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\u00A0/g, " ")
+    .trim();
+  return s
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+/** Encabezado ya normalizado → forma compacta sin espacios (p. ej. «fuente vf» → «fuentevf»). */
+export function crmImportHeaderCompact(normalizedHeader) {
+  return String(normalizedHeader ?? "").replace(/\s+/g, "");
+}
+
+/** Comparación case-insensitive + trim + sin acentos (para alias de columnas v2). */
+export function crmImportHeaderEquals(normalizedHeader, ...aliases) {
+  const n = String(normalizedHeader ?? "").trim();
+  const compact = crmImportHeaderCompact(n);
+  return aliases.some((alias) => {
+    const a = crmImportNormalizeHeader(alias);
+    return n === a || crmImportHeaderCompact(a) === compact;
+  });
+}
+
+function crmImportV2HeaderScoreFuentevf(n) {
+  if (!n) return 0;
+  if (crmImportHeaderCompact(n) === "fuentevf") return 100;
+  if (n === "fuente vf") return 95;
+  if (n === "fuente") return 40;
+  return 0;
+}
+
+function crmImportV2HeaderScoreIntake(n) {
+  if (!n) return 0;
+  if (n === "intake" || crmImportHeaderCompact(n) === "intake") return 100;
+  return 0;
+}
+
+function crmImportV2HeaderScoreCampana(n) {
+  if (!n) return 0;
+  if (n === "campana" || crmImportHeaderCompact(n) === "campana") return 100;
+  if (n.includes("campana")) return 85;
+  return 0;
+}
+
+const CRM_IMPORT_MONTHS_ES_SHORT = [
+  "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+];
+const CRM_IMPORT_MONTHS_EN_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+const CRM_IMPORT_MONTHS_ES_LONG = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
+  "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
+
+/** Mes CRM v2: número (1–12), abreviatura ES/EN (Ene, Dic, Jan…) o nombre largo (Diciembre). */
+export function crmImportParseMonthNumber(raw) {
+  if (raw == null || raw === "") return NaN;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.getMonth() + 1;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const m = Math.round(raw);
+    return m >= 1 && m <= 12 ? m : NaN;
+  }
+  const s = String(raw).trim();
+  if (!s) return NaN;
+  const n = Number(s.replace(",", "."));
+  if (Number.isFinite(n)) {
+    const m = Math.round(n);
+    return m >= 1 && m <= 12 ? m : NaN;
+  }
+  const norm = s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\./g, "")
+    .trim();
+  const matchList = (list) => {
+    const ix = list.findIndex((label) => {
+      const l = label.toLowerCase();
+      return norm === l || norm.startsWith(l);
+    });
+    return ix >= 0 ? ix + 1 : NaN;
+  };
+  let mo = matchList(CRM_IMPORT_MONTHS_ES_SHORT);
+  if (Number.isFinite(mo)) return mo;
+  mo = matchList(CRM_IMPORT_MONTHS_EN_SHORT);
+  if (Number.isFinite(mo)) return mo;
+  mo = matchList(CRM_IMPORT_MONTHS_ES_LONG);
+  if (Number.isFinite(mo)) return mo;
+  return NaN;
+}
+
+/** Año CRM v2: número o texto numérico (2 dígitos → 2000+). */
+export function crmImportParseYearNumber(raw) {
+  if (raw == null || raw === "") return NaN;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.getFullYear();
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw < 100 ? raw + 2000 : Math.round(raw);
+  const n = Number(String(raw).trim().replace(",", "."));
+  if (!Number.isFinite(n)) return NaN;
+  return n < 100 ? n + 2000 : Math.round(n);
+}
+
+/** Día CRM v2: entero 1–31. */
+export function crmImportParseDayNumber(raw) {
+  if (raw == null || raw === "") return NaN;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.getDate();
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.round(raw);
+  const n = Number(String(raw).trim().replace(",", "."));
+  return Number.isFinite(n) ? Math.round(n) : NaN;
 }
 
 /** @param {string[]} headers raw */
@@ -81,9 +191,10 @@ export function detectCrmImportFormat(matrix) {
     if (norms.some((n) => n === "ano" || n === "anio")) v2 += 100;
     if (norms.some((n) => n === "mes")) v2 += 100;
     if (norms.some((n) => n === "dia" || n === "day")) v2 += 100;
-    if (norms.some((n) => n === "campana" || n.includes("campana"))) v2 += 100;
-    if (norms.some((n) => n === "fuentevf" || n.includes("fuentevf"))) v2 += 80;
-    if (norms.some((n) => n === "intake")) v2 += 80;
+    if (norms.some((n) => n === "campana" || crmImportHeaderCompact(n) === "campana" || n.includes("campana")))
+      v2 += 100;
+    if (norms.some((n) => crmImportV2HeaderScoreFuentevf(n) >= 95)) v2 += 80;
+    if (norms.some((n) => crmImportV2HeaderScoreIntake(n) >= 100)) v2 += 80;
     if (norms.some((n) => n === "etapa")) v2 += 40;
     if (norms.some((n) => n === "segmentacion")) v2 += 40;
     if (norms.some((n) => n === "gestionado")) v2 += 30;
@@ -187,7 +298,7 @@ export function crmDetectColumnMapV2(norms) {
   pick("etapa", ["etapa"]);
   pick("estado", ["estado"]);
   pick("tipo", ["tipo"]);
-  pick("campana", ["campana", (n) => (n === "campana" ? 100 : n.includes("campana") ? 85 : 0)]);
+  pick("campana", [crmImportV2HeaderScoreCampana]);
   pick("segmentacion", ["segmentacion"]);
   pick("cantLlamadas", [(n) => (n === "cant llamadas" ? 100 : n.includes("cant") && n.includes("llamadas") ? 90 : 0)]);
   pick("cantEmail", [(n) => (n === "cant email" ? 100 : n.includes("cant") && n.includes("email") ? 90 : 0)]);
@@ -207,8 +318,8 @@ export function crmDetectColumnMapV2(norms) {
   pick("wsp", ["wsp", "whatsapp"]);
   pick("motivo", ["motivo"]);
   pick("fase", ["fase"]);
-  pick("fuentevf", ["fuentevf", "fuente vf", "fuente"]);
-  pick("intake", ["intake"]);
+  pick("fuentevf", [crmImportV2HeaderScoreFuentevf]);
+  pick("intake", [crmImportV2HeaderScoreIntake]);
   pick("horaIngreso", [(n) => (n === "hora ingreso" ? 100 : n.includes("hora") && n.includes("ingreso") ? 90 : 0)]);
   pick("horaGestion", [(n) => (n.includes("hora") && n.includes("grestion") ? 100 : n.includes("grestion") ? 95 : 0)]);
   pick("lead", ["lead"]);
@@ -284,7 +395,6 @@ export function crmRowsFromSheetMatrixV2(matrix, options = {}, deps = {}) {
   const {
     crmNormalizeIntakeCellValue = (v) => String(v ?? "").trim(),
     crmNormalizedTrafficFromFuenteVF = () => "",
-    crmComposeDisplayDimensional = (...bits) => bits.filter(Boolean).join(" | "),
     crmParseLeadCountFromCell = () => 1,
     crmParseBoolish = () => false,
     crmParseTiempoMinutosCell = (v) => v,
@@ -312,13 +422,10 @@ export function crmRowsFromSheetMatrixV2(matrix, options = {}, deps = {}) {
     const yRaw = cellRaw(row, "ano");
     const mRaw = cellRaw(row, "mes");
     const dRaw = cellRaw(row, "dia");
-    let y = Number(typeof yRaw === "number" ? yRaw : String(yRaw ?? "").replace(",", "."));
-    let mo = Number(typeof mRaw === "number" ? mRaw : String(mRaw ?? "").replace(",", "."));
-    let da = Number(typeof dRaw === "number" ? dRaw : String(dRaw ?? "").replace(",", "."));
+    const y = crmImportParseYearNumber(yRaw);
+    const mo = crmImportParseMonthNumber(mRaw);
+    const da = crmImportParseDayNumber(dRaw);
     if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) return null;
-    if (y < 100) y += 2000;
-    mo = Math.round(mo);
-    da = Math.round(da);
     if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
     const dt = new Date(y, mo - 1, da, 12, 0, 0);
     if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== da) return null;
@@ -364,8 +471,8 @@ export function crmRowsFromSheetMatrixV2(matrix, options = {}, deps = {}) {
 
     const tipo = cellStr(row, "tipo");
     const campana = cellStr(row, "campana");
-    const programa = campana || tipo;
-    if (!programa) {
+    const crmCampania = (campana || tipo).trim();
+    if (!crmCampania) {
       omitidasSinCampania += 1;
       continue;
     }
@@ -410,12 +517,12 @@ export function crmRowsFromSheetMatrixV2(matrix, options = {}, deps = {}) {
 
     const crmTipo = tipo;
     const crmPrograma = campana || tipo;
-    const crmFlujoRaw = tipo && campana ? `${tipo} | ${campana}` : campana || tipo;
-    const nombreCampaniaFinal = crmComposeDisplayDimensional(crmTipo, crmPrograma, intake, crmTrafficType);
+    const crmFlujoRaw = tipo && campana ? `${tipo} | ${campana}` : crmCampania;
 
     const rowObj = {
       _id: generateDataRowId(),
-      nombreCampania: nombreCampaniaFinal,
+      crmCampania,
+      nombreCampania: "",
       crmTipo,
       crmPrograma,
       crmIntake: intake,
@@ -504,6 +611,10 @@ export function crmSerializeV2ExtensionFields(r) {
   for (const k of CRM_LEAD_V2_EXTENSION_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(r || {}, k)) continue;
     const v = r[k];
+    if (k === "crmCampania") {
+      out[k] = v == null ? "" : String(v);
+      continue;
+    }
     if (k === "crmFechaUltimaActividad" && v instanceof Date && !Number.isNaN(v.getTime())) {
       out[k] = `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`;
     } else if (v !== undefined) {
@@ -520,6 +631,10 @@ export function crmHydrateV2ExtensionFields(raw, parseFechaData, normalizeNoon) 
   for (const k of CRM_LEAD_V2_EXTENSION_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(raw || {}, k)) continue;
     let v = raw[k];
+    if (k === "crmCampania") {
+      out[k] = v == null ? "" : String(v);
+      continue;
+    }
     if (k === "crmFechaUltimaActividad" && v != null && v !== "") {
       const dt = v instanceof Date ? v : parseFechaData(v);
       v =

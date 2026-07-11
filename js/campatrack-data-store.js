@@ -27,6 +27,7 @@ import {
   readGithubJsonFile,
   readResponseJsonSafe,
   safeJsonParse,
+  tryDeleteGithubJsonFile,
   upsertGithubJsonFile
 } from "./campatrack-github-io.js";
 
@@ -156,6 +157,46 @@ async function fetchRemoteMetaManifestFromGithub() {
     console.warn("[data-store] No se pudo leer manifest.meta remoto:", e);
     return [];
   }
+}
+
+/** @returns {Promise<string[]>} meses en data_manifest.crm del data.json remoto */
+export async function fetchRemoteCrmManifestFromGithub() {
+  try {
+    const core = await readGithubJsonFile(MAIN_JSON_PATH);
+    if (!core || typeof core !== "object") return [];
+    const manifest = core.data_manifest;
+    if (!manifest || typeof manifest !== "object") return [];
+    const crm = manifest.crm;
+    return Array.isArray(crm) ? crm.map((k) => String(k).trim()).filter(Boolean) : [];
+  } catch (e) {
+    console.warn("[data-store] No se pudo leer manifest.crm remoto:", e);
+    return [];
+  }
+}
+
+/**
+ * Elimina shards CRM huérfanos en GitHub (meses en manifest remoto que ya no están en la publicación).
+ * @param {string[]} publishedKeys claves manifest CRM que deben permanecer
+ * @returns {Promise<string[]>} errores parciales (vacío = OK)
+ */
+export async function purgeObsoleteCrmGithubShards(publishedKeys) {
+  if (!hasClientGithubConfigComplete()) return [];
+  const keep = new Set((Array.isArray(publishedKeys) ? publishedKeys : []).map((k) => String(k).trim()).filter(Boolean));
+  const remote = await fetchRemoteCrmManifestFromGithub();
+  const stale = remote.filter((k) => !keep.has(k));
+  if (!stale.length) return [];
+  const errors = [];
+  for (const key of stale) {
+    const path = campatrackCrmPath(key);
+    const del = await tryDeleteGithubJsonFile(path);
+    if (del.ok) {
+      crmDebugLog("github publish (shard CRM eliminado)", { path, key });
+    } else {
+      console.warn(`[GitHub] No se pudo eliminar ${path}:`, del.error);
+      errors.push(`${path}: ${del.error}`);
+    }
+  }
+  return errors;
 }
 
 /**
@@ -678,6 +719,18 @@ export async function publishModularBundleToGithub(bundle, usernameLabel) {
         errors.push(`crm/${plan.storageKey}: ${wr.error}`);
       }
     }
+  }
+
+  const crmLeadsEmpty = !Array.isArray(bundle.crm_leads) || bundle.crm_leads.length === 0;
+  if (crmLeadsEmpty) {
+    crmDebugLog("github publish (CRM vacío — purgar shards remotos)", {
+      origen: "publishModularBundleToGithub",
+      crm_manifest_publicado: crmManifestKeys
+    });
+  }
+  const crmPurgeErrors = await purgeObsoleteCrmGithubShards(crmManifestKeys);
+  if (crmPurgeErrors.length) {
+    errors.push(...crmPurgeErrors.map((e) => `purge crm: ${e}`));
   }
 
   const extrasResult = await publishOffloadedExtrasToGithub(bundle);

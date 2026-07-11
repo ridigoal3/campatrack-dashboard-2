@@ -4161,7 +4161,7 @@ let formPreviewInvOverride = Array.from({ length: 12 }, () => null);
 let formPreviewLeadsOverride = Array.from({ length: 12 }, () => null);
 /** Candado por fila/mes: si true, no se recalcula presupuesto ni leads del mes. */
 let formPreviewRowLocked = Array.from({ length: 12 }, () => false);
-const META_FIELDS = ["leads", "interesados", "postulantes", "matriculados", "cplMeta"];
+const META_FIELDS = ["leads", "contactados", "interesados", "postulantes", "matriculados", "cplMeta"];
 
 function formatMoney(value) {
   if (value === null || value === undefined || value === "") return "";
@@ -4589,15 +4589,14 @@ function buildRecordRow(record) {
   const row = document.createElement("tr");
   row.setAttribute("data-record-id", rid);
   const metas = record.metas || {};
-  const metaCells = ["leads", "interesados", "postulantes", "matriculados", "cplMeta"]
-    .map((key, idx) => {
+  const metaCells = META_FIELDS.map((key, idx) => {
       const raw = metas[key];
       let cellText = "";
       if (raw !== "" && raw !== undefined && raw !== null) {
         if (key === "cplMeta" && Number.isFinite(Number(raw))) cellText = formatCpl(raw);
         else cellText = String(raw);
       }
-      const cls = idx === 4 ? "group-end" : "";
+      const cls = idx === META_FIELDS.length - 1 ? "group-end" : "";
       return `<td class="${cls} planning-meta-cell planning-cell-dbl-editable" data-meta-key="${key}" data-record-id="${rid}">${t(cellText)}</td>`;
     })
     .join("");
@@ -5042,9 +5041,9 @@ function refreshPlanningStickyColumnWidths() {
   });
 
   const minTipo = 48;
-  const minProg = 88;
+  const minProg = 96;
   const capTipo = 260;
-  const capProg = 520;
+  const capProg = 600;
   const wTipo = Math.min(capTipo, Math.max(minTipo, Math.ceil(maxTipo + 6)));
   const wProg = Math.min(capProg, Math.max(minProg, Math.ceil(maxProg + 8)));
 
@@ -6397,6 +6396,7 @@ campaignForm?.addEventListener("submit", (event) => {
       leads: values.categoria === PLANNING_CATEGORIA_CAPTACION ? values.targetLeads : 0,
       metas: {
         leads: "",
+        contactados: "",
         interesados: "",
         postulantes: "",
         matriculados: "",
@@ -7970,6 +7970,7 @@ function syncCrmLeadsViewFromDraft() {
   const antesRuntime = crmLeads.length;
   draft.forEach((r) => {
     if (!r || typeof r !== "object") return;
+    if (String(r.crmCampania ?? "").trim()) return;
     const nm = crmNormalizeQuarterTokensToPlanningIntake(String(r.nombreCampania || "").trim());
     const prev = String(r.nombreCampania || "").trim();
     if (nm && nm !== prev) r.nombreCampania = nm;
@@ -8174,7 +8175,7 @@ function ensureDashPlatVirtualTable() {
       rowHeight: 36,
       overscan: 12,
       threshold: 40,
-      colspan: 60,
+      colspan: 63,
       uid: "dash-plat"
     });
     dashPlatVirtualTable._tbody = tbody;
@@ -8211,7 +8212,7 @@ function ensurePlanningVirtualTable() {
       rowHeight: 38,
       overscan: 14,
       threshold: 50,
-      colspan: 56,
+      colspan: 57,
       uid: "planning"
     });
   }
@@ -9734,6 +9735,19 @@ function serializeCrmLeads(list) {
 
 function crmHydrateDimensionalFieldsOnRow(raw) {
   const r = raw && typeof raw === "object" ? raw : {};
+  const campaniaCanon = String(r.crmCampania ?? "").trim();
+  if (campaniaCanon) {
+    const intake = crmNormalizeIntakeCellValue(String(r.crmIntake ?? ""));
+    const crmTrafficType =
+      String(r.crmTrafficType ?? "").trim() || crmNormalizedTrafficFromFuenteVF(String(r.fuenteCrm ?? ""));
+    return {
+      tipo: String(r.crmTipo ?? "").trim(),
+      programa: String(r.crmPrograma ?? "").trim(),
+      intake,
+      crmTrafficType,
+      nombreCampania: ""
+    };
+  }
   let tipo = String(r.crmTipo ?? "").trim();
   let programa = String(r.crmPrograma ?? "").trim();
   let intake = crmNormalizeIntakeCellValue(String(r.crmIntake ?? ""));
@@ -9811,7 +9825,11 @@ function deserializeCrmLeads(list) {
       };
       return rowOut;
     })
-    .filter((row) => row.nombreCampania && row.fecha instanceof Date && !Number.isNaN(row.fecha.getTime()));
+    .filter((row) => {
+      const hasCampania =
+        String(row.crmCampania ?? "").trim() || String(row.nombreCampania ?? "").trim();
+      return hasCampania && row.fecha instanceof Date && !Number.isNaN(row.fecha.getTime());
+    });
 }
 
 function hydrateCrmLeadsFromBundle(bundle) {
@@ -11057,6 +11075,10 @@ function updateDataKpisFromCrm() {
 
 /** Texto Flujo para vista DATA→CRM (columna Programa / agrupación). */
 function crmFlujoDisplayForDataRow(r) {
+  const campaniaV2 = r?.crmCampania;
+  if (campaniaV2 != null && campaniaV2 !== "") {
+    return String(campaniaV2);
+  }
   const raw = String(r?.crmFlujoRaw ?? "")
     .trim()
     .replace(/\s+/g, " ");
@@ -12715,6 +12737,13 @@ function crmMigrateNormalizedQuarterCrmKey(normKey) {
   return s.replace(/\bq\s*([1-4])\b/g, (_, n) => `intake ${n}`).replace(/\s+/g, " ").trim();
 }
 
+/** Clave canónica relación CRM ↔ filas (`normalizarTexto` + migración Q→Intake). */
+function crmCanonicalRelationKey(rawKey) {
+  const s = String(rawKey ?? "").trim();
+  if (!s) return "";
+  return crmMigrateNormalizedQuarterCrmKey(normalizarTexto(s));
+}
+
 /** Cantidad de la columna Lead del Excel CRM (entero ≥ 0; sin columna → 1 por fila). */
 function crmParseLeadCountFromCell(val, hasLeadCol) {
   if (!hasLeadCol) return 1;
@@ -13461,7 +13490,6 @@ function crmV2ImportDeps() {
   return {
     crmNormalizeIntakeCellValue,
     crmNormalizedTrafficFromFuenteVF,
-    crmComposeDisplayDimensional,
     crmParseLeadCountFromCell,
     crmParseBoolish,
     crmParseTiempoMinutosCell,
@@ -13709,9 +13737,156 @@ function initCrmImportModule() {
   });
 }
 
+/** Restablece inputs de filtros CRM en DATA y Relaciones tras limpieza total. */
+function resetCrmDataFilterUiAfterClear() {
+  const progIn = document.getElementById("crmDataFilterProgramaInput");
+  if (progIn instanceof HTMLInputElement) progIn.value = "";
+  crmProgramaAutocompleteHideList();
+  crmToggleProgramaClearBtn();
+  ["crmDataFilterMes", "crmDataFilterFechaDia", "crmDataFilterFuente", "crmDataFilterIntake"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el instanceof HTMLSelectElement) el.value = "";
+  });
+  const crmRelSearch = document.getElementById("crmRelacionesSearch");
+  if (crmRelSearch instanceof HTMLInputElement) crmRelSearch.value = "";
+  const ps = document.getElementById("crmRelPlanningSearch");
+  const cs = document.getElementById("crmRelCrmSearch");
+  if (ps instanceof HTMLInputElement) ps.value = "";
+  if (cs instanceof HTMLInputElement) cs.value = "";
+  ["crmRelFiltroPlataforma", "crmRelFiltroEstadoRel", "crmRelFiltroIntake", "crmRelFiltroTracking"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el instanceof HTMLSelectElement) el.value = "";
+  });
+  const br = document.getElementById("crmRelOcultarBranding");
+  if (br instanceof HTMLInputElement) br.checked = true;
+  syncCrmRelFiltersToUi();
+}
+
+/**
+ * Limpieza definitiva del módulo CRM (memoria, borrador, KV, relaciones, caches).
+ * Tras publicar con CRM vacío, GitHub purga shards vía `purgeObsoleteCrmGithubShards`.
+ */
+function clearCrmData() {
+  const leadsDraft = ensureCrmLeadsDraftShape();
+  leadsDraft.length = 0;
+  const relDraft = ensureRelacionesCrmDraftShape();
+  relDraft.length = 0;
+
+  try {
+    appMemoryKV.setItem("crm_leads", JSON.stringify([]));
+    appMemoryKV.setItem("relaciones_crm", JSON.stringify([]));
+  } catch (err) {
+    console.warn("clearCrmData: no se pudo limpiar appMemoryKV CRM", err);
+  }
+
+  crmRelacionesSearchQuery = "";
+  crmRelPlanningListQuery = "";
+  crmRelCrmListQuery = "";
+  crmRelFiltroPlataforma = "";
+  crmRelFiltroEstadoRel = "";
+  crmRelFiltroIntake = "";
+  crmRelFiltroTracking = "";
+  crmRelOcultarBranding = true;
+  selectedCrmRelPlanningKeys = new Set();
+  selectedCrmRelCrmKeys = new Set();
+  invalidateCrmRelPlanningFilterCache();
+  crmDataTabProgramasSortedCache = [];
+  dataCrmResumenPageIndex = 1;
+
+  try {
+    appMemorySession.removeItem(SS_CRM_REL_FILTRO_TRACKING);
+    appMemorySession.removeItem(SS_CRM_REL_OCULTAR_BRANDING);
+  } catch (_) {}
+
+  syncCrmLeadsViewFromDraft();
+  syncRelacionesCrmViewFromDraft();
+  resetCrmDataFilterUiAfterClear();
+  refreshCrmDataSegmentadoresUI();
+  renderCrmRelPlanningList();
+  renderCrmRelCrmList();
+  renderCrmRelacionesTabla();
+  renderRelacionesEstado();
+  try {
+    if (dashboardUiInicializado) renderDashboardFromFilters();
+  } catch (_) {}
+
+  registerUnpublishedDraftMutation();
+  crmDebugSnapshot("CRM limpiado (memoria)", { origen: "clearCrmData" });
+}
+
+function showCrmClearConfirmDialog() {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("crmClearModalOverlay");
+    const confirmBtn = document.getElementById("crmClearConfirmBtn");
+    const cancelBtn = document.getElementById("crmClearCancelBtn");
+    if (!overlay || !confirmBtn || !cancelBtn) {
+      resolve(false);
+      return;
+    }
+
+    let settled = false;
+    const cleanup = () => {
+      overlay.classList.add("hidden");
+      overlay.removeEventListener("click", onOverlayClick);
+      document.removeEventListener("keydown", onKeydown);
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+    };
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const onOverlayClick = (e) => {
+      if (e.target === overlay) finish(false);
+    };
+    const onKeydown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
+    };
+
+    confirmBtn.onclick = () => finish(true);
+    cancelBtn.onclick = () => finish(false);
+    overlay.addEventListener("click", onOverlayClick);
+    document.addEventListener("keydown", onKeydown);
+    overlay.classList.remove("hidden");
+    requestAnimationFrame(() => cancelBtn.focus());
+  });
+}
+
+function requestClearCrmDataWithConfirm() {
+  void showCrmClearConfirmDialog().then((confirmed) => {
+    if (!confirmed) return;
+    clearCrmData();
+    showCampatrackToast(
+      "CRM limpiado en esta sesión. Usa «Revisar y publicar» para eliminar los shards en GitHub.",
+      "success"
+    );
+  });
+}
+
+function initCrmClearModule() {
+  document.querySelectorAll(".crm-clear-trigger").forEach((btn) => {
+    btn.addEventListener("click", () => requestClearCrmDataWithConfirm());
+  });
+}
+
+try {
+  globalThis.__campatrackClearCrmData = clearCrmData;
+} catch (_) {
+  /* ignore */
+}
+
 // —— Relación CRM (Planning ↔ CRM) ——
-/** Clave estable: tipo + programa + intake + tracking normalizado (Leadgen/Pixel/Google). */
+/** Clave estable: `crmCampania` (v2) o tipo + programa + intake + tracking (legacy). */
 function crmCampaignKeyFromRow(r) {
+  const campania = String(r?.crmCampania ?? "").trim();
+  if (campania) {
+    return crmCanonicalRelationKey(campania);
+  }
   const h = crmHydrateDimensionalFieldsOnRow(r);
   const tipo = String(h.tipo ?? "").trim();
   const programa = String(h.programa ?? "").trim();
@@ -13728,14 +13903,25 @@ function getCrmUniqueCampaignList() {
   crmLeads.forEach((r) => {
     const k = crmCampaignKeyFromRow(r);
     if (!k) return;
-    const h = crmHydrateDimensionalFieldsOnRow(r);
-    const display = String(h.nombreCampania || "").trim() || crmComposeDisplayDimensional(h.tipo, h.programa, h.intake, h.crmTrafficType);
+    const campaniaCanon = String(r?.crmCampania ?? "").trim();
+    let display;
+    let intakeVal;
+    if (campaniaCanon) {
+      display = String(r.crmCampania ?? "");
+      intakeVal = String(r?.crmIntake ?? "").trim();
+    } else {
+      const h = crmHydrateDimensionalFieldsOnRow(r);
+      display =
+        String(h.nombreCampania || "").trim() ||
+        crmComposeDisplayDimensional(h.tipo, h.programa, h.intake, h.crmTrafficType);
+      intakeVal = String(h.intake || "").trim();
+    }
     if (!map.has(k)) {
       map.set(k, {
         crmKey: k,
         nombre: display,
         leads: 0,
-        intake: String(h.intake || "").trim()
+        intake: intakeVal
       });
     }
     map.get(k).leads += Number(r.leads) || 1;
@@ -13755,7 +13941,7 @@ function getCrmRelLinkedPlanningSet() {
 }
 
 function getCrmRelLinkedCrmSet() {
-  return new Set(relacionesCrm.map((r) => r.crmKey));
+  return new Set(relacionesCrm.map((r) => crmCanonicalRelationKey(r.crmKey)));
 }
 
 function crmRelMatchesIntakeFilter(intakeVal, intakeNorm) {
@@ -14113,6 +14299,7 @@ function vincularCrmPlanning() {
   renderCrmRelCrmList();
   renderCrmRelacionesTabla();
   renderRelacionesEstado();
+  if (dashboardUiInicializado) renderDashboardFromFilters();
   showCampatrackToast("Relación CRM creada.", "success");
 }
 
@@ -14247,6 +14434,7 @@ function initCrmRelacionesModule() {
       renderCrmRelCrmList();
       renderCrmRelacionesTabla();
       renderRelacionesEstado();
+      if (dashboardUiInicializado) renderDashboardFromFilters();
     }
   });
   syncRelacionesCrmViewFromDraft();
@@ -14273,7 +14461,9 @@ function campatrackCrmMetaMetricsByPlanning() {
   relacionesCrm.forEach((rel) => {
     const slot = out.get(rel.planningKey);
     if (!slot) return;
-    const crmRows = crmLeads.filter((r) => crmCampaignKeyFromRow(r) === rel.crmKey);
+    const crmRows = crmLeads.filter(
+      (r) => crmCampaignKeyFromRow(r) === crmCanonicalRelationKey(rel.crmKey)
+    );
     slot.crmLeads += crmRows.reduce((s, r) => s + (Number(r.leads) || 0), 0);
   });
   return out;
@@ -16528,7 +16718,7 @@ function dashboardRowSearchHaystackFromKey(key) {
   return [row.tipo, row.programa, row.tracking, row.intake, row.plataforma].filter(Boolean).join(" ").toLowerCase();
 }
 
-/** Columna Programa del dashboard: "Programa - Tracking". */
+/** Columna Programa del dashboard (legacy con tracking): "Programa - Tracking". */
 function dashboardRowProgramaNombreFromKey(key) {
   const row = parseDashboardRowKey(key);
   const programa = String(row.programa ?? "").trim();
@@ -16537,6 +16727,18 @@ function dashboardRowProgramaNombreFromKey(key) {
   if (!tracking) return programa;
   if (!programa) return tracking;
   return `${programa} - ${tracking}`;
+}
+
+/** Abreviatura visual de tracking para columna Trak (Dashboard Plataforma). */
+function dashboardRowTrakAbbrevFromKey(key) {
+  const row = parseDashboardRowKey(key);
+  const tracking = String(row.tracking ?? "").trim();
+  if (!tracking) return "—";
+  const t = tracking.toLowerCase();
+  if (t.includes("leadgen") || t.includes("lead gen")) return "L";
+  if (t.includes("pixel")) return "P";
+  if (t.includes("google")) return "G";
+  return tracking.charAt(0).toUpperCase();
 }
 
 function dashboardRowIntakeDisplayFromKey(key) {
@@ -16941,6 +17143,7 @@ function getDashboardPlanningRecordsLinkedViaRelaciones(rowKey) {
 function computeDashboardPlanningOfficialCrmFunnelMetas(planningRowsOperativas) {
   const z = {
     metaLeads: 0,
+    metaContactados: 0,
     metaInteresados: 0,
     metaPostulantes: 0,
     metaMatriculados: 0
@@ -16949,11 +17152,21 @@ function computeDashboardPlanningOfficialCrmFunnelMetas(planningRowsOperativas) 
   planningRowsOperativas.forEach((rec) => {
     const m = rec.metas || {};
     z.metaLeads += planningOfficialMetaNumeric(m, "leads");
+    z.metaContactados += planningOfficialMetaNumeric(m, "contactados");
     z.metaInteresados += planningOfficialMetaNumeric(m, "interesados");
     z.metaPostulantes += planningOfficialMetaNumeric(m, "postulantes");
     z.metaMatriculados += planningOfficialMetaNumeric(m, "matriculados");
   });
   return z;
+}
+
+/** Lead CRM contactado según columna «Contactado Final» persistida en la fila. */
+function dashboardCrmRowEsContactadoFinal(r) {
+  return !!(
+    r?.crmContactadoFinal === true ||
+    r?.crmContactadoFinal === 1 ||
+    crmParseBoolish(r?.crmContactadoFinal)
+  );
 }
 
 /**
@@ -17427,7 +17640,7 @@ function dashboardCrmRowMatchesSessionTeam(r) {
 function buildCrmKeyToPlanningKeysMap() {
   const m = new Map();
   relacionesCrm.forEach((rel) => {
-    const k = normalizarTexto(String(rel.crmKey || ""));
+    const k = crmCanonicalRelationKey(rel.crmKey);
     if (!k) return;
     const pk = String(rel.planningKey || "").trim();
     if (!pk) return;
@@ -17500,7 +17713,7 @@ function dashCrmVisibleRowKeysFromAggAndPlat(agg, platMap, busq) {
     const p = platMap.get(k) || 0;
     const c = agg.get(k);
     const cL = c?.crmLeads || 0;
-    if (!(p > 0 || cL > 0 || (c?.crmInt || c?.crmPost || c?.crmMat))) return false;
+    if (!(p > 0 || cL > 0 || (c?.crmCont || c?.crmInt || c?.crmPost || c?.crmMat))) return false;
     return dashboardRowKeyMatchesDashboardSegmentFilters(k);
   });
   if (busq) {
@@ -17568,10 +17781,11 @@ function ensureDashboardCrmLeadsBundle(mode = dashboardCrmBottomMode) {
 
         bottomIncluded = true;
         if (!agg.has(rowKey)) {
-          agg.set(rowKey, { crmLeads: 0, crmInt: 0, crmPost: 0, crmMat: 0 });
+          agg.set(rowKey, { crmLeads: 0, crmCont: 0, crmInt: 0, crmPost: 0, crmMat: 0 });
         }
         const slot = agg.get(rowKey);
         slot.crmLeads += Number(r.leads) || 0;
+        if (dashboardCrmRowEsContactadoFinal(r)) slot.crmCont += 1;
         if (r.esInteresado) slot.crmInt += 1;
         if (r.esPostulante) slot.crmPost += 1;
         if (r.esMatriculado) slot.crmMat += 1;
@@ -18998,7 +19212,7 @@ function renderDashboardTableFooter() {
   const emptyLeads = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-leads">&nbsp;</td>`;
   const emptyGasto = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-gasto">&nbsp;</td>`;
   const emptyCrmLeads = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-leads">&nbsp;</td>`;
-  const emptyCrmInt = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-int">&nbsp;</td>`;
+  const emptyCrmCont = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-cont">&nbsp;</td>`;
   const emptyCrmPost = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-post">&nbsp;</td>`;
   const emptyCrmMat = `<td class="dash-tfoot-empty dash-grp-col dash-grp-col-mat">&nbsp;</td>`;
   const calendarFooter = mostrarMetaGlobal
@@ -19016,6 +19230,8 @@ function renderDashboardTableFooter() {
     <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num"><span id="dashPlatTotalCrmLeads">0</span></td>
     <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num"><span id="dashPlatTotalCrmPctDif">—</span></td>
     <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num"><span id="dashPlatTotalCrmPctAv">—</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-cont dash-grp-col-first dash-crm-num"><span id="dashPlatTotalCrmMetaCont">0</span></td>
+    <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-cont dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num"><span id="dashPlatTotalCrmCont">0</span></td>
     <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-first dash-crm-num"><span id="dashPlatTotalCrmMetaI">0</span></td>
     <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num"><span id="dashPlatTotalCrmInt">0</span></td>
     <td class="dash-tfoot-total-metric dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-first dash-crm-num"><span id="dashPlatTotalCrmMetaP">0</span></td>
@@ -19054,6 +19270,7 @@ function renderDashboardTableFooter() {
       <td class="tipo-col dash-tfoot-empty">&nbsp;</td>
       <td class="dash-int-col dash-tfoot-empty">&nbsp;</td>
       <td class="dash-plat-col dash-tfoot-empty">&nbsp;</td>
+      <td class="dash-trak-col dash-tfoot-empty">&nbsp;</td>
       <td class="programa-col dash-tfoot-label dash-grp-sticky-sep"><strong>Total general</strong></td>
       ${calendarFooter}
       ${crmFunnelFooter}
@@ -19687,6 +19904,7 @@ function planningExportHeadersRow() {
     "Programa",
     "Categoría",
     "Leads",
+    "Contactados",
     "Interesados",
     "Postulantes",
     "Matriculados",
@@ -19719,6 +19937,7 @@ function planningRecordToExportRow(record) {
     String(record.programa ?? ""),
     String(normalizePlanningCategoria(record.categoria) || inferPlanningCategoriaFromRecord(record)),
     planningExportMetaCellValue(metas, "leads"),
+    planningExportMetaCellValue(metas, "contactados"),
     planningExportMetaCellValue(metas, "interesados"),
     planningExportMetaCellValue(metas, "postulantes"),
     planningExportMetaCellValue(metas, "matriculados"),
@@ -19752,6 +19971,7 @@ function applyPlanningImportCellsToRecord(record, cells, colMap = PLANNING_IMPOR
 
   const metaKeys = [
     ["leads", colMap.META_LEADS],
+    ...(colMap.META_CONTACTADOS != null ? [["contactados", colMap.META_CONTACTADOS]] : []),
     ["interesados", colMap.META_INTERESADOS],
     ["postulantes", colMap.META_POSTULANTES],
     ["matriculados", colMap.META_MATRICULADOS],
@@ -20266,6 +20486,8 @@ function renderDashboardTabla() {
     crmMetaL: 0,
     crmPlat: 0,
     crmLeads: 0,
+    crmMetaCont: 0,
+    crmCont: 0,
     crmMetaI: 0,
     crmInt: 0,
     crmMetaP: 0,
@@ -20281,7 +20503,8 @@ function renderDashboardTabla() {
     const leadsRealMes = rowsMes.reduce((a, r) => a + (Number(r.leads) || 0), 0);
     const row = parseDashboardRowKey(rowKey);
     const planningRows = getPlanningByProgIntakeTrackPlat(row.programa, row.intake, row.tracking, row.plataforma, row.tipo);
-    const nombrePrograma = dashboardRowProgramaNombreFromKey(rowKey);
+    const nombrePrograma = dashboardRowProgramaSoloNombreFromKey(rowKey);
+    const trakLabel = dashboardRowTrakAbbrevFromKey(rowKey);
     const intakeValor = dashboardRowIntakeDisplayFromKey(rowKey);
     const tipo = row.tipo || "—";
     let fechaInMin = null;
@@ -20377,7 +20600,7 @@ function renderDashboardTabla() {
     );
     const crmOfficialMetas = computeDashboardPlanningOfficialCrmFunnelMetas(planningRowsCrmMeta);
     const platL = platMap.get(rowKey) || 0;
-    const crmRow = crmMap.get(rowKey) || { crmLeads: 0, crmInt: 0, crmPost: 0, crmMat: 0 };
+    const crmRow = crmMap.get(rowKey) || { crmLeads: 0, crmCont: 0, crmInt: 0, crmPost: 0, crmMat: 0 };
     const metaLCrm = Number(crmOfficialMetas.metaLeads) || 0;
     const pctDifCrm = platL > 0 ? (crmRow.crmLeads - platL) / platL : null;
     const pctAvCrm = metaLCrm > 0 ? crmRow.crmLeads / metaLCrm : null;
@@ -20387,6 +20610,8 @@ function renderDashboardTabla() {
     totals.crmMetaL += metaLCrm;
     totals.crmPlat += platL;
     totals.crmLeads += crmRow.crmLeads;
+    totals.crmMetaCont += crmOfficialMetas.metaContactados;
+    totals.crmCont += crmRow.crmCont;
     totals.crmMetaI += crmOfficialMetas.metaInteresados;
     totals.crmInt += crmRow.crmInt;
     totals.crmMetaP += crmOfficialMetas.metaPostulantes;
@@ -20400,6 +20625,8 @@ function renderDashboardTabla() {
         <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(crmRow.crmLeads)))}</td>
         <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-crm-num"><span class="dash-chip-metric ${difClsCrm}">${pctDifCrm == null ? "—" : escapeHtml(dashFmtPctFromRatio(pctDifCrm))}</span></td>
         <td class="dash-meta-global-col dash-grp-col dash-grp-col-leads dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num ${semAvCrm}">${pctAvCrm == null ? "—" : escapeHtml(dashFmtPctFromRatio(pctAvCrm))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-cont dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(crmOfficialMetas.metaContactados)))}</td>
+        <td class="dash-meta-global-col dash-grp-col dash-grp-col-cont dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num">${escapeHtml(dashFmtLeads(crmRow.crmCont))}</td>
         <td class="dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(crmOfficialMetas.metaInteresados)))}</td>
         <td class="dash-meta-global-col dash-grp-col dash-grp-col-int dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-crm-num">${escapeHtml(dashFmtLeads(crmRow.crmInt))}</td>
         <td class="dash-meta-global-col dash-grp-col dash-grp-col-post dash-grp-col-first dash-crm-num">${escapeHtml(dashFmtLeads(Math.round(crmOfficialMetas.metaPostulantes)))}</td>
@@ -20445,6 +20672,7 @@ function renderDashboardTabla() {
         <td class="tipo-col dash-td-tipo">${escapeHtml(tipo)}</td>
         <td class="dash-int-col">${escapeHtml(intakeValor)}</td>
         <td class="dash-plat-col">${formatearPlataforma(row.plataforma)}</td>
+        <td class="dash-trak-col" title="${escapeHtml(String(row.tracking ?? "").trim() || "—")}">${escapeHtml(trakLabel)}</td>
         <td class="programa-col dash-td-prog dash-grp-sticky-sep">${escapeHtml(nombrePrograma)}</td>
         ${calendarCells}
         ${crmFunnelCells}
@@ -20507,6 +20735,8 @@ function renderDashboardTabla() {
     footDifEl.className = `dash-chip-metric dash-crm-tfoot-metric ${footDifClsCrm}`;
   }
   setText("dashPlatTotalCrmPctAv", footAvCrm == null ? "—" : dashFmtPctFromRatio(footAvCrm));
+  setText("dashPlatTotalCrmMetaCont", dashFmtLeads(Math.round(totals.crmMetaCont)));
+  setText("dashPlatTotalCrmCont", dashFmtLeads(totals.crmCont));
   setText("dashPlatTotalCrmMetaI", dashFmtLeads(Math.round(totals.crmMetaI)));
   setText("dashPlatTotalCrmInt", dashFmtLeads(totals.crmInt));
   setText("dashPlatTotalCrmMetaP", dashFmtLeads(Math.round(totals.crmMetaP)));
@@ -20937,7 +21167,7 @@ function collectDashboardInsightsCampaignRows() {
     const leadsRealMes = rowsMes.reduce((a, r) => a + (Number(r.leads) || 0), 0);
     const row = parseDashboardRowKey(rowKey);
     const planningRows = getPlanningByProgIntakeTrackPlat(row.programa, row.intake, row.tracking, row.plataforma, row.tipo);
-    const nombrePrograma = dashboardRowProgramaNombreFromKey(rowKey);
+    const nombrePrograma = dashboardRowProgramaSoloNombreFromKey(rowKey);
     const tipo = row.tipo || "—";
     const planningRowsOperativas = planningRows.filter((rec) => planningRecordEsCaptacion(rec));
     const pmMes = computeDashboardPlanningPeriodMeta(planningRowsOperativas);
@@ -24525,6 +24755,11 @@ function campatrackSafeInitCrmModules() {
     initCrmImportModule();
   } catch (e) {
     console.warn("[CampaTrack] CRM Import no se pudo inicializar:", e);
+  }
+  try {
+    initCrmClearModule();
+  } catch (e) {
+    console.warn("[CampaTrack] Limpiar CRM no se pudo inicializar:", e);
   }
   try {
     initCrmRelacionesModule();

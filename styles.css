@@ -3431,6 +3431,7 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   --dash-row-h: 28px;
   /* Badge letra plataforma (~22px) + padding. Ajusta sticky de Programa. */
   --dash-plat-w: calc(22px + 10px);
+  --dash-trak-w: 28px;
   width: 100%;
   min-width: 2060px;
   border-collapse: separate;
@@ -3568,6 +3569,7 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
 .dash-th-sticky-corner.tipo-col,
 .dash-th-sticky-corner.dash-int-col,
 .dash-th-sticky-corner.dash-plat-col,
+.dash-th-sticky-corner.dash-trak-col,
 .dash-th-sticky-corner.programa-col {
   left: auto;
   background: #000 !important;
@@ -3619,6 +3621,25 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   font-weight: 800;
   white-space: nowrap;
   z-index: 29 !important;
+}
+
+#dashboardModule .dash-table:not(.dash-crm-main-table) thead .dash-th-sticky-corner.dash-trak-col {
+  left: calc(116px + var(--dash-plat-w));
+  width: var(--dash-trak-w);
+  min-width: var(--dash-trak-w);
+  max-width: var(--dash-trak-w);
+  padding: 4px 2px;
+  box-sizing: border-box;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 800;
+  white-space: nowrap;
+  z-index: 29 !important;
+}
+
+#dashboardModule .dash-table:not(.dash-crm-main-table) thead .dash-th-sticky-corner.programa-col {
+  left: calc(116px + var(--dash-plat-w) + var(--dash-trak-w));
+  z-index: 30 !important;
 }
 
 #dashboardModule .dash-table thead .dash-th-sticky-corner.programa-col {
@@ -3768,8 +3789,8 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   white-space: normal;
 }
 
-.dash-table th:not(.tipo-col):not(.programa-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col),
-.dash-table td:not(.tipo-col):not(.programa-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col) {
+.dash-table th:not(.tipo-col):not(.programa-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-trak-col),
+.dash-table td:not(.tipo-col):not(.programa-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-trak-col) {
   text-align: center;
   vertical-align: middle;
   padding: 4px 6px;
@@ -3864,6 +3885,26 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   white-space: nowrap;
 }
 
+#dashboardModule .dash-table:not(.dash-crm-main-table) .dash-trak-col {
+  position: sticky;
+  left: calc(116px + var(--dash-plat-w));
+  z-index: 8;
+  width: var(--dash-trak-w);
+  min-width: var(--dash-trak-w);
+  max-width: var(--dash-trak-w);
+  padding: 4px 2px;
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 2px 0 6px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: middle;
+  font-weight: 800;
+  font-size: 11px;
+}
+
 #dashboardModule .dash-table .dash-plat-col {
   position: sticky;
   left: 116px;
@@ -3927,6 +3968,11 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   color: #94a3b8;
   border: 1px dashed #cbd5e1;
   font-weight: 600;
+}
+
+#dashboardModule .dash-table:not(.dash-crm-main-table) .programa-col {
+  left: calc(116px + var(--dash-plat-w) + var(--dash-trak-w));
+  z-index: 9;
 }
 
 #dashboardModule .dash-table .programa-col {
@@ -4040,13 +4086,14 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   color: #fff !important;
 }
 
-.dash-table tbody tr:nth-child(even) td:not(.tipo-col):not(.programa-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-cell-real-metric) {
+.dash-table tbody tr:nth-child(even) td:not(.tipo-col):not(.programa-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-trak-col):not(.dash-cell-real-metric) {
   background: #f8fafc;
 }
 
 .dash-table tbody tr:nth-child(even) .tipo-col,
 .dash-table tbody tr:nth-child(even) .dash-int-col,
 .dash-table tbody tr:nth-child(even) .dash-plat-col,
+.dash-table tbody tr:nth-child(even) .dash-trak-col,
 .dash-table tbody tr:nth-child(even) .programa-col,
 .dash-table tbody tr:nth-child(even) .dash-estado-col {
   background: #f8fafc;
@@ -4060,6 +4107,7 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
 .dash-row-selected .tipo-col,
 .dash-row-selected .dash-int-col,
 .dash-row-selected .dash-plat-col,
+.dash-row-selected .dash-trak-col,
 .dash-row-selected .programa-col {
   background: var(--primary) !important;
   color: #fff !important;
@@ -4160,6 +4208,27 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   max-width: var(--dash-plat-w);
   padding: 10px 3px;
   box-sizing: border-box;
+}
+
+#dashboardModule .dash-table:not(.dash-crm-main-table) tfoot .dash-trak-col {
+  background: #000 !important;
+  position: sticky;
+  left: calc(116px + var(--dash-plat-w));
+  bottom: 0;
+  z-index: 17;
+  width: var(--dash-trak-w);
+  min-width: var(--dash-trak-w);
+  max-width: var(--dash-trak-w);
+  padding: 10px 2px;
+  box-sizing: border-box;
+}
+
+#dashboardModule .dash-table:not(.dash-crm-main-table) tfoot .programa-col {
+  position: sticky;
+  left: calc(116px + var(--dash-plat-w) + var(--dash-trak-w));
+  bottom: 0;
+  z-index: 16;
+  background: #000 !important;
 }
 
 #dashboardModule .dash-table tfoot .programa-col {
@@ -5070,6 +5139,26 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   font-size: 0.9rem;
   color: #7f1d1d;
   line-height: 1.4;
+}
+
+.crm-clear-modal-list {
+  margin: 0 0 14px;
+  padding-left: 1.25rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.crm-clear-modal-list--remove li {
+  list-style-type: "✓ ";
+}
+
+.crm-clear-modal-list--keep li {
+  list-style-type: disc;
+}
+
+.app-dialog-crm-clear .app-dialog-message {
+  margin-bottom: 6px;
 }
 
 .app-dialog-btn-primary:disabled {
@@ -9654,7 +9743,7 @@ body.dark-mode .campatrack-login-select {
 
 #planningModule.plan-module-saas {
   --plan-sticky-tipo-w: 62px;
-  --plan-sticky-program-w: 14rem;
+  --plan-sticky-program-w: 16rem;
   --plan-sticky-categoria-w: 7.5rem;
 }
 
@@ -9792,6 +9881,8 @@ body.dark-mode .campatrack-login-select {
   max-width: var(--plan-sticky-program-w) !important;
   width: var(--plan-sticky-program-w) !important;
   box-sizing: border-box;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 /* PROGRAMA sticky: fondo opaco para no ver columnas detrás al scroll horizontal (no tocar Tipo) */
@@ -9849,7 +9940,7 @@ body.dark-mode .campatrack-login-select {
 #planningModule.plan-module-saas .planning-campaign-name--only {
   display: block;
   font-weight: 800;
-  font-size: 0.9225rem;
+  font-size: 0.8575rem;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -17062,6 +17153,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 
 #dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-meta.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-leads.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-cont.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-int.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-post.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table thead .dash-grp-col-mat.dash-grp-col-last {
@@ -17085,6 +17177,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 
 #dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-meta.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-leads.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-cont.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-int.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table tbody tr:not(.dash-tr-empty) td.dash-grp-col-post.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tbody tr:not(.dash-tr-empty) td.dash-grp-col-mat.dash-grp-col-last {
@@ -17108,6 +17201,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-meta.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-leads.dash-grp-col-last,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-cont.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-int.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-post.dash-grp-col-last,
 #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-grp-col-mat.dash-grp-col-last {
@@ -17226,11 +17320,64 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderLeads,
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashHeaderGasto,
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmLeads,
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmCont,
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmInt,
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmPost,
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmMat {
   border-top: 5px solid #000 !important;
   box-shadow: none !important;
+}
+
+/* Embudo CRM compacto (Dashboard Plataforma): M/R = ancho fijo para 4 dígitos tabulares */
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table {
+  --dash-funnel-mr-w: 2.125rem; /* ~34px: "1250" + padding mínimo */
+  min-width: 1820px; /* recupera ~240px vs. 8 columnas M/R compactadas */
+}
+
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmCont,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmInt,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmPost,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table thead tr.dash-thead-row-groups th#dashPlatHeaderCrmMat {
+  width: calc(var(--dash-funnel-mr-w) * 2) !important;
+  min-width: calc(var(--dash-funnel-mr-w) * 2) !important;
+  max-width: calc(var(--dash-funnel-mr-w) * 2) !important;
+  padding: 2px 1px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.01em;
+  line-height: 1.05 !important;
+  white-space: nowrap;
+}
+
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table thead tr.dash-thead-row-columns th.dash-th-funnel-sub,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tbody td.dash-grp-col-cont,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tbody td.dash-grp-col-int,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tbody td.dash-grp-col-post,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tbody td.dash-grp-col-mat,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tfoot td.dash-grp-col-cont,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tfoot td.dash-grp-col-int,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tfoot td.dash-grp-col-post,
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table tfoot td.dash-grp-col-mat {
+  width: var(--dash-funnel-mr-w) !important;
+  min-width: var(--dash-funnel-mr-w) !important;
+  max-width: var(--dash-funnel-mr-w) !important;
+  padding: 3px 2px !important;
+  box-sizing: border-box !important;
+  font-size: 11px !important;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0;
+  line-height: 1.15 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  text-align: center !important;
+}
+
+#dashboardModule.dash-module-saas #dashShellPlataforma .dash-table thead tr.dash-thead-row-columns th.dash-th-funnel-sub {
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.02em;
 }
 
 /* Subcabeceras (fila 2): mismo trazo negro que el grupo, solo borde inferior */
@@ -17256,13 +17403,14 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
   border-right-color: #e5e7eb !important;
 }
 
-#dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) td:not(.tipo-col):not(.programa-col):not(.dash-tracking-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-cell-real-metric) {
+#dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) td:not(.tipo-col):not(.programa-col):not(.dash-tracking-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-trak-col):not(.dash-cell-real-metric) {
   background: #f9fafb;
 }
 
 #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .tipo-col,
 #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-int-col,
 #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-plat-col,
+#dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-trak-col,
 #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .programa-col,
 #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-tracking-col,
 #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-estado-col {
@@ -17283,6 +17431,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 #dashboardModule.dash-module-saas .dash-row-selected .tipo-col,
 #dashboardModule.dash-module-saas .dash-row-selected .dash-int-col,
 #dashboardModule.dash-module-saas .dash-row-selected .dash-plat-col,
+#dashboardModule.dash-module-saas .dash-row-selected .dash-trak-col,
 #dashboardModule.dash-module-saas .dash-row-selected .programa-col,
 #dashboardModule.dash-module-saas .dash-row-selected .dash-estado-col {
   background: #e0e7ff !important;
@@ -17491,6 +17640,10 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
   z-index: 17 !important;
 }
 
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot tr.dash-tfoot-row td.dash-trak-col {
+  z-index: 17 !important;
+}
+
 #dashboardModule.dash-module-saas .dash-table tfoot tr.dash-tfoot-row td.dash-int-col {
   z-index: 18 !important;
 }
@@ -17519,6 +17672,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-crm-toggle-
 #dashboardModule.dash-module-saas .dash-table tfoot .tipo-col,
 #dashboardModule.dash-module-saas .dash-table tfoot .dash-int-col,
 #dashboardModule.dash-module-saas .dash-table tfoot .dash-plat-col,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) tfoot .dash-trak-col,
 #dashboardModule.dash-module-saas .dash-table tfoot .programa-col,
 #dashboardModule.dash-module-saas .dash-table tfoot .dash-estado-col.dash-tfoot-estado {
   background: #0f172a !important;
@@ -18882,13 +19036,14 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table .dash
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.45) !important;
 }
 
-body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) td:not(.tipo-col):not(.programa-col):not(.dash-tracking-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-cell-real-metric) {
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) td:not(.tipo-col):not(.programa-col):not(.dash-tracking-col):not(.dash-estado-col):not(.dash-int-col):not(.dash-plat-col):not(.dash-trak-col):not(.dash-cell-real-metric) {
   background: rgba(30, 41, 59, 0.92) !important;
 }
 
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .tipo-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-int-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-plat-col,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-trak-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .programa-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-tracking-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table tbody tr:nth-child(even) .dash-estado-col {
@@ -18994,6 +19149,7 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-row-selecte
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-row-selected .tipo-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-row-selected .dash-int-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-row-selected .dash-plat-col,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-row-selected .dash-trak-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-row-selected .programa-col,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-row-selected .dash-estado-col {
   background: rgba(67, 56, 202, 0.45) !important;
@@ -20281,7 +20437,8 @@ body.dark-mode .campatrack-skeleton {
 
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.tipo-col.dash-th-sticky-corner,
 #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.dash-int-col.dash-th-sticky-corner,
-#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.dash-plat-col.dash-th-sticky-corner {
+#dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.dash-plat-col.dash-th-sticky-corner,
+#dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead tr.dash-thead-row-groups th.dash-trak-col.dash-th-sticky-corner {
   border-top: 5px solid #000 !important;
   border-bottom: 5px solid #000 !important;
   border-left: none !important;
@@ -20332,7 +20489,8 @@ body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table thead
 
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.tipo-col.dash-th-sticky-corner,
 body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.dash-int-col.dash-th-sticky-corner,
-body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.dash-plat-col.dash-th-sticky-corner {
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table thead tr.dash-thead-row-groups th.dash-plat-col.dash-th-sticky-corner,
+body.dark-mode #mainAppShell #dashboardModule.dash-module-saas .dash-table:not(.dash-crm-main-table) thead tr.dash-thead-row-groups th.dash-trak-col.dash-th-sticky-corner {
   border-top: 5px solid #000 !important;
   border-bottom: 5px solid #000 !important;
   border-left: none !important;

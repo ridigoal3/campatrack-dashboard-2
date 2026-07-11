@@ -204,3 +204,39 @@ export async function upsertGithubJsonFile(pathInRepo, data, commitMessage) {
   }
   return created;
 }
+
+/**
+ * Elimina un archivo JSON del repo (Contents API DELETE).
+ * @returns {Promise<{ ok: true, skipped?: boolean } | { ok: false, error: string }>}
+ */
+export async function deleteGithubJsonFile(pathInRepo) {
+  try {
+    const creds = getClientGithubApiCredentials();
+    if (!creds) return { ok: false, error: "Sin configuración GitHub completa." };
+    const sha = await getGithubFileSha(pathInRepo);
+    if (!sha) return { ok: true, skipped: true };
+    const body = {
+      message: `CampaTrack: eliminar ${pathInRepo}`,
+      sha,
+      branch: creds.branch
+    };
+    const res = await githubContentsRequest(pathInRepo, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (res.status === 404) return { ok: true, skipped: true };
+    if (!res.ok) {
+      const t = await res.text();
+      return { ok: false, error: `deleteGithubJsonFile ${res.status}: ${t.slice(0, 400)}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/** @returns {Promise<{ ok: true, skipped?: boolean } | { ok: false, error: string }>} */
+export async function tryDeleteGithubJsonFile(pathInRepo) {
+  return deleteGithubJsonFile(pathInRepo);
+}
