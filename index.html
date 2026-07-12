@@ -323,6 +323,8 @@
             <option value="DI">DI</option>
             <option value="PE">PE</option>
             <option value="SE">SE</option>
+            <option value="SEE">SEE</option>
+            <option value="SEO">SEO</option>
           </select>
         </label>
         <label class="planning-filter-field">
@@ -1512,21 +1514,15 @@
               <option value="">Todos</option>
             </select>
           </div>
-          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-toque-crm" aria-label="Toques">
-            <span class="dash-crm-toolbar-kpi-label">Toques</span>
-            <span class="dash-crm-toolbar-kpi-val">2.5</span>
-          </div>
-          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-leads-crm" aria-label="Leads">
-            <span class="dash-crm-toolbar-kpi-label">Leads</span>
-            <span class="dash-crm-toolbar-kpi-val">1,241</span>
-          </div>
-          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-cpl-crm" aria-label="CPL">
-            <span class="dash-crm-toolbar-kpi-label">CPL</span>
-            <span class="dash-crm-toolbar-kpi-val">S/ 18.35</span>
-          </div>
-          <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-inversion-crm" aria-label="Inversión">
-            <span class="dash-crm-toolbar-kpi-label">Inversión</span>
-            <span class="dash-crm-toolbar-kpi-val">S/ 23,495</span>
+          <div class="dash-crm-toolbar-kpis-group" aria-label="KPIs CRM">
+            <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-toque-crm" aria-label="Toques">
+              <span class="dash-crm-toolbar-kpi-label">Toques</span>
+              <span class="dash-crm-toolbar-kpi-val">2.5</span>
+            </div>
+            <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-crm-kpi dash-toolbar-leads-crm" aria-label="Leads">
+              <span class="dash-crm-toolbar-kpi-label">Leads</span>
+              <span class="dash-crm-toolbar-kpi-val">1,241</span>
+            </div>
           </div>
           <div class="dash-toolbar-item dash-toolbar-seg-inline dash-toolbar-tracking">
             <span class="dash-toolbar-label segmentador-header">Tracking</span>
@@ -1594,6 +1590,12 @@
             <div class="dash-table-view-toggle" role="tablist" aria-label="Vista de tabla Plataforma">
               <button type="button" id="dashTableViewDetalle" class="dash-table-view-btn dash-table-view-btn--active" role="tab" aria-selected="true">Detalle</button>
               <button type="button" id="dashTableViewResumen" class="dash-table-view-btn" role="tab" aria-selected="false">Resumen</button>
+            </div>
+          </div>
+          <div class="dash-toolbar-item dash-toolbar-table-view hidden" id="dashCrmTableViewSwitcher" role="presentation">
+            <div class="dash-table-view-toggle" role="tablist" aria-label="Vista de tabla Comercial CRM">
+              <button type="button" id="dashCrmTableViewDetalle" class="dash-table-view-btn dash-table-view-btn--active" role="tab" aria-selected="true">Detalle</button>
+              <button type="button" id="dashCrmTableViewResumen" class="dash-table-view-btn" role="tab" aria-selected="false">Resumen</button>
             </div>
           </div>
           <div class="dash-toolbar-item dash-toolbar-export">
@@ -1855,6 +1857,7 @@
             </div>
           </div>
 
+          <div id="dashCrmViewDetalle" class="dash-crm-table-view dash-crm-table-view--detalle">
           <div class="dash-crm-v2-grid">
             <!-- Desempeño por plataforma (mock) -->
             <section class="table-card dash-crm-v2-plat-card dash-crm-v2-area-plat" aria-label="Desempeño por plataforma">
@@ -1880,8 +1883,8 @@
               <div class="dash-crm-v2-etapa-cards" id="dashCrmV2EtapaCards"></div>
             </section>
 
-            <aside class="dash-crm-v2-side dash-crm-side-panel dash-crm-v2-area-side" aria-label="Paneles laterales CRM">
-              <div class="table-card dash-chart-card dash-crm-interval-card" aria-label="Intervalo de gestión">
+            <aside class="dash-crm-v2-side dash-crm-side-panel dash-crm-v2-area-side" id="dashCrmIntervalHostDetalle" aria-label="Paneles laterales CRM">
+              <div id="dashCrmIntervalCard" class="table-card dash-chart-card dash-crm-interval-card" aria-label="Intervalo de gestión">
                 <div class="dash-crm-interval-head">
                   <h3 class="dash-chart-title dash-crm-interval-title">Intervalo de Gestión</h3>
                   <div class="dash-crm-view-toggle dash-crm-side-scope-toggle" role="group" aria-label="Alcance temporal intervalo de gestión">
@@ -1929,6 +1932,174 @@
                     </table>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div id="dashCrmViewResumen" class="dash-crm-table-view dash-crm-table-view--resumen hidden" aria-label="Vista resumen consolidado CRM">
+            <div class="dash-crm-resumen-shell">
+              <div class="dash-crm-resumen-layout">
+                <div class="dash-crm-resumen-main">
+                  <div class="table-card dash-table-hero dash-table-primary dash-crm-resumen-table-card">
+                    <div class="dash-table-scroll table-container">
+                      <table class="dash-table data-table dash-table-resumen dash-table-crm-resumen">
+                        <colgroup>
+                          <col class="dash-res-col-estado" />
+                          <col class="dash-res-col-tipo" />
+                          <col class="dash-res-col-q" />
+                          <col class="dash-crm-res-col-programa" />
+                          <col class="dash-crm-res-col-num" />
+                          <col class="dash-crm-res-col-num" />
+                          <col class="dash-crm-res-col-num" />
+                          <col class="dash-crm-res-col-num" />
+                          <col class="dash-crm-res-col-num" />
+                        </colgroup>
+                  <thead>
+                    <tr class="dash-thead-row-groups">
+                      <th class="dash-estado-col dash-th-sticky-corner dash-res-col-estado" rowspan="2" aria-label="Estado de campaña" title="Estado">Estado</th>
+                      <th class="tipo-col dash-th-sticky-corner dash-res-col-tipo" rowspan="2">Tipo</th>
+                      <th class="dash-int-col dash-th-sticky-corner dash-res-col-q" rowspan="2" title="Intake">Q</th>
+                      <th id="dashCrmResumenProgramaHead" class="programa-col dash-th-sticky-corner dash-grp-sticky-sep dash-res-col-programa" rowspan="2">Programa</th>
+                      <th id="dashCrmResumenHeaderLeads" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="1">LEADS</th>
+                      <th id="dashCrmResumenHeaderCalidad" class="dash-grp-h1 dash-grp-sep-right grupo-separador" colspan="2">CALIDAD DEL LEAD</th>
+                      <th id="dashCrmResumenHeaderGestion" class="dash-grp-h1" colspan="2">GESTIÓN</th>
+                    </tr>
+                    <tr class="dash-thead-row-columns">
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-crm-leads dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num">Leads</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num">No Perfil</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num">% No Perfil</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-crm-gest dash-grp-col-first dash-res-col-num">Toques</th>
+                      <th class="dash-th-sub dash-grp-col dash-grp-col-crm-gest dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num">Días sin<br>Gestión</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashCrmResumenTbody"></tbody>
+                  <tfoot>
+                    <tr class="dash-tfoot-row dash-crm-resumen-tfoot-row" id="dashCrmResumenTfootRow">
+                      <td class="dash-estado-col dash-tfoot-empty dash-tfoot-estado dash-res-col-estado">&nbsp;</td>
+                      <td class="tipo-col dash-tfoot-empty dash-res-col-tipo">&nbsp;</td>
+                      <td class="dash-int-col dash-tfoot-empty dash-res-col-q">&nbsp;</td>
+                      <td class="programa-col dash-tfoot-label dash-grp-sticky-sep dash-res-col-programa"><strong>TOTAL GENERAL</strong></td>
+                      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-leads dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num"><strong>—</strong></td>
+                      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num"><strong>--</strong></td>
+                      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num"><strong>--</strong></td>
+                      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-gest dash-grp-col-first dash-res-col-num"><strong>—</strong></td>
+                      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-gest dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num"><strong>—</strong></td>
+                    </tr>
+                  </tfoot>
+                </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="dashCrmIntervalHostResumen" class="dash-crm-resumen-interval-host dash-crm-v2-side dash-crm-side-panel" aria-label="Intervalo de gestión"></div>
+              </div>
+
+              <div class="dash-crm-resumen-cards-row" aria-label="Paneles informativos resumen CRM">
+                  <div class="table-card dash-crm-resumen-side-card dash-crm-resumen-side-card--general">
+                    <h3 class="dash-crm-resumen-side-title">Resumen general CRM</h3>
+                    <ul class="dash-crm-resumen-side-metrics" role="list">
+                      <li class="dash-crm-resumen-side-metric dash-crm-resumen-side-metric--leads">
+                        <span class="dash-crm-resumen-side-metric-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </span>
+                        <span class="dash-crm-resumen-side-metric-body">
+                          <span class="dash-crm-resumen-side-metric-label">Leads Totales</span>
+                          <span class="dash-crm-resumen-side-metric-value">1,156</span>
+                        </span>
+                      </li>
+                      <li class="dash-crm-resumen-side-metric dash-crm-resumen-side-metric--noperfil">
+                        <span class="dash-crm-resumen-side-metric-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>
+                        </span>
+                        <span class="dash-crm-resumen-side-metric-body">
+                          <span class="dash-crm-resumen-side-metric-label">No Perfil</span>
+                          <span class="dash-crm-resumen-side-metric-value">45</span>
+                        </span>
+                      </li>
+                      <li class="dash-crm-resumen-side-metric dash-crm-resumen-side-metric--pct">
+                        <span class="dash-crm-resumen-side-metric-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 5L5 19"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                        </span>
+                        <span class="dash-crm-resumen-side-metric-body">
+                          <span class="dash-crm-resumen-side-metric-label">% No Perfil</span>
+                          <span class="dash-crm-resumen-side-metric-value">3.90%</span>
+                        </span>
+                      </li>
+                      <li class="dash-crm-resumen-side-metric dash-crm-resumen-side-metric--toques">
+                        <span class="dash-crm-resumen-side-metric-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                        </span>
+                        <span class="dash-crm-resumen-side-metric-body">
+                          <span class="dash-crm-resumen-side-metric-label">Toques Promedio</span>
+                          <span class="dash-crm-resumen-side-metric-value">2.30</span>
+                        </span>
+                      </li>
+                      <li class="dash-crm-resumen-side-metric dash-crm-resumen-side-metric--dias">
+                        <span class="dash-crm-resumen-side-metric-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </span>
+                        <span class="dash-crm-resumen-side-metric-body">
+                          <span class="dash-crm-resumen-side-metric-label">Días sin Gestión Promedio</span>
+                          <span class="dash-crm-resumen-side-metric-value">15.86</span>
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="table-card dash-crm-resumen-side-card dash-crm-resumen-side-card--sync">
+                    <h3 class="dash-crm-resumen-side-title">Última actualización</h3>
+                    <div class="dash-crm-resumen-sync-row">
+                      <span class="dash-crm-resumen-sync-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                      </span>
+                      <div class="dash-crm-resumen-sync-body">
+                        <p class="dash-crm-resumen-sync-datetime">30/06/2026 · 08:30 AM</p>
+                        <p class="dash-crm-resumen-sync-source">Fuente: CRM Comercial</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="table-card dash-crm-resumen-side-card dash-crm-resumen-side-card--legend">
+                    <h3 class="dash-crm-resumen-side-title">Leyenda días sin gestión</h3>
+                    <ul class="dash-crm-resumen-legend-list" role="list">
+                      <li class="dash-crm-resumen-legend-item">
+                        <span class="dash-crm-resumen-legend-dot dash-crm-resumen-legend-dot--green" aria-hidden="true"></span>
+                        <span class="dash-crm-resumen-legend-text"><strong>0 – 7 días</strong> · Óptimo</span>
+                      </li>
+                      <li class="dash-crm-resumen-legend-item">
+                        <span class="dash-crm-resumen-legend-dot dash-crm-resumen-legend-dot--yellow" aria-hidden="true"></span>
+                        <span class="dash-crm-resumen-legend-text"><strong>8 – 15 días</strong> · En riesgo</span>
+                      </li>
+                      <li class="dash-crm-resumen-legend-item">
+                        <span class="dash-crm-resumen-legend-dot dash-crm-resumen-legend-dot--red" aria-hidden="true"></span>
+                        <span class="dash-crm-resumen-legend-text"><strong>Más de 15 días</strong> · Crítico</span>
+                      </li>
+                    </ul>
+                  </div>
+              </div>
+
+              <div class="table-card dash-crm-resumen-info-panel" role="note" aria-label="Información vista resumen CRM">
+                <div class="dash-crm-resumen-info-content">
+                  <span class="dash-crm-resumen-info-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  </span>
+                  <div class="dash-crm-resumen-info-text">
+                    <h3 class="dash-crm-resumen-info-title">Vista Resumen CRM</h3>
+                    <p class="dash-crm-resumen-info-desc">Información consolidada de todos los programas seleccionados. Esta vista no depende del filtro de mes, plataforma, tracking o estado. Para ver el detalle operativo de campañas utiliza la vista <strong>DETALLE</strong>.</p>
+                  </div>
+                </div>
+                <span class="dash-crm-resumen-info-illus" aria-hidden="true">
+                  <svg viewBox="0 0 120 96" width="120" height="96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="18" y="8" width="72" height="80" rx="8" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+                    <rect x="28" y="22" width="52" height="6" rx="3" fill="#bfdbfe"/>
+                    <rect x="28" y="34" width="44" height="4" rx="2" fill="#e0f2fe"/>
+                    <rect x="28" y="42" width="48" height="4" rx="2" fill="#e0f2fe"/>
+                    <rect x="28" y="50" width="40" height="4" rx="2" fill="#e0f2fe"/>
+                    <circle cx="88" cy="68" r="22" fill="#eff6ff" stroke="#60a5fa" stroke-width="2"/>
+                    <path d="M78 68h16M86 60v16" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </span>
               </div>
             </div>
           </div>
@@ -2892,6 +3063,16 @@
             </div>
           </div>
           <p id="centroCostoSaldoHint" class="hint cc-saldo-hint" role="status"></p>
+
+          <div id="editCampaignTipoSection" class="campaign-form-edit-tipo-section hidden" aria-hidden="true">
+            <label class="campaign-field" for="editCampaignTipoSelect">
+              <span class="campaign-field-label">Tipo</span>
+              <span class="campaign-field-control campaign-field-control--select">
+                <span class="campaign-field-prefix" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+                <select id="editCampaignTipoSelect" name="editCampaignTipo" aria-label="Tipo de programa" required></select>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div class="modal-actions campaign-modal-actions">

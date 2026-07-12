@@ -18,6 +18,18 @@ export const PLANNING_TIPO_SIN_ACADEMICO = "Sin tipo académico";
 /** Ya no son tipos de programa; pertenecen a Categoría. */
 export const PLANNING_LEGACY_NON_ACADEMIC_TIPOS = ["Charla", "Webinar", "Alcance"];
 
+/** Tipos académicos editables / catálogo base (Planning, filtros, bitácora). */
+export const PLANNING_ACADEMIC_TIPO_OPTIONS = Object.freeze([
+  "DI",
+  "DO",
+  "MA",
+  "MBA",
+  "PE",
+  "SE",
+  "SEE",
+  "SEO"
+]);
+
 const CATEGORIA_ALIASES = {
   captacion: PLANNING_CATEGORIA_CAPTACION,
   captación: PLANNING_CATEGORIA_CAPTACION,

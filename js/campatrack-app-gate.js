@@ -103,8 +103,7 @@ export function campatrackGateOnDataError(message) {
 export function campatrackGateMaybeBootModules() {
   if (modulesBooted) return;
   if (!campatrackIsLiteFromWindow()) {
-    modulesBooted = true;
-    bootModulesFn?.();
+    /* Modo full: el boot diferido ocurre tras login o reanudar sesión (evita hidratar/render vacío). */
     return;
   }
   if (phase !== "ready") return;

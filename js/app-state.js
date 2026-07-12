@@ -8,6 +8,14 @@ import { createEmptyCampatrackBundle, loadModularBundleFromGithub } from "./camp
 import { reconcilePlanningRecordIdSeq } from "./campatrack-planning-ids.js";
 import { crmDebugEnabled, crmDebugLog, crmDebugBundleMeta, crmDebugLeadsCount } from "./campatrack-crm-debug.js";
 
+function shouldDeferHydratePaintHooks() {
+  try {
+    return globalThis.__campatrackShouldDeferHydratePaintHooks?.() === true;
+  } catch {
+    return false;
+  }
+}
+
 export const appState = {
   dataOriginal: {},
   dataDraft: {},
@@ -202,13 +210,19 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
   if (bundle == null || typeof bundle !== "object" || Array.isArray(bundle)) return;
   crmDebugBundleMeta(bundle, "hydrate (entrada hydrateAppStateDraftFromApiBundle)");
   const draftCrmAntes = Array.isArray(appState.dataDraft?.crm_leads) ? appState.dataDraft.crm_leads.length : 0;
-  const cloneOrig =
-    typeof structuredClone === "function" ? structuredClone(bundle) : JSON.parse(JSON.stringify(bundle));
-  const cloneDraft =
-    typeof structuredClone === "function" ? structuredClone(bundle) : JSON.parse(JSON.stringify(bundle));
-  appState.dataOriginal = cloneOrig;
+  let snapshot;
+  try {
+    if (typeof structuredClone === "function") {
+      snapshot = structuredClone(bundle);
+    } else {
+      snapshot = JSON.parse(JSON.stringify(bundle));
+    }
+  } catch (_) {
+    snapshot = JSON.parse(JSON.stringify(bundle));
+  }
+  appState.dataOriginal = snapshot;
   if (!appState.dataDraft || typeof appState.dataDraft !== "object") appState.dataDraft = {};
-  for (const key of Object.keys(cloneDraft)) {
+  for (const key of Object.keys(bundle)) {
     if (
       key === "planning_data" ||
       key === "planning" ||
@@ -220,7 +234,7 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
     ) {
       continue;
     }
-    appState.dataDraft[key] = cloneDraft[key];
+    appState.dataDraft[key] = bundle[key];
   }
   const slice = normalizePlanningSliceFromBundle(bundle.planning_data ?? bundle.planning);
   const p = ensurePlanningDraftShape();
@@ -286,13 +300,17 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
 
   hydrateCampatrackUsersAndAuditoriaFromBundle(bundle);
 
-  console.log("Relaciones después de hydrate:", appState.dataDraft.relaciones);
-  try {
-    if (typeof globalThis.__campatrackRebuildRelacionesTable === "function") {
-      globalThis.__campatrackRebuildRelacionesTable();
+  if (!shouldDeferHydratePaintHooks()) {
+    console.log("Relaciones después de hydrate:", appState.dataDraft.relaciones);
+  }
+  if (!shouldDeferHydratePaintHooks()) {
+    try {
+      if (typeof globalThis.__campatrackRebuildRelacionesTable === "function") {
+        globalThis.__campatrackRebuildRelacionesTable();
+      }
+    } catch (_) {
+      /* ignore */
     }
-  } catch (_) {
-    /* ignore */
   }
   try {
     if (typeof globalThis.__campatrackHydrateCrmFromBundle === "function") {
@@ -315,26 +333,32 @@ export function hydrateAppStateDraftFromApiBundle(bundle) {
   } catch (_) {
     /* ignore */
   }
-  try {
-    if (typeof globalThis.__campatrackRenderBitacoraAfterHydrate === "function") {
-      globalThis.__campatrackRenderBitacoraAfterHydrate();
+  if (!shouldDeferHydratePaintHooks()) {
+    try {
+      if (typeof globalThis.__campatrackRenderBitacoraAfterHydrate === "function") {
+        globalThis.__campatrackRenderBitacoraAfterHydrate();
+      }
+    } catch (_) {
+      /* ignore */
     }
-  } catch (_) {
-    /* ignore */
   }
-  try {
-    if (typeof globalThis.__campatrackUsersAfterHydrate === "function") {
-      globalThis.__campatrackUsersAfterHydrate();
+  if (!shouldDeferHydratePaintHooks()) {
+    try {
+      if (typeof globalThis.__campatrackUsersAfterHydrate === "function") {
+        globalThis.__campatrackUsersAfterHydrate();
+      }
+    } catch (_) {
+      /* ignore */
     }
-  } catch (_) {
-    /* ignore */
   }
-  try {
-    if (typeof globalThis.__campatrackRebuildAuditoriaAfterHydrate === "function") {
-      globalThis.__campatrackRebuildAuditoriaAfterHydrate();
+  if (!shouldDeferHydratePaintHooks()) {
+    try {
+      if (typeof globalThis.__campatrackRebuildAuditoriaAfterHydrate === "function") {
+        globalThis.__campatrackRebuildAuditoriaAfterHydrate();
+      }
+    } catch (_) {
+      /* ignore */
     }
-  } catch (_) {
-    /* ignore */
   }
   if (crmDebugEnabled()) {
     crmDebugLeadsCount("hydrate (fin hydrateAppStateDraftFromApiBundle)", {

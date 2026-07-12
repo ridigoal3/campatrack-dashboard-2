@@ -51,7 +51,8 @@ import {
   planningRecordEsCaptacion,
   planningRecordEsInformativa,
   planningRecordRequiresLeadMetrics,
-  purgeNonAcademicTiposFromCatalogList
+  purgeNonAcademicTiposFromCatalogList,
+  PLANNING_ACADEMIC_TIPO_OPTIONS
 } from "./campatrack-planning-categoria.js";
 import {
   CATALOG_PLANNING_FIELD,
@@ -294,6 +295,7 @@ let planningVirtualTable = null;
 let dashPlatVirtualTable = null;
 let dashResumenVirtualTable = null;
 let dashCrmVirtualTable = null;
+let dashCrmResumenVirtualTable = null;
 let relacionesVirtualTable = null;
 const campaignModal = document.getElementById("campaignModal");
 const campaignForm = document.getElementById("campaignForm");
@@ -304,6 +306,8 @@ const percentHint = document.getElementById("percentHint");
 const cplTargetInput = document.getElementById("cplTarget");
 const cplHistoricoHint = document.getElementById("cplHistoricoHint");
 const programTypeSelect = document.getElementById("programType");
+const editCampaignTipoSelect = document.getElementById("editCampaignTipoSelect");
+const editCampaignTipoSection = document.getElementById("editCampaignTipoSection");
 const campaignCategoriaSelect = document.getElementById("campaignCategoria");
 const programNameInput = document.getElementById("programName");
 const programNameEditInput = document.getElementById("programNameEdit");
@@ -363,6 +367,8 @@ function planningDraftRecords() {
 }
 let selectedRecordId = null;
 let editingRecordId = null;
+/** Tipo original al abrir edición rápida (confirmación solo si cambia). */
+let editingRecordOriginalTipo = "";
 /** IDs marcados tras importación Excel (solo memoria; no se persiste el archivo). */
 const planningExcelModifiedRecordIds = new Set();
 const bitacoraData = [];
@@ -1311,10 +1317,10 @@ function mergeConsumoForPersist() {
   syncConsumoFromRecords();
   return {};
 }
-const BITACORA_TIPO_OPTIONS = ["MA", "SE", "PE", "MBA", "DI", "DO"];
+const BITACORA_TIPO_OPTIONS = [...PLANNING_ACADEMIC_TIPO_OPTIONS];
 
 /** Semillas alineadas con opciones base del HTML (planning); el catálogo en localStorage las amplía con el uso. */
-const CATALOGO_SEMILLA_TIPOS = ["MBA", "MA", "DO", "DI", "PE", "SE"];
+const CATALOGO_SEMILLA_TIPOS = [...PLANNING_ACADEMIC_TIPO_OPTIONS];
 const CATALOGO_SEMILLA_TRACKING = ["Leadgen", "Pixel", "Google"];
 const CATALOGO_SEMILLA_PLATAFORMAS = ["Meta", "Google", "TikTok", "LinkedIn"];
 const CATALOGO_SEMILLA_INTAKES = ["Intake 1", "Intake 2", "Intake 3", "Intake 4"];
@@ -1935,7 +1941,7 @@ function sortCcIntakeKeysForSummary(keys) {
 
 /** Orden estable de tipos de campaña (similar al Planning legible). El resto va alfabético al final. */
 function sortCcTipoKeysForSummary(keys) {
-  const order = ["MA", "SE", "DI", "MBA", "PE", "DO", "ALCANCE", "CHARLA", "WEBINAR"];
+  const order = ["MA", "SE", "SEE", "SEO", "DI", "MBA", "PE", "DO", "ALCANCE", "CHARLA", "WEBINAR"];
   const rank = (key) => {
     const k = String(key ?? "").trim().toUpperCase();
     const ix = order.indexOf(k);
@@ -2014,6 +2020,8 @@ function renderCcSummaryTable(el, map, opts) {
   const TYPE_LABELS = {
     MA: "Maestría",
     SE: "Segundas especialidades",
+    SEE: "Segundas especialidades ejecutivas",
+    SEO: "Segundas especialidades online",
     DI: "Diplomados",
     MBA: "MBA",
     PE: "Programa de especialización",
@@ -3472,6 +3480,7 @@ function ordenarCatalogoInPlace(arr) {
 
 function mergeFuentesEnCatalogosSistema() {
   ensureCatalogosSistemaShape();
+  PLANNING_ACADEMIC_TIPO_OPTIONS.forEach((x) => agregarValorSiNoExiste(catalogosSistema.tipos, x));
   CATALOGO_SEMILLA_TIPOS.forEach((x) => agregarValorSiNoExiste(catalogosSistema.tipos, x));
   BITACORA_TIPO_OPTIONS.forEach((x) => agregarValorSiNoExiste(catalogosSistema.tipos, x));
   CATALOGO_SEMILLA_TRACKING.forEach((x) => agregarValorSiNoExiste(catalogosSistema.tracking, x));
@@ -5773,6 +5782,7 @@ function openModal() {
   setPresupuestoInputReadonly(true);
   campaignModal?.classList.remove("campaign-modal--edit-cc");
   campaignForm?.removeAttribute("novalidate");
+  setEditCampaignTipoSectionVisible(false);
   if (modalTitle) modalTitle.textContent = "Registrar nueva campaña";
   showFormError("");
   campaignModal?.classList.remove("hidden");
@@ -5810,15 +5820,72 @@ function openModal() {
   syncPresupuestoFromLeadsCpl();
 }
 
+function setEditCampaignTipoSectionVisible(visible) {
+  if (!editCampaignTipoSection) return;
+  editCampaignTipoSection.classList.toggle("hidden", !visible);
+  editCampaignTipoSection.setAttribute("aria-hidden", visible ? "false" : "true");
+}
+
+function populateEditCampaignTipoSelect(selectedValue) {
+  if (!(editCampaignTipoSelect instanceof HTMLSelectElement)) return;
+  const selected = String(selectedValue ?? "").trim();
+  const options = PLANNING_ACADEMIC_TIPO_OPTIONS.map(
+    (t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`
+  );
+  if (selected && !PLANNING_ACADEMIC_TIPO_OPTIONS.includes(selected)) {
+    options.unshift(`<option value="${escapeHtml(selected)}">${escapeHtml(selected)}</option>`);
+  }
+  editCampaignTipoSelect.innerHTML = options.join("");
+  if (selected && [...editCampaignTipoSelect.options].some((o) => o.value === selected)) {
+    editCampaignTipoSelect.value = selected;
+  } else if (PLANNING_ACADEMIC_TIPO_OPTIONS.length) {
+    editCampaignTipoSelect.value = PLANNING_ACADEMIC_TIPO_OPTIONS[0];
+  }
+}
+
+function buildPlanningTipoChangeConfirmMessage(programa, oldTipo, newTipo) {
+  const prog = String(programa ?? "").trim() || "—";
+  const prev = String(oldTipo ?? "").trim() || "—";
+  const next = String(newTipo ?? "").trim() || "—";
+  return (
+    "Cambiar el tipo de esta campaña afectará todos los módulos del sistema.\n\n" +
+    `Programa:\n${prog}\n\n` +
+    `Tipo actual:\n${prev}\n\n` +
+    `Nuevo tipo:\n${next}\n\n` +
+    "Este cambio actualizará automáticamente:\n\n" +
+    "• Planning\n" +
+    "• Dashboard Plataforma\n" +
+    "• Dashboard Comercial CRM\n" +
+    "• Todos los filtros por Tipo\n" +
+    "• Reportes y Resúmenes\n\n" +
+    "¿Desea continuar?"
+  );
+}
+
+async function confirmPlanningTipoChangeIfNeeded(programa, oldTipo, newTipo) {
+  const prev = String(oldTipo ?? "").trim();
+  const next = String(newTipo ?? "").trim();
+  if (!next || prev === next) return true;
+  return showAppDialog({
+    message: buildPlanningTipoChangeConfirmMessage(programa, prev, next),
+    primaryText: "Sí, cambiar",
+    secondaryText: "Cancelar",
+    showSecondary: true,
+    primaryDanger: false
+  });
+}
+
 function openModalForEdit(record) {
   refreshPlanningCatalogUi();
   exitProgramEditMode();
   editingRecordId = record.id;
+  editingRecordOriginalTipo = String(record.tipo ?? "").trim();
   presupuestoManualMode = false;
   setPresupuestoInputReadonly(true);
   campaignModal?.classList.add("campaign-modal--edit-cc");
   campaignForm?.setAttribute("novalidate", "novalidate");
-  if (modalTitle) modalTitle.textContent = "Centro de costo";
+  setEditCampaignTipoSectionVisible(true);
+  if (modalTitle) modalTitle.textContent = "Editar campaña";
   showFormError("");
   campaignModal?.classList.remove("hidden");
   if (programDropdown) programDropdown.classList.add("hidden");
@@ -5827,13 +5894,17 @@ function openModalForEdit(record) {
   const selCc = document.getElementById("centroCostoSelect");
   if (selCc) selCc.value = planningRecordCanonicalCentroId(record) || "";
   updateCentroCostoSaldoHint();
+  populateEditCampaignTipoSelect(editingRecordOriginalTipo);
+  editCampaignTipoSelect?.focus?.();
 }
 
 function closeModal() {
   editingRecordId = null;
+  editingRecordOriginalTipo = "";
   editCampaignBaselineDates = null;
   presupuestoManualMode = false;
   setPresupuestoInputReadonly(true);
+  setEditCampaignTipoSectionVisible(false);
   campaignModal?.classList.remove("campaign-modal--edit-cc");
   campaignForm?.removeAttribute("novalidate");
   campaignModal?.classList.add("hidden");
@@ -6323,11 +6394,27 @@ campaignForm?.addEventListener("submit", (event) => {
         if (!continuar) return;
       }
 
+      const newTipo = String(editCampaignTipoSelect?.value || "").trim();
+      if (!newTipo) {
+        showFormError("Selecciona un tipo de programa.");
+        return;
+      }
+
+      const oldTipo = String(editingRecordOriginalTipo || prev.tipo || "").trim();
+      const tipoConfirmed = await confirmPlanningTipoChangeIfNeeded(prev.programa, oldTipo, newTipo);
+      if (!tipoConfirmed) return;
+
+      const oldKey = planningKeyFromRecord(prev);
       pr[idx] = {
         ...prev,
+        tipo: newTipo,
         centroCosto: ccVal,
         centroCostoId: ccVal
       };
+      const newKey = planningKeyFromRecord(pr[idx]);
+      if (oldKey !== newKey) {
+        remapRelacionesPlanningKeys(new Map([[oldKey, newKey]]));
+      }
       diffPlanningRecordForAudit(String(editingRecordId), prev, pr[idx]);
       rebuildPlanningTable();
       persistPlanningData();
@@ -8237,6 +8324,25 @@ function ensureDashCrmVirtualTable() {
   return dashCrmVirtualTable;
 }
 
+function ensureDashCrmResumenVirtualTable() {
+  const tbody = document.getElementById("dashCrmResumenTbody");
+  const scrollEl = document.querySelector("#dashCrmViewResumen .dash-table-scroll.table-container");
+  if (!tbody) return null;
+  if (!dashCrmResumenVirtualTable || dashCrmResumenVirtualTable._tbody !== tbody) {
+    dashCrmResumenVirtualTable = createVirtualTbody({
+      scrollEl,
+      tbody,
+      rowHeight: 36,
+      overscan: 12,
+      threshold: 40,
+      colspan: 9,
+      uid: "dash-crm-resumen"
+    });
+    dashCrmResumenVirtualTable._tbody = tbody;
+  }
+  return dashCrmResumenVirtualTable;
+}
+
 function ensurePlanningVirtualTable() {
   if (!planningBody) return null;
   const scrollEl = planningBody.closest(".table-scroll");
@@ -8288,6 +8394,20 @@ function syncDashboardTableRowDomSelectionHighlight() {
   }
 }
 
+function syncDashboardCrmResumenRowDomSelectionHighlight() {
+  try {
+    const sel = String(dashboardCrmResumenSeleccionado ?? "").trim();
+    document.querySelectorAll("#dashCrmResumenTbody tr[data-dash-crm-resumen-row]").forEach((row) => {
+      row.classList.toggle(
+        "dash-row-selected",
+        !!sel && row.getAttribute("data-dash-crm-resumen-row") === sel
+      );
+    });
+  } catch (_) {
+    /* ignore */
+  }
+}
+
 /**
  * Si es false: gasto comercial vía modelo; campañas Charla_/Webinar_/Alcance_ (DATA) excluidas del gasto.
  * Si es true: suma además el gasto DATA de Charla_/Webinar_/Alcance_ (sin Planning ni Relaciones).
@@ -8302,9 +8422,21 @@ const DASH_TIPO_CAMBIO_DEFAULT = 3.5;
 let dashboardActiveSubtab = "plataforma";
 /** Vista de tabla Plataforma: "detalle" | "resumen" */
 let dashboardTableView = "detalle";
+/** Vista de tabla Comercial CRM: "detalle" | "resumen" (maqueta visual). */
+let dashboardCrmTableView = "detalle";
+/** Fila seleccionada en tabla Vista Resumen CRM (clave tipo|||intake|||programa). */
+let dashboardCrmResumenSeleccionado = null;
 
 function isDashboardPlatTableViewResumen() {
   return dashboardTableView === "resumen" && getDashboardEffectiveSubtab() === "plataforma";
+}
+
+function isDashboardCrmTableViewResumen() {
+  return dashboardCrmTableView === "resumen" && getDashboardEffectiveSubtab() === "crm";
+}
+
+function isDashboardTableViewResumenControlsDisabled() {
+  return isDashboardPlatTableViewResumen() || isDashboardCrmTableViewResumen();
 }
 
 /** Segmentadores aplicables en Vista Resumen (sin tracking, plataforma ni estado). */
@@ -8322,7 +8454,7 @@ function dashboardPlanningRecordMatchesSegmentsResumen(rec) {
 
 /** Habilita/deshabilita controles que no aplican en Vista Resumen Plataforma. */
 function applyDashboardPlatTableViewControlsState() {
-  const disabled = isDashboardPlatTableViewResumen();
+  const disabled = isDashboardTableViewResumenControlsDisabled();
   const periodoCard = document.getElementById("dashPeriodoCard");
   periodoCard?.classList.toggle("dash-periodo--view-disabled", disabled);
   periodoCard?.setAttribute("aria-disabled", disabled ? "true" : "false");
@@ -8648,6 +8780,11 @@ const EXPORT_BUNDLE_KEYS = [
 
 /** True mientras se obtiene `/api/data` tras el login (shell visible, dashboards en skeleton). */
 let campatrackPostLoginHydrationBusy = false;
+try {
+  globalThis.__campatrackShouldDeferHydratePaintHooks = () => campatrackPostLoginHydrationBusy;
+} catch (_) {
+  /* ignore */
+}
 
 /** Estado adicional que el dashboard hidrata / persiste fuera del JSON mínimo de export. */
 const CLAVES_EXTRA_ESTADO_SISTEMA = ["campaniasUnicasData", "medidas", "modeloAnalitico", "modelo"];
@@ -9218,19 +9355,7 @@ async function afterLoginSuccess(user) {
         topKeys: Object.keys(bundle),
         planningRecords: planRecs.length
       });
-      withDraftNotificationsSuppressed(() => {
-        hydrateAppStateDraftFromApiBundle(bundle);
-        try {
-          syncRelacionesViewFromDraft();
-          syncDataRelacionesModeloConsistency();
-          syncCrmRuntimeViewsAfterHydrate();
-        } catch (e) {
-          console.warn("Post-hydrate (login lite): modelo / relaciones / CRM", e);
-        }
-      });
-      crmDebugSnapshot("hydrate (post login lite)", { origen: "afterLoginSuccess" });
-      resetPublishDraftAfterServerHydrate();
-      campatrackMergeSessionProfileFromDraftUsers();
+      crmDebugSnapshot("fetch (post login lite, sin hidratar)", { origen: "afterLoginSuccess" });
       return bundle;
     }
     const res = await fetch(
@@ -9268,20 +9393,7 @@ async function afterLoginSuccess(user) {
   console.info("[CampaTrack sesión] Usuarios en bundle:", {
     campatrack_users_db: Array.isArray(bundle.campatrack_users_db) ? bundle.campatrack_users_db.length : 0
   });
-    crmDebugSnapshot("fetched bundle (pre-hydrate login)", { partitionKey, origen: "afterLoginSuccess" });
-    withDraftNotificationsSuppressed(() => {
-      hydrateAppStateDraftFromApiBundle(bundle);
-      try {
-        syncRelacionesViewFromDraft();
-        syncDataRelacionesModeloConsistency();
-        syncCrmRuntimeViewsAfterHydrate();
-      } catch (e) {
-        console.warn("Post-hydrate (login): modelo / relaciones / CRM", e);
-      }
-    });
-    crmDebugSnapshot("hydrate (post login)", { origen: "afterLoginSuccess" });
-    resetPublishDraftAfterServerHydrate();
-    campatrackMergeSessionProfileFromDraftUsers();
+    crmDebugSnapshot("fetch (pre-hydrate login)", { partitionKey, origen: "afterLoginSuccess" });
     return bundle;
   } catch (err) {
     console.error("Error cargando data:", err);
@@ -9440,11 +9552,13 @@ function campatrackBundleTieneDatosUtiles(bundle) {
 }
 
 /**
- * Vuelca el bundle en `appMemoryKV`, `hydratarDesdeLocalStorage` y pinta el dashboard.
+ * Vuelca el bundle en memoria, hidrata borrador/runtime y pinta el dashboard.
  * Con `deferSecondaryRenders` los módulos Data/Relaciones/Bitácora se repintan en idle.
+ * Con `fastHydrate` (defecto true) evita doble hidratación KV→draft tras login.
  */
 function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
   const deferSecondaryRenders = opts.deferSecondaryRenders === true;
+  const fastHydrate = opts.fastHydrate !== false;
   if (
     bundlePayload == null ||
     typeof bundlePayload !== "object" ||
@@ -9477,20 +9591,40 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
     }
   } catch (_) {}
 
+  if (fastHydrate) {
+    withDraftNotificationsSuppressed(() => {
+      hydrateAppStateDraftFromApiBundle(bundlePayload);
+      try {
+        syncRelacionesViewFromDraft();
+        syncDataRelacionesModeloConsistency();
+        syncCrmRuntimeViewsAfterHydrate();
+      } catch (e) {
+        console.warn("Post-hydrate bundle directo (login)", e);
+      }
+    });
+  }
+
+  let deferredCrmLeadsKv = null;
   for (const clave of EXPORT_BUNDLE_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(bundlePayload, clave)) continue;
     const v = bundlePayload[clave];
     if (v == null || v === undefined) continue;
+    if (fastHydrate && clave === "crm_leads") {
+      deferredCrmLeadsKv = v;
+      continue;
+    }
     try {
       appMemoryKV.setItem(clave, JSON.stringify(v));
     } catch (err) {
       console.warn("No se pudo guardar en almacén en memoria:", clave, err);
     }
   }
-  try {
-    hydrateCampatrackUsersAndAuditoriaFromBundle(bundlePayload);
-  } catch (e) {
-    console.warn("hydrateCampatrackUsersAndAuditoriaFromBundle", e);
+  if (!fastHydrate) {
+    try {
+      hydrateCampatrackUsersAndAuditoriaFromBundle(bundlePayload);
+    } catch (e) {
+      console.warn("hydrateCampatrackUsersAndAuditoriaFromBundle", e);
+    }
   }
   try {
     syncDataOriginalFromPublishedDraft(bundlePayload);
@@ -9501,28 +9635,58 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
     /* ignore */
   }
   try {
-    hydratarDesdeLocalStorage();
+    hydratarDesdeLocalStorage(fastHydrate ? { runtimeOnly: true } : undefined);
   } catch (e) {
     console.warn("hydratarDesdeLocalStorage tras aplicar bundle API", e);
   }
-  syncCrmLeadsViewFromDraft();
   crmDebugLeadsCount("runtime crm_leads", {
     origen: "campatrackApplyFetchedBundleToRuntime",
-    nota: "sin re-hidratar bundle (evita wipe si core traía crm_leads vacío)"
+    nota: fastHydrate ? "fastHydrate" : "legacy"
   });
+  resetPublishDraftAfterServerHydrate();
   campatrackMergeSessionProfileFromDraftUsers();
   if (typeof syncCampatrackProfileHeader === "function") syncCampatrackProfileHeader();
-  if (typeof rebuildPlanningTable === "function") rebuildPlanningTable();
   if (typeof setFechaActualData === "function") setFechaActualData();
   if (typeof mostrarFechaActualizacion === "function") mostrarFechaActualizacion();
 
   const renderDashboardAndAlerts = () => {
+    clearDashboardSkeletonMode();
     if (typeof renderDashboard === "function") renderDashboard();
     if (typeof scheduleDashEndingSoonAlert === "function") scheduleDashEndingSoonAlert();
   };
 
   const secondaryRenders = () => {
+    if (deferredCrmLeadsKv != null) {
+      try {
+        appMemoryKV.setItem("crm_leads", JSON.stringify(deferredCrmLeadsKv));
+      } catch (err) {
+        console.warn("No se pudo guardar crm_leads diferido en KV", err);
+      }
+    }
+    if (typeof rebuildPlanningTable === "function") rebuildPlanningTable();
+    if (typeof limpiarFiltrosUiDataGeneral === "function") limpiarFiltrosUiDataGeneral();
+    if (typeof actualizarFiltrosCache === "function") actualizarFiltrosCache();
+    if (typeof refreshFechaFiltersUI === "function") refreshFechaFiltersUI();
     if (typeof renderTablaData === "function") renderTablaData();
+    if (typeof renderTablaAnuncios === "function") renderTablaAnuncios();
+    if (typeof renderTablaCampañas === "function") renderTablaCampañas();
+    if (typeof refreshAdsReportFilterOptions === "function") refreshAdsReportFilterOptions();
+    if (typeof renderAdsReportModule === "function") renderAdsReportModule();
+    if (Array.isArray(modeloAnalitico) && modeloAnalitico.length > 0) {
+      if (typeof renderModeloTabla === "function") renderModeloTabla();
+      if (typeof refreshSegmentadoresValues === "function") refreshSegmentadoresValues();
+      if (typeof refreshMedidasFiltros === "function") refreshMedidasFiltros();
+    } else if (typeof REGENERAR_MODELO === "function") {
+      withDraftNotificationsSuppressed(() => REGENERAR_MODELO());
+    }
+    withDraftNotificationsSuppressed(() => {
+      if (typeof restoreOrResetPublishDraftAfterBoot === "function") restoreOrResetPublishDraftAfterBoot();
+    });
+    if (typeof globalThis.__campatrackRebuildRelacionesTable === "function") {
+      try {
+        globalThis.__campatrackRebuildRelacionesTable();
+      } catch (_) {}
+    }
     if (typeof renderRelacionesTabla === "function") renderRelacionesTabla();
     if (typeof renderRelacionesPlanningList === "function") renderRelacionesPlanningList();
     if (typeof renderRelacionesDataList === "function") renderRelacionesDataList();
@@ -9551,20 +9715,17 @@ function campatrackApplyFetchedBundleToRuntime(bundlePayload, opts = {}) {
     secondaryRenders();
     renderDashboardAndAlerts();
   }
-  resetPublishDraftAfterServerHydrate();
 }
 
 function campatrackCompletePostLoginPipeline(bundlePayload) {
   if (bundlePayload == null) {
     const emptyBundle = createEmptyCampatrackBundle();
-    withDraftNotificationsSuppressed(() => {
-      hydrateAppStateDraftFromApiBundle(emptyBundle);
-    });
     try {
       sessionStorage.setItem(SS_SKIP_NEXT_DASHBOARD_BACKEND_FETCH, "1");
     } catch (_) {}
     clearDashboardSkeletonMode();
-    campatrackApplyFetchedBundleToRuntime(emptyBundle, { deferSecondaryRenders: true });
+    campatrackEnsureDeferredModulesBooted({ skipDataPaint: true });
+    campatrackApplyFetchedBundleToRuntime(emptyBundle, { deferSecondaryRenders: true, fastHydrate: true });
     if (campatrackIsLiteMode()) campatrackGateOnDataReady();
     bootstrapCampatrackAuthShell();
     void showAppDialog({
@@ -9597,7 +9758,8 @@ function campatrackCompletePostLoginPipeline(bundlePayload) {
     return;
   }
 
-  campatrackApplyFetchedBundleToRuntime(bundlePayload, { deferSecondaryRenders: true });
+  campatrackEnsureDeferredModulesBooted({ skipDataPaint: true });
+  campatrackApplyFetchedBundleToRuntime(bundlePayload, { deferSecondaryRenders: true, fastHydrate: true });
   if (campatrackIsLiteMode()) campatrackGateOnDataReady();
   bootstrapCampatrackAuthShell();
   if (perfAuditEnabled()) {
@@ -10624,22 +10786,27 @@ function persistModeloState() {
   registerUnpublishedDraftMutation();
 }
 
-function hydratarDesdeLocalStorage() {
-  ensureDataGeneralDraftShape();
-  const dg = ensureDataGeneralDraftShape();
-  if (!dg.length) {
-    try {
-      const raw = appMemoryKV.getItem("data_general") ?? appMemoryKV.getItem(LS_KEYS.dataReal) ?? appMemoryKV.getItem("dataReal");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const stored = normalizarArrayPersistido(parsed) ?? parsed;
-        const rows = deserializeDataReal(Array.isArray(stored) ? stored : []);
-        migrateMissingTeamIdOnRows(rows);
-        rows.forEach((r) => dg.push(r));
+function hydratarDesdeLocalStorage(opts = {}) {
+  const runtimeOnly = opts && opts.runtimeOnly === true;
+  if (!runtimeOnly) {
+    ensureDataGeneralDraftShape();
+    const dg = ensureDataGeneralDraftShape();
+    if (!dg.length) {
+      try {
+        const raw = appMemoryKV.getItem("data_general") ?? appMemoryKV.getItem(LS_KEYS.dataReal) ?? appMemoryKV.getItem("dataReal");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const stored = normalizarArrayPersistido(parsed) ?? parsed;
+          const rows = deserializeDataReal(Array.isArray(stored) ? stored : []);
+          migrateMissingTeamIdOnRows(rows);
+          rows.forEach((r) => dg.push(r));
+        }
+      } catch (err) {
+        console.warn("Migración one-shot data_general desde memoria", err);
       }
-    } catch (err) {
-      console.warn("Migración one-shot data_general desde memoria", err);
     }
+  } else {
+    ensureDataGeneralDraftShape();
   }
   syncDataRealViewFromDraft();
   let dAds = readFullDataAdsRowsFromDisk();
@@ -10674,6 +10841,7 @@ function hydratarDesdeLocalStorage() {
   campaniasUnicasData = campaniasUnicasData.map((r) => (r && typeof r === "object" ? { ...r, teamId: tidCu } : r));
   guardarEnLocalStorage(LS_KEYS.campaniasUnicasData, campaniasUnicasMergedCache);
 
+  if (!runtimeOnly) {
   ensureRelacionesDraftShape();
   const drRel = ensureRelacionesDraftShape();
   if (!drRel.length) {
@@ -10750,6 +10918,11 @@ function hydratarDesdeLocalStorage() {
     } catch (err) {
       console.warn("Migración one-shot auditoria desde memoria", err);
     }
+  }
+  } else {
+    syncRelacionesViewFromDraft();
+    syncRelacionesCrmViewFromDraft();
+    syncCrmLeadsViewFromDraft();
   }
 
   medidasMergedCache = readFullMedidasFromDisk();
@@ -15154,14 +15327,13 @@ function syncDashboardCrmHeaderBadges() {
   const teamEl = document.getElementById("appTeamHeaderBadge");
   const headerFechaEl = document.getElementById("dashCrmActualizadoHeader");
   const toolbarEnd = document.querySelector("#dashboardModule .dash-toolbar-end-group");
-  const viewSwitcher = document.getElementById("dashTableViewSwitcher");
   const operWrap = document.getElementById("dashCrmOperCardsWrap");
   const headerFechaText = headerFechaEl instanceof HTMLElement ? String(headerFechaEl.textContent || "").trim() : "";
 
   toolbarEnd?.classList.toggle("hidden", crmOn);
-  viewSwitcher?.classList.toggle("hidden", crmOn || !onDash);
   operWrap?.classList.toggle("hidden", !crmOn);
   operWrap?.setAttribute("aria-hidden", crmOn ? "false" : "true");
+  syncDashboardTableViewSwitchersForSubtab();
 
   if (crmOn) {
     teamEl?.classList.add("hidden");
@@ -17413,6 +17585,78 @@ function getDashboardSegmentTiposComerciales() {
   });
 }
 
+/** Orden visual del segmentador TIPO (mismo criterio que uniqueVals). */
+function dashSortDashboardSegmentTipoValues(values) {
+  return (values || [])
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+}
+
+function dashCrmLeadsContentSig() {
+  if (!crmLeads.length) return "0";
+  const first = crmLeads[0];
+  const last = crmLeads[crmLeads.length - 1];
+  return `${crmLeads.length}|${String(first?._id ?? "")}|${String(last?._id ?? "")}`;
+}
+
+function dashboardCrmResumenTiposAnalyticsSignature() {
+  return createDashSignature([dashCrmLeadsContentSig(), String(getCurrentTeamId() || "")]);
+}
+
+/** Tipos únicos columna TIPO del archivo CRM (Vista Resumen CRM; sin Planning). */
+function getDashboardCrmResumenSegmentTipos() {
+  const sig = dashboardCrmResumenTiposAnalyticsSignature();
+  const hit = dashQueryMemo.get("crmResumenTipos");
+  if (hit && hit.sig === sig) return hit.val;
+
+  const set = new Set();
+  crmLeads.forEach((r) => {
+    if (!dashboardComercialCrmLeadRowPassesGlobalFilter(r)) return;
+    const tipo = String(crmHydrateDimensionalFieldsOnRow(r).tipo ?? "").trim();
+    if (tipo) set.add(tipo);
+  });
+  const val = dashSortDashboardSegmentTipoValues(Array.from(set));
+  dashQueryMemo.set("crmResumenTipos", { sig, val });
+  return val;
+}
+
+/** Origen TIPO del segmentador según subtab/vista activa del dashboard. */
+function getDashboardSegmentTipoValues() {
+  if (isDashboardCrmTableViewResumen()) return getDashboardCrmResumenSegmentTipos();
+  return getDashboardSegmentTiposComerciales();
+}
+
+function ensureDashboardCrmResumenSegmentTipoFilterValid(tipos) {
+  const cur = String(estadoFiltrosDashboard.tipo ?? "").trim();
+  if (!cur) return false;
+  const list = tipos || getDashboardCrmResumenSegmentTipos();
+  if (!list.includes(cur)) {
+    estadoFiltrosDashboard.tipo = "";
+    return true;
+  }
+  return false;
+}
+
+/** Último origen pintado en #dashSegTipo (`planning` | `crm`). */
+let dashCrmTipoSegmentSource = null;
+
+/** Reconstruye segmentador TIPO (#dashSegTipo) según vista activa. */
+function refreshDashboardTipoSegment(forceInvalidate = false) {
+  const source = isDashboardCrmTableViewResumen() ? "crm" : "planning";
+  const sourceChanged = dashCrmTipoSegmentSource !== source;
+  dashCrmTipoSegmentSource = source;
+  if (forceInvalidate || sourceChanged) {
+    document.getElementById("dashSegTipo")?.removeAttribute("data-dash-seg-values-sig");
+  }
+  if (isDashboardCrmTableViewResumen()) {
+    ensureDashboardCrmResumenSegmentTipoFilterValid();
+  } else if (esTipoBrandingConvocatoriaDashboard(estadoFiltrosDashboard.tipo)) {
+    estadoFiltrosDashboard.tipo = "";
+  }
+  renderDashboardSegmentButtons("dashSegTipo", "tipo", getDashboardSegmentTipoValues());
+}
+
 /** Dataset para gasto e inversión total (Captación + Informativa + Branding). */
 function aplicarFiltroBrandingModeloGasto(rows) {
   if (!rows || !rows.length) return [];
@@ -18010,6 +18254,163 @@ function filterDashboardCrmLeadRowsPorFilaSeleccionada(rows) {
   });
 }
 
+/**
+ * Un solo recorrido memoizado de crmLeads para Vista Resumen (filas base + agregados).
+ */
+function ensureDashboardCrmResumenLeadBundle() {
+  const sig = dashboardCrmResumenAnalyticsSignature(`crmResumenLeadBundle|${dashCrmLeadsContentSig()}`);
+  const hit = dashQueryMemo.get("crmResumenLeadBundle");
+  if (hit && hit.sig === sig) return hit.val;
+
+  const baseRows = [];
+  const agg = new Map();
+  crmLeads.forEach((r) => {
+    if (!dashboardComercialCrmLeadRowPassesGlobalFilter(r)) return;
+    const h = crmHydrateDimensionalFieldsOnRow(r);
+    if (!dashboardCrmResumenRowPassesSegmentFilters(h)) return;
+
+    baseRows.push(r);
+
+    const tipo = String(h.tipo ?? "").trim();
+    const intake = String(h.intake ?? "").trim();
+    const programa = String(h.programa ?? "").trim();
+    const rowKey = dashboardCrmResumenRowKey(tipo, intake, programa);
+    if (!agg.has(rowKey)) {
+      agg.set(rowKey, {
+        tipo,
+        intake,
+        programa,
+        leadsCount: 0,
+        toquesSum: 0,
+        toquesCount: 0,
+        diasSum: 0,
+        diasCount: 0
+      });
+    }
+    dashboardCrmAccumulateLeadRowMetrics(agg.get(rowKey), r);
+  });
+
+  const val = { baseRows, agg };
+  dashQueryMemo.set("crmResumenLeadBundle", { sig, val });
+  return val;
+}
+
+/**
+ * Registros CRM base para Vista Resumen (tipo, intake, programa; sin mes/tracking/plataforma/estado).
+ */
+function getDashboardCrmResumenBaseLeadRows() {
+  return ensureDashboardCrmResumenLeadBundle().baseRows;
+}
+
+function filterDashboardCrmLeadRowsPorResumenSeleccionado(rows) {
+  const sel = String(dashboardCrmResumenSeleccionado ?? "").trim();
+  if (!sel || !isDashboardCrmTableViewResumen()) return rows || [];
+  return (rows || []).filter((r) => {
+    const h = crmHydrateDimensionalFieldsOnRow(r);
+    return dashboardCrmResumenRowKey(h.tipo, h.intake, h.programa) === sel;
+  });
+}
+
+/** Subconjunto filtrado de registros CRM para la Vista Resumen activa. */
+function getDashboardCrmResumenScopedLeadRows() {
+  return filterDashboardCrmLeadRowsPorResumenSeleccionado(getDashboardCrmResumenBaseLeadRows());
+}
+
+/** Intervalo de Gestión en Vista Resumen: misma base que toolbar/resumen + alcance Total/Mes. */
+function getDashboardCrmResumenIntervaloLeadRows() {
+  return getDashboardCrmResumenScopedLeadRows().filter(dashboardCrmIntervaloLeadPassesScopeFilter);
+}
+
+function dashboardCrmCreateEmptyLeadMetricsAccumulator() {
+  return { leadsCount: 0, toquesSum: 0, toquesCount: 0, diasSum: 0, diasCount: 0 };
+}
+
+function dashboardCrmAccumulateLeadRowMetrics(slot, r) {
+  if (!slot || !r) return;
+  slot.leadsCount += 1;
+  const toques = Number(r.crmCantLlamadas);
+  if (Number.isFinite(toques)) {
+    slot.toquesSum += toques;
+    slot.toquesCount += 1;
+  }
+  const dias = Number(r.crmDiasSinGestion);
+  if (Number.isFinite(dias)) {
+    slot.diasSum += dias;
+    slot.diasCount += 1;
+  }
+}
+
+function dashboardCrmGeneralMetricsFromAccumulator(slot) {
+  const acc = slot || dashboardCrmCreateEmptyLeadMetricsAccumulator();
+  return {
+    leadsTotales: acc.leadsCount,
+    noPerfil: null,
+    pctNoPerfil: null,
+    toquesPromedio: acc.toquesCount > 0 ? acc.toquesSum / acc.toquesCount : null,
+    diasSinGestionPromedio: acc.diasCount > 0 ? acc.diasSum / acc.diasCount : null
+  };
+}
+
+function computeDashboardCrmGeneralMetricsFromLeadRows(rows) {
+  const acc = dashboardCrmCreateEmptyLeadMetricsAccumulator();
+  (rows || []).forEach((r) => dashboardCrmAccumulateLeadRowMetrics(acc, r));
+  return dashboardCrmGeneralMetricsFromAccumulator(acc);
+}
+
+function ensureDashboardCrmResumenSeleccionadoValid() {
+  const sel = String(dashboardCrmResumenSeleccionado ?? "").trim();
+  if (!sel) return false;
+  const visible = (dashboardCrmResumenRows || []).some(
+    (r) => dashboardCrmResumenRowKey(r.tipo, r.intake, r.programa) === sel
+  );
+  if (!visible) {
+    dashboardCrmResumenSeleccionado = null;
+    return true;
+  }
+  return false;
+}
+
+function renderDashboardCrmToolbarLeadToquesKpis(rows) {
+  if (!isDashboardComercialCrmActiveView()) return;
+  const m = computeDashboardCrmGeneralMetricsFromLeadRows(rows);
+  const toqueEl = document.querySelector(".dash-toolbar-toque-crm .dash-crm-toolbar-kpi-val");
+  const leadsEl = document.querySelector(".dash-toolbar-leads-crm .dash-crm-toolbar-kpi-val");
+  if (toqueEl) toqueEl.textContent = dashCrmResumenFmtAvg2(m.toquesPromedio);
+  if (leadsEl) leadsEl.textContent = dashFmtLeads(m.leadsTotales);
+}
+
+function renderDashboardCrmResumenGeneralSidePanel(rows) {
+  const card = document.querySelector(".dash-crm-resumen-side-card--general");
+  if (!card) return;
+  const m = computeDashboardCrmGeneralMetricsFromLeadRows(rows);
+  const setMetric = (modifier, text) => {
+    const el = card.querySelector(`.dash-crm-resumen-side-metric--${modifier} .dash-crm-resumen-side-metric-value`);
+    if (el) el.textContent = text;
+  };
+  setMetric("leads", dashFmtLeads(m.leadsTotales));
+  setMetric("noperfil", dashCrmResumenPlaceholder());
+  setMetric("pct", dashCrmResumenPlaceholder());
+  setMetric("toques", dashCrmResumenFmtAvg2(m.toquesPromedio));
+  setMetric("dias", dashCrmResumenFmtAvg2(m.diasSinGestionPromedio));
+}
+
+/** Toolbar Leads/Toques + Resumen general + Intervalo (solo Vista Resumen CRM). */
+function renderDashboardCrmResumenSelectionScopedUi() {
+  if (!isDashboardComercialCrmActiveView() || !isDashboardCrmTableViewResumen()) return;
+  const rows = getDashboardCrmResumenScopedLeadRows();
+  renderDashboardCrmToolbarLeadToquesKpis(rows);
+  renderDashboardCrmResumenGeneralSidePanel(rows);
+  const intervaloRows = rows.filter(dashboardCrmIntervaloLeadPassesScopeFilter);
+  renderDashboardCrmIntervaloTabla({ intervaloRows });
+}
+
+/** Repinta Vista Resumen CRM sin paneles inferiores de Detalle (más ligero al filtrar). */
+function renderDashboardCrmResumenDashboardNow() {
+  dashCrmPerfResetLeadScanCount();
+  renderDashboardCrmTableView();
+  renderDashboardCrmResumenSelectionScopedUi();
+}
+
 /** Si hay fila seleccionada en la tabla CRM/plataforma, reduce mapas KPI a esa clave. */
 function dashboardCrmSubsetKeyedMap(map, emptyVal) {
   const selRow = String(programaSeleccionado ?? "").trim();
@@ -18126,6 +18527,214 @@ function filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys) {
   });
 }
 
+/** Firma analítica Vista Resumen CRM: tipo, intake, programa; sin mes, rango ni tracking/plataforma/estado. */
+function dashboardCrmResumenAnalyticsSignature(extra = "") {
+  return dashboardResumenAnalyticsSignature(extra);
+}
+
+function dashboardCrmResumenRowKey(tipo, intake, programa) {
+  return `${String(tipo ?? "")}|||${String(intake ?? "")}|||${String(programa ?? "").trim()}`;
+}
+
+function dashboardCrmResumenSearchHaystack(tipo, intake, programa) {
+  return [tipo, programa, intake].filter(Boolean).join(" ").toLowerCase();
+}
+
+function dashboardCrmResumenRowPassesSegmentFilters(h) {
+  const tipo = String(h?.tipo ?? "").trim();
+  const intake = String(h?.intake ?? "").trim();
+  const programa = String(h?.programa ?? "").trim();
+  if (!programa) return false;
+  if (estadoFiltrosDashboard.tipo && tipo !== estadoFiltrosDashboard.tipo) return false;
+  if (estadoFiltrosDashboard.intake && intake !== estadoFiltrosDashboard.intake) return false;
+  const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
+  if (busq && !dashboardCrmResumenSearchHaystack(tipo, intake, programa).includes(busq)) return false;
+  return true;
+}
+
+/** Mapa memoizado resumenKey → estado delivery (un solo recorrido Planning). */
+function ensureDashboardCrmResumenEstadoLookupMap() {
+  const sig = createDashSignature([
+    planningDraftRecords().length,
+    estadoFiltrosDashboard.tipo,
+    estadoFiltrosDashboard.intake,
+    incluirBrandingDashboard ? 1 : 0
+  ]);
+  const hit = dashQueryMemo.get("crmResumenEstadoLookup");
+  if (hit && hit.sig === sig) return hit.val;
+
+  const map = new Map();
+  for (const rec of planningDraftRecords()) {
+    if (estadoFiltrosDashboard.tipo && String(rec.tipo) !== estadoFiltrosDashboard.tipo) continue;
+    if (estadoFiltrosDashboard.intake && String(rec.intake) !== estadoFiltrosDashboard.intake) continue;
+    const progNorm = normalizarTexto(String(rec.programa ?? "").trim());
+    if (!progNorm) continue;
+    if (!incluirBrandingDashboard && !planningRecordEsCaptacion(rec)) continue;
+    const resumenKey = dashboardCrmResumenRowKey(rec.tipo, rec.intake, rec.programa);
+    if (map.has(resumenKey)) continue;
+    const rowKey = planningKeyToDashboardRowKey(planningKeyFromRecord(rec));
+    map.set(resumenKey, getDashboardRowDeliveryEstado(rowKey));
+  }
+  dashQueryMemo.set("crmResumenEstadoLookup", { sig, val: map });
+  return map;
+}
+
+function dashCrmResumenFmtAvg2(n) {
+  if (n == null || !Number.isFinite(Number(n))) return "—";
+  return Number(n).toFixed(2);
+}
+
+function dashCrmResumenPlaceholder() {
+  return "--";
+}
+
+/** Filas consolidadas Vista Resumen CRM (1 fila por programa; sin mes/tracking/plataforma/estado). */
+let dashboardCrmResumenRows = [];
+
+function buildDashboardCrmResumenRows() {
+  const sig = dashboardCrmResumenAnalyticsSignature(`crmResumenRows|${dashCrmLeadsContentSig()}`);
+  const hit = dashQueryMemo.get("crmResumenRows");
+  if (hit && hit.sig === sig) return hit.val;
+
+  const { agg } = ensureDashboardCrmResumenLeadBundle();
+  const estadoMap = ensureDashboardCrmResumenEstadoLookupMap();
+
+  const rows = Array.from(agg.values()).map((slot) => ({
+    tipo: slot.tipo,
+    intake: slot.intake,
+    programa: slot.programa,
+    estado: estadoMap.get(dashboardCrmResumenRowKey(slot.tipo, slot.intake, slot.programa)) || "Sin data",
+    leadsCount: slot.leadsCount,
+    avgToques: slot.toquesCount > 0 ? slot.toquesSum / slot.toquesCount : null,
+    avgDiasSinGestion: slot.diasCount > 0 ? slot.diasSum / slot.diasCount : null,
+    toquesSum: slot.toquesSum,
+    toquesCount: slot.toquesCount,
+    diasSum: slot.diasSum,
+    diasCount: slot.diasCount
+  }));
+
+  rows.sort((a, b) =>
+    [a.tipo, a.programa, a.intake]
+      .join("|")
+      .localeCompare([b.tipo, b.programa, b.intake].join("|"), "es", {
+        sensitivity: "base",
+        numeric: true
+      })
+  );
+
+  dashQueryMemo.set("crmResumenRows", { sig, val: rows });
+  return rows;
+}
+
+/** Consola: validación Vista Resumen CRM (solo modo auditoría). */
+function logDashboardCrmResumenRowsValidation(rows) {
+  if (!perfAuditEnabled()) return;
+  const list = rows || [];
+  console.log(`[Dashboard CRM Resumen] Filas generadas: ${list.length}`);
+  console.table(
+    list.map((r) => ({
+      Programa: r.programa,
+      "Cantidad Leads": r.leadsCount,
+      "Promedio Toques": dashCrmResumenFmtAvg2(r.avgToques),
+      "Promedio DiasSinGestion": dashCrmResumenFmtAvg2(r.avgDiasSinGestion)
+    }))
+  );
+}
+
+function renderDashboardCrmResumenTabla() {
+  const end = perfMeasureStart("render:DashboardCrmResumenTabla", "table");
+  const tbody = document.getElementById("dashCrmResumenTbody");
+  const tfoot = document.getElementById("dashCrmResumenTfootRow");
+  if (!tbody || !tfoot) {
+    end({ skipped: true });
+    return;
+  }
+  if (!hasAnyDataLoaded() || !getDashboardSubtabVisibility().crm || getDashboardEffectiveSubtab() !== "crm") {
+    tbody.innerHTML = "";
+    end({ skipped: true });
+    return;
+  }
+
+  dashboardCrmResumenRows = buildDashboardCrmResumenRows();
+  logDashboardCrmResumenRowsValidation(dashboardCrmResumenRows);
+
+  let totalLeads = 0;
+  let totalToquesSum = 0;
+  let totalToquesCount = 0;
+  let totalDiasSum = 0;
+  let totalDiasCount = 0;
+
+  const rowsHtml = dashboardCrmResumenRows.map((r) => {
+    totalLeads += r.leadsCount;
+    totalToquesSum += r.toquesSum;
+    totalToquesCount += r.toquesCount;
+    totalDiasSum += r.diasSum;
+    totalDiasCount += r.diasCount;
+
+    const estadoTitle = String(r.estado || "Sin data");
+    const deliveryDotClass = dashResumenEstadoDotClass(estadoTitle);
+    const qLabel = dashboardResumenIntakeQLabel(r.intake);
+    const tipo = String(r.tipo ?? "").trim() || "—";
+    const programa = String(r.programa ?? "").trim() || "—";
+    const resumenKey = dashboardCrmResumenRowKey(r.tipo, r.intake, r.programa);
+    const selClass = dashboardCrmResumenSeleccionado === resumenKey ? " dash-row-selected" : "";
+
+    return `<tr data-dash-crm-resumen-row="${escapeHtml(resumenKey)}" class="${selClass.trim()}">
+        <td class="dash-estado-col dash-res-col-estado" title="${escapeHtml(estadoTitle)}" role="img" aria-label="${escapeHtml(estadoTitle)}"><span class="dash-delivery-dot ${deliveryDotClass}" aria-hidden="true"></span></td>
+        <td class="tipo-col dash-td-tipo dash-res-col-tipo">${escapeHtml(tipo)}</td>
+        <td class="dash-int-col dash-res-col-q">${escapeHtml(qLabel)}</td>
+        <td class="programa-col dash-td-prog dash-grp-sticky-sep dash-res-col-programa" title="${escapeHtml(programa)}">${escapeHtml(programa)}</td>
+        <td class="dash-grp-col dash-grp-col-crm-leads dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num">${escapeHtml(dashFmtLeads(r.leadsCount))}</td>
+        <td class="dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num">${dashCrmResumenPlaceholder()}</td>
+        <td class="dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num">${dashCrmResumenPlaceholder()}</td>
+        <td class="dash-grp-col dash-grp-col-crm-gest dash-grp-col-first dash-res-col-num">${escapeHtml(dashCrmResumenFmtAvg2(r.avgToques))}</td>
+        <td class="dash-grp-col dash-grp-col-crm-gest dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num">${escapeHtml(dashCrmResumenFmtAvg2(r.avgDiasSinGestion))}</td>
+      </tr>`;
+  });
+
+  const crmResumenFp = dashboardCrmResumenAnalyticsSignature(`crmResumenTabla|${rowsHtml.length}`);
+  const virtCrmResumen = ensureDashCrmResumenVirtualTable();
+  if (virtCrmResumen && rowsHtml.length) {
+    virtCrmResumen.mount(rowsHtml, crmResumenFp);
+  } else {
+    tbody.innerHTML =
+      rowsHtml.length > 0
+        ? rowsHtml.join("")
+        : `<tr><td colspan="9" class="dash-empty-mini">Sin filas para los filtros seleccionados.</td></tr>`;
+  }
+
+  const footAvgToques = totalToquesCount > 0 ? totalToquesSum / totalToquesCount : null;
+  const footAvgDias = totalDiasCount > 0 ? totalDiasSum / totalDiasCount : null;
+
+  tfoot.innerHTML = `
+      <td class="dash-estado-col dash-tfoot-empty dash-tfoot-estado dash-res-col-estado">&nbsp;</td>
+      <td class="tipo-col dash-tfoot-empty dash-res-col-tipo">&nbsp;</td>
+      <td class="dash-int-col dash-tfoot-empty dash-res-col-q">&nbsp;</td>
+      <td class="programa-col dash-tfoot-label dash-grp-sticky-sep dash-res-col-programa"><strong>TOTAL GENERAL</strong></td>
+      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-leads dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num"><strong>${escapeHtml(dashFmtLeads(totalLeads))}</strong></td>
+      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num"><strong>${dashCrmResumenPlaceholder()}</strong></td>
+      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num"><strong>${dashCrmResumenPlaceholder()}</strong></td>
+      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-gest dash-grp-col-first dash-res-col-num"><strong>${escapeHtml(dashCrmResumenFmtAvg2(footAvgToques))}</strong></td>
+      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-gest dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num"><strong>${escapeHtml(dashCrmResumenFmtAvg2(footAvgDias))}</strong></td>
+    `;
+
+  ensureDashboardCrmResumenSeleccionadoValid();
+  syncDashboardCrmResumenRowDomSelectionHighlight();
+
+  end({ rows: dashboardCrmResumenRows.length, virtualized: Boolean(virtCrmResumen && rowsHtml.length) });
+}
+
+function renderDashboardCrmTableView() {
+  if (getDashboardEffectiveSubtab() !== "crm") return;
+  applyDashboardCrmTableViewUi();
+  applyDashboardPlatTableViewControlsState();
+  if (dashboardCrmTableView === "detalle") {
+    renderDashboardCrmTabla();
+  } else {
+    renderDashboardCrmResumenTabla();
+  }
+}
+
 function renderDashboardCrmTabla() {
   const end = perfMeasureStart("render:DashboardCrmTabla", "table");
   const tbody = document.getElementById("dashCrmTbody");
@@ -18138,6 +18747,10 @@ function renderDashboardCrmTabla() {
     tbody.innerHTML = "";
     tfoot.innerHTML = "";
     end({ skipped: true });
+    return;
+  }
+  if (isDashboardCrmTableViewResumen()) {
+    end({ skipped: true, reason: "crmResumenView" });
     return;
   }
   const platMap = getDashboardPlatformLeadsByRowKeyForCrm();
@@ -18699,11 +19312,10 @@ function dashCrmIntervaloTablaDataFingerprint(rows) {
   const counts = new Map();
   let totalLeads = 0;
   (rows || []).forEach((r) => {
+    if (!r) return;
     const label = canonDashboardCrmIntervalLabel(r.intervaloGestion);
-    const n = Math.max(0, Math.round(Number(r.leads) || 0));
-    if (n <= 0) return;
-    counts.set(label, (counts.get(label) || 0) + n);
-    totalLeads += n;
+    counts.set(label, (counts.get(label) || 0) + 1);
+    totalLeads += 1;
   });
   const parts = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], "es", { sensitivity: "base" }));
   return createDashSignature([
@@ -18761,11 +19373,10 @@ function renderDashboardCrmIntervaloTabla(renderContext) {
   const counts = new Map();
   let totalLeads = 0;
   rows.forEach((r) => {
+    if (!r) return;
     const label = canonDashboardCrmIntervalLabel(r.intervaloGestion);
-    const n = Math.max(0, Math.round(Number(r.leads) || 0));
-    if (n <= 0) return;
-    counts.set(label, (counts.get(label) || 0) + n);
-    totalLeads += n;
+    counts.set(label, (counts.get(label) || 0) + 1);
+    totalLeads += 1;
   });
 
   if (totalLeads <= 0) {
@@ -19101,7 +19712,11 @@ function renderDashboardCrmBottomPanels() {
   } else {
     renderDashboardCrmPivotFuente(dashCrmRenderContext);
   }
-  renderDashboardCrmIntervaloTabla(dashCrmRenderContext);
+  if (isDashboardCrmTableViewResumen()) {
+    renderDashboardCrmIntervaloTabla({ intervaloRows: getDashboardCrmResumenIntervaloLeadRows() });
+  } else {
+    renderDashboardCrmIntervaloTabla(dashCrmRenderContext);
+  }
   renderDashboardCrmMotivosTabla();
   end(
     perfAuditMeta({
@@ -19515,10 +20130,7 @@ function renderDashboardSegmentButtons(containerId, field, values) {
 }
 
 function renderDashboardAllSegmentGroups() {
-  if (esTipoBrandingConvocatoriaDashboard(estadoFiltrosDashboard.tipo)) {
-    estadoFiltrosDashboard.tipo = "";
-  }
-  renderDashboardSegmentButtons("dashSegTipo", "tipo", getDashboardSegmentTiposComerciales());
+  refreshDashboardTipoSegment();
   renderDashboardSegmentButtons("dashSegTracking", "tracking", uniqueVals("tracking"));
   renderDashboardSegmentButtons("dashSegPlataforma", "plataforma", getDashboardPlataformaSegmentValues());
   renderDashboardSegmentButtons("dashSegEstado", "estado", getDashboardUniqueEstados());
@@ -21076,6 +21688,55 @@ function applyDashboardTableViewUi() {
   applyDashboardPlatTableViewControlsState();
 }
 
+function mountDashboardCrmIntervalPanelForView() {
+  const card = document.getElementById("dashCrmIntervalCard");
+  const hostDet = document.getElementById("dashCrmIntervalHostDetalle");
+  const hostRes = document.getElementById("dashCrmIntervalHostResumen");
+  if (!(card instanceof HTMLElement) || !(hostDet instanceof HTMLElement) || !(hostRes instanceof HTMLElement)) return;
+  const isResumen =
+    getDashboardEffectiveSubtab() === "crm" && dashboardCrmTableView === "resumen";
+  const target = isResumen ? hostRes : hostDet;
+  if (card.parentElement !== target) target.appendChild(card);
+}
+
+/** Vista CRM aplicada en applyDashboardCrmTableViewUi (evita repintar segmentador TIPO). */
+let dashCrmTableViewUiLast = null;
+
+function applyDashboardCrmTableViewUi() {
+  const isResumen = dashboardCrmTableView === "resumen";
+  const detalleEl = document.getElementById("dashCrmViewDetalle");
+  const resumenEl = document.getElementById("dashCrmViewResumen");
+  const btnDet = document.getElementById("dashCrmTableViewDetalle");
+  const btnRes = document.getElementById("dashCrmTableViewResumen");
+
+  detalleEl?.classList.toggle("hidden", isResumen);
+  resumenEl?.classList.toggle("hidden", !isResumen);
+
+  if (btnDet instanceof HTMLButtonElement) {
+    btnDet.classList.toggle("dash-table-view-btn--active", !isResumen);
+    btnDet.setAttribute("aria-selected", !isResumen ? "true" : "false");
+  }
+  if (btnRes instanceof HTMLButtonElement) {
+    btnRes.classList.toggle("dash-table-view-btn--active", isResumen);
+    btnRes.setAttribute("aria-selected", isResumen ? "true" : "false");
+  }
+  const viewChanged = dashCrmTableViewUiLast !== dashboardCrmTableView;
+  dashCrmTableViewUiLast = dashboardCrmTableView;
+  mountDashboardCrmIntervalPanelForView();
+  if (viewChanged) refreshDashboardTipoSegment(true);
+  applyDashboardPlatTableViewControlsState();
+}
+
+function syncDashboardTableViewSwitchersForSubtab() {
+  const dash = document.getElementById("dashboardModule");
+  const onDash = !!(dash && !dash.classList.contains("hidden"));
+  const crmOn = onDash && getDashboardEffectiveSubtab() === "crm";
+  document.getElementById("dashTableViewSwitcher")?.classList.toggle("hidden", !onDash || crmOn);
+  document.getElementById("dashCrmTableViewSwitcher")?.classList.toggle("hidden", !onDash || !crmOn);
+  if (crmOn) applyDashboardCrmTableViewUi();
+  else if (onDash) applyDashboardTableViewUi();
+}
+
 /** Alterna vista Detalle / Resumen de la tabla Plataforma (sin tocar KPIs ni filtros). */
 function renderDashboardTableView() {
   if (getDashboardEffectiveSubtab() !== "plataforma") return;
@@ -22317,6 +22978,7 @@ function renderDashboardFromFiltersNow() {
     filtros: perfAuditEnabled() ? { ...estadoFiltrosDashboard } : null
   });
   programaSeleccionado = null;
+  dashboardCrmResumenSeleccionado = null;
   setFechaActualData();
   renderDashboardAllSegmentGroups();
   if (!hasAnyDataLoaded()) {
@@ -22342,10 +23004,14 @@ function renderDashboardFromFiltersNow() {
   }
 
   if (vis.crm && eff === "crm") {
-    dashCrmPerfResetLeadScanCount();
-    renderDashboardKpisCrm();
-    renderDashboardCrmTabla();
-    renderDashboardCrmBottomPanels();
+    if (isDashboardCrmTableViewResumen()) {
+      renderDashboardCrmResumenDashboardNow();
+    } else {
+      dashCrmPerfResetLeadScanCount();
+      renderDashboardKpisCrm();
+      renderDashboardCrmTableView();
+      renderDashboardCrmBottomPanels();
+    }
     attachMesCardToCrmKpiStrip();
   } else {
     ensureMesCardOutsideCrmKpiStrip();
@@ -22483,6 +23149,21 @@ function initDashboardModule() {
     dashboardTableView = "resumen";
     renderDashboardTableView();
   });
+  document.getElementById("dashCrmTableViewDetalle")?.addEventListener("click", () => {
+    if (dashboardCrmTableView === "detalle") return;
+    dashboardCrmTableView = "detalle";
+    dashboardCrmResumenSeleccionado = null;
+    syncDashboardCrmResumenRowDomSelectionHighlight();
+    dashCrmPerfResetLeadScanCount();
+    renderDashboardKpisCrm();
+    renderDashboardCrmTableView();
+    renderDashboardCrmBottomPanels();
+  });
+  document.getElementById("dashCrmTableViewResumen")?.addEventListener("click", () => {
+    if (dashboardCrmTableView === "resumen") return;
+    dashboardCrmTableView = "resumen";
+    renderDashboardCrmResumenDashboardNow();
+  });
   document.getElementById("dashGastoDiffModal")?.addEventListener("click", (e) => {
     if (e.target instanceof HTMLElement && e.target.id === "dashGastoDiffModal") closeDashGastoDiffModal();
   });
@@ -22519,7 +23200,7 @@ function initDashboardModule() {
     const seg = e.target instanceof HTMLElement ? e.target.closest("[data-dash-seg]") : null;
     if (seg) {
       const field = seg.getAttribute("data-dash-seg") || "";
-      if (isDashboardPlatTableViewResumen() && (field === "tracking" || field === "plataforma" || field === "estado")) {
+      if (isDashboardTableViewResumenControlsDisabled() && (field === "tracking" || field === "plataforma" || field === "estado")) {
         return;
       }
       if (seg instanceof HTMLButtonElement && seg.disabled) return;
@@ -22529,6 +23210,17 @@ function initDashboardModule() {
       perfTrackFilterChange(field, estadoFiltrosDashboard[field], "dashboard");
       programaSeleccionado = null;
       renderDashboardFromFilters();
+      return;
+    }
+    const resumenTr =
+      e.target instanceof HTMLElement
+        ? e.target.closest("#dashCrmResumenTbody tr[data-dash-crm-resumen-row]")
+        : null;
+    if (resumenTr && isDashboardCrmTableViewResumen()) {
+      const p = resumenTr.getAttribute("data-dash-crm-resumen-row") || "";
+      dashboardCrmResumenSeleccionado = dashboardCrmResumenSeleccionado === p ? null : p;
+      syncDashboardCrmResumenRowDomSelectionHighlight();
+      renderDashboardCrmResumenSelectionScopedUi();
       return;
     }
     const crmTr = e.target instanceof HTMLElement ? e.target.closest("#dashCrmTbody tr[data-dash-row]") : null;
@@ -22550,7 +23242,7 @@ function initDashboardModule() {
   });
 
   document.getElementById("dashFiltroMes")?.addEventListener("change", (e) => {
-    if (isDashboardPlatTableViewResumen()) return;
+    if (isDashboardTableViewResumenControlsDisabled()) return;
     estadoFiltrosDashboard.mes = e.target.value || "";
     perfTrackFilterChange("mes", estadoFiltrosDashboard.mes, "dashboard");
     if (!isDashboardComercialCrmActiveView()) programaSeleccionado = null;
@@ -22561,6 +23253,9 @@ function initDashboardModule() {
       dashCrmPerfResetLeadScanCount();
       renderDashboardKpisCrm();
       renderDashboardCrmBottomPanels();
+      if (isDashboardCrmTableViewResumen()) {
+        renderDashboardCrmResumenSelectionScopedUi();
+      }
     } else {
       renderDashboardFromFilters();
     }
@@ -22572,7 +23267,7 @@ function initDashboardModule() {
     renderDashboardFromFilters();
   });
   document.getElementById("dashFechaInicio")?.addEventListener("change", (e) => {
-    if (isDashboardPlatTableViewResumen()) return;
+    if (isDashboardTableViewResumenControlsDisabled()) return;
     estadoFiltrosDashboard.fechaInicio = e.target instanceof HTMLInputElement ? e.target.value : "";
     perfTrackFilterChange("fechaInicio", estadoFiltrosDashboard.fechaInicio, "dashboard");
     validateDashboardRangoFechas({ silent: false });
@@ -22580,12 +23275,15 @@ function initDashboardModule() {
     if (isDashboardComercialCrmActiveView()) {
       syncDashboardTableRowDomSelectionHighlight();
       renderDashboardChartsOnly();
+      if (isDashboardCrmTableViewResumen()) {
+        renderDashboardCrmResumenSelectionScopedUi();
+      }
     } else {
       renderDashboardFromFilters();
     }
   });
   document.getElementById("dashFechaFin")?.addEventListener("change", (e) => {
-    if (isDashboardPlatTableViewResumen()) return;
+    if (isDashboardTableViewResumenControlsDisabled()) return;
     estadoFiltrosDashboard.fechaFin = e.target instanceof HTMLInputElement ? e.target.value : "";
     perfTrackFilterChange("fechaFin", estadoFiltrosDashboard.fechaFin, "dashboard");
     validateDashboardRangoFechas({ silent: false });
@@ -22593,6 +23291,9 @@ function initDashboardModule() {
     if (isDashboardComercialCrmActiveView()) {
       syncDashboardTableRowDomSelectionHighlight();
       renderDashboardChartsOnly();
+      if (isDashboardCrmTableViewResumen()) {
+        renderDashboardCrmResumenSelectionScopedUi();
+      }
     } else {
       renderDashboardFromFilters();
     }
@@ -22604,7 +23305,12 @@ function initDashboardModule() {
       try {
         renderDashboardTableView();
         if (getDashboardSubtabVisibility().crm && getDashboardEffectiveSubtab() === "crm") {
-          renderDashboardCrmTabla();
+          if (isDashboardCrmTableViewResumen()) {
+            ensureDashboardCrmResumenSeleccionadoValid();
+            renderDashboardCrmResumenTabla();
+          } else {
+            renderDashboardCrmTabla();
+          }
         }
         renderDashboardChartsOnly();
       } catch (err) {
@@ -22665,6 +23371,7 @@ function initDashboardModule() {
       dashPlatVirtualTable?.refreshLayout?.();
       dashResumenVirtualTable?.refreshLayout?.();
       dashCrmVirtualTable?.refreshLayout?.();
+      dashCrmResumenVirtualTable?.refreshLayout?.();
       planningVirtualTable?.refreshLayout?.();
       relacionesVirtualTable?.refreshLayout?.();
     });
@@ -22710,13 +23417,21 @@ function initDashboardModule() {
     if (dashboardCrmIntervaloPeriodScope === "total") return;
     dashboardCrmIntervaloPeriodScope = "total";
     dashCrmPerfResetLeadScanCount();
-    renderDashboardCrmBottomPanels();
+    if (isDashboardCrmTableViewResumen()) {
+      renderDashboardCrmResumenSelectionScopedUi();
+    } else {
+      renderDashboardCrmBottomPanels();
+    }
   });
   document.getElementById("dashCrmScopeMes")?.addEventListener("click", () => {
     if (dashboardCrmIntervaloPeriodScope === "mes") return;
     dashboardCrmIntervaloPeriodScope = "mes";
     dashCrmPerfResetLeadScanCount();
-    renderDashboardCrmBottomPanels();
+    if (isDashboardCrmTableViewResumen()) {
+      renderDashboardCrmResumenSelectionScopedUi();
+    } else {
+      renderDashboardCrmBottomPanels();
+    }
   });
   initDashboardCrmOperTabs();
   initDashboardCrmCampaignUiV2();
@@ -23419,7 +24134,6 @@ function applyDashboardShellVisibilityForSubtab() {
   document.getElementById("dashShellCrm")?.classList.toggle("hidden", !crmOn);
   document.getElementById("dashboardKpis")?.classList.toggle("hidden", crmOn);
   document.getElementById("dashboardKpisCrmHolder")?.classList.toggle("hidden", !crmOn);
-  if (!crmOn) applyDashboardTableViewUi();
   const tabP = document.getElementById("dashTabPlataforma");
   const tabC = document.getElementById("dashTabComercialCrm");
   if (tabP instanceof HTMLButtonElement) {
@@ -24883,6 +25597,7 @@ function initCampatrackLogin() {
       } catch (_) {}
       await campatrackYieldToPaint();
       try {
+        campatrackEnsureDeferredModulesBooted({ skipDataPaint: true });
         let preloadedBundle = null;
         if (uOk) {
           try {
@@ -24902,6 +25617,7 @@ function initCampatrackLogin() {
           sessionStorage.setItem(SS_SKIP_NEXT_DASHBOARD_BACKEND_FETCH, "1");
         } catch (_) {}
         clearDashboardSkeletonMode();
+        campatrackEnsureDeferredModulesBooted({ skipDataPaint: true });
         if (typeof renderDashboardSinData === "function") renderDashboardSinData();
       } finally {
         campatrackPostLoginHydrationBusy = false;
@@ -25449,6 +26165,39 @@ function initCampatrackSidebarCollapsedTooltips() {
   }
 }
 
+/** Evita inicializar todo el app antes del login (modo full). */
+let campatrackDeferredModulesBooted = false;
+
+function campatrackEnsureDeferredModulesBooted(opts = {}) {
+  if (campatrackDeferredModulesBooted) return;
+  if (typeof campatrackGateIsReady === "function" && campatrackIsLiteMode() && !campatrackGateIsReady()) {
+    return;
+  }
+  campatrackBootDeferredModules(opts);
+}
+
+/** Reanuda sesión full tras recargar página (GET /api/data). */
+async function campatrackResumeFullSessionIfNeeded() {
+  if (campatrackIsLiteMode() || !isCampatrackAuthenticated()) return;
+  const u = typeof getUser === "function" ? getUser() : null;
+  if (!u) return;
+  campatrackPostLoginHydrationBusy = true;
+  bootstrapCampatrackAuthShell();
+  try {
+    campatrackEnsureDeferredModulesBooted({ skipDataPaint: true });
+    const bundle = await afterLoginSuccess(u);
+    campatrackCompletePostLoginPipeline(
+      bundle || createEmptyCampatrackBundle()
+    );
+  } catch (e) {
+    console.warn("[CampaTrack] Reanudar sesión full:", e);
+    clearDashboardSkeletonMode();
+    campatrackEnsureDeferredModulesBooted();
+  } finally {
+    campatrackPostLoginHydrationBusy = false;
+  }
+}
+
 /** Inicializa CRM sin tumbar login ni bootstrap si falta DOM o hay error puntual. */
 function campatrackSafeInitCrmModules() {
   try {
@@ -25468,13 +26217,18 @@ function campatrackSafeInitCrmModules() {
   }
 }
 
-function campatrackBootDeferredModules() {
+function campatrackBootDeferredModules(opts = {}) {
+  if (campatrackDeferredModulesBooted) return;
   if (typeof campatrackGateIsReady === "function" && campatrackIsLiteMode() && !campatrackGateIsReady()) {
     return;
   }
-  crmDebugSnapshot("bootstrap (antes hydratarDesdeLocalStorage)", { origen: "campatrackBootDeferredModules" });
-  hydratarDesdeLocalStorage();
-  crmDebugSnapshot("bootstrap (después hydratarDesdeLocalStorage)", { origen: "campatrackBootDeferredModules" });
+  campatrackDeferredModulesBooted = true;
+  const skipDataPaint = opts && opts.skipDataPaint === true;
+  if (!skipDataPaint) {
+    crmDebugSnapshot("bootstrap (antes hydratarDesdeLocalStorage)", { origen: "campatrackBootDeferredModules" });
+    hydratarDesdeLocalStorage();
+    crmDebugSnapshot("bootstrap (después hydratarDesdeLocalStorage)", { origen: "campatrackBootDeferredModules" });
+  }
   ensureCampatrackTeamsSeed();
   initTabs();
   initCampatrackAppHeader();
@@ -25499,39 +26253,48 @@ function campatrackBootDeferredModules() {
   initAuditoriaModule();
   initCentroCostosModule();
   initCentroCostosTabs();
-  limpiarFiltrosUiDataGeneral();
-  actualizarFiltrosCache();
-  refreshFechaFiltersUI();
-  renderTablaData();
-  renderTablaAnuncios();
-  renderTablaCampañas();
-  refreshAdsReportFilterOptions();
-  renderAdsReportModule();
-  if (Array.isArray(modeloAnalitico) && modeloAnalitico.length > 0) {
-    renderModeloTabla();
-    refreshSegmentadoresValues();
-    refreshMedidasFiltros();
+  if (!skipDataPaint) {
+    limpiarFiltrosUiDataGeneral();
+    actualizarFiltrosCache();
+    refreshFechaFiltersUI();
+    renderTablaData();
+    renderTablaAnuncios();
+    renderTablaCampañas();
+    refreshAdsReportFilterOptions();
+    renderAdsReportModule();
+    if (Array.isArray(modeloAnalitico) && modeloAnalitico.length > 0) {
+      renderModeloTabla();
+      refreshSegmentadoresValues();
+      refreshMedidasFiltros();
+    } else {
+      withDraftNotificationsSuppressed(() => REGENERAR_MODELO());
+    }
+    withDraftNotificationsSuppressed(() => restoreOrResetPublishDraftAfterBoot());
+    initDraftPublishToolbar();
+    if (!document.getElementById("dashboardModule")?.classList.contains("hidden")) {
+      withDraftNotificationsSuppressed(() => renderDashboard());
+    }
   } else {
-    withDraftNotificationsSuppressed(() => REGENERAR_MODELO());
-  }
-  withDraftNotificationsSuppressed(() => restoreOrResetPublishDraftAfterBoot());
-  initDraftPublishToolbar();
-  if (!document.getElementById("dashboardModule")?.classList.contains("hidden")) {
-    withDraftNotificationsSuppressed(() => renderDashboard());
+    initDraftPublishToolbar();
   }
 }
 
 async function campatrackResumeLiteSessionIfNeeded() {
   if (!campatrackIsLiteMode() || !hasClientGithubConfigComplete() || !isCampatrackAuthenticated()) return;
   campatrackGateBeginDataLoad();
+  campatrackPostLoginHydrationBusy = true;
   bootstrapCampatrackAuthShell();
   try {
+    campatrackEnsureDeferredModulesBooted({ skipDataPaint: true });
     const u = typeof getUser === "function" ? getUser() : null;
     const bundle = u ? await afterLoginSuccess(u) : null;
     campatrackCompletePostLoginPipeline(bundle);
   } catch (e) {
     console.warn("[CampaTrack] Reanudar sesión lite con bundle vacío:", e);
+    campatrackEnsureDeferredModulesBooted({ skipDataPaint: true });
     campatrackCompletePostLoginPipeline(createEmptyCampatrackBundle());
+  } finally {
+    campatrackPostLoginHydrationBusy = false;
   }
 }
 
@@ -25603,7 +26366,7 @@ campatrackGateRegisterModuleBoot(campatrackBootDeferredModules);
 bootstrapCampatrackAuthShell();
 initCampatrackLogin();
 if (!campatrackIsLiteMode()) {
-  campatrackBootDeferredModules();
+  void campatrackResumeFullSessionIfNeeded();
 } else {
   void campatrackResumeLiteSessionIfNeeded();
 }
