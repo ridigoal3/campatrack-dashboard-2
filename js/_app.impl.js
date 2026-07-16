@@ -18256,6 +18256,7 @@ function filterDashboardCrmLeadRowsPorFilaSeleccionada(rows) {
 
 /**
  * Un solo recorrido memoizado de crmLeads para Vista Resumen (filas base + agregados).
+ * Agrupa por Tipo + Flujo + Q (sin campaña/plataforma/tracking).
  */
 function ensureDashboardCrmResumenLeadBundle() {
   const sig = dashboardCrmResumenAnalyticsSignature(`crmResumenLeadBundle|${dashCrmLeadsContentSig()}`);
@@ -18267,20 +18268,22 @@ function ensureDashboardCrmResumenLeadBundle() {
   crmLeads.forEach((r) => {
     if (!dashboardComercialCrmLeadRowPassesGlobalFilter(r)) return;
     const h = crmHydrateDimensionalFieldsOnRow(r);
-    if (!dashboardCrmResumenRowPassesSegmentFilters(h)) return;
+    const flujo = dashboardCrmResumenProgramaDisplayLabel(r, String(h.programa ?? "").trim());
+    if (!dashboardCrmResumenRowPassesSegmentFilters(h, flujo)) return;
 
     baseRows.push(r);
 
     const tipo = String(h.tipo ?? "").trim();
     const intake = String(h.intake ?? "").trim();
-    const programa = String(h.programa ?? "").trim();
-    const rowKey = dashboardCrmResumenRowKey(tipo, intake, programa);
+    const rowKey = dashboardCrmResumenRowKey(tipo, intake, flujo);
     if (!agg.has(rowKey)) {
       agg.set(rowKey, {
         tipo,
         intake,
-        programa,
+        programa: flujo,
+        programaDisplay: flujo,
         leadsCount: 0,
+        noPerfilCount: 0,
         toquesSum: 0,
         toquesCount: 0,
         diasSum: 0,
@@ -18295,8 +18298,17 @@ function ensureDashboardCrmResumenLeadBundle() {
   return val;
 }
 
+/** Etiqueta / dimensión Flujo en Vista Resumen CRM: crmFlujo → crmCampania → programa dimensional. */
+function dashboardCrmResumenProgramaDisplayLabel(r, programaFallback = "") {
+  const flujo = String(r?.crmFlujo ?? "").trim();
+  if (flujo) return flujo;
+  const campania = String(r?.crmCampania ?? "").trim();
+  if (campania) return campania;
+  return String(programaFallback ?? "").trim();
+}
+
 /**
- * Registros CRM base para Vista Resumen (tipo, intake, programa; sin mes/tracking/plataforma/estado).
+ * Registros CRM base para Vista Resumen (tipo, flujo, Q; sin mes/tracking/plataforma/estado).
  */
 function getDashboardCrmResumenBaseLeadRows() {
   return ensureDashboardCrmResumenLeadBundle().baseRows;
@@ -18307,7 +18319,8 @@ function filterDashboardCrmLeadRowsPorResumenSeleccionado(rows) {
   if (!sel || !isDashboardCrmTableViewResumen()) return rows || [];
   return (rows || []).filter((r) => {
     const h = crmHydrateDimensionalFieldsOnRow(r);
-    return dashboardCrmResumenRowKey(h.tipo, h.intake, h.programa) === sel;
+    const flujo = dashboardCrmResumenProgramaDisplayLabel(r, h.programa);
+    return dashboardCrmResumenRowKey(h.tipo, h.intake, flujo) === sel;
   });
 }
 
@@ -18322,12 +18335,20 @@ function getDashboardCrmResumenIntervaloLeadRows() {
 }
 
 function dashboardCrmCreateEmptyLeadMetricsAccumulator() {
-  return { leadsCount: 0, toquesSum: 0, toquesCount: 0, diasSum: 0, diasCount: 0 };
+  return { leadsCount: 0, noPerfilCount: 0, toquesSum: 0, toquesCount: 0, diasSum: 0, diasCount: 0 };
+}
+
+/** Etapa CRM «No cumple Perfil» (case/espacios normalizados). */
+function dashboardCrmLeadIsNoCumplePerfil(r) {
+  return normalizarTexto(String(r?.crmEtapa ?? "")) === normalizarTexto("No cumple Perfil");
 }
 
 function dashboardCrmAccumulateLeadRowMetrics(slot, r) {
   if (!slot || !r) return;
   slot.leadsCount += 1;
+  if (dashboardCrmLeadIsNoCumplePerfil(r)) {
+    slot.noPerfilCount = (Number(slot.noPerfilCount) || 0) + 1;
+  }
   const toques = Number(r.crmCantLlamadas);
   if (Number.isFinite(toques)) {
     slot.toquesSum += toques;
@@ -18342,10 +18363,12 @@ function dashboardCrmAccumulateLeadRowMetrics(slot, r) {
 
 function dashboardCrmGeneralMetricsFromAccumulator(slot) {
   const acc = slot || dashboardCrmCreateEmptyLeadMetricsAccumulator();
+  const noPerfil = Number(acc.noPerfilCount) || 0;
+  const leads = Number(acc.leadsCount) || 0;
   return {
-    leadsTotales: acc.leadsCount,
-    noPerfil: null,
-    pctNoPerfil: null,
+    leadsTotales: leads,
+    noPerfil,
+    pctNoPerfil: leads > 0 ? (noPerfil / leads) * 100 : null,
     toquesPromedio: acc.toquesCount > 0 ? acc.toquesSum / acc.toquesCount : null,
     diasSinGestionPromedio: acc.diasCount > 0 ? acc.diasSum / acc.diasCount : null
   };
@@ -18527,32 +18550,40 @@ function filterDashboardCrmLeadRowsByVisibleTableRowKeys(rows, visibleKeys) {
   });
 }
 
-/** Firma analítica Vista Resumen CRM: tipo, intake, programa; sin mes, rango ni tracking/plataforma/estado. */
+/** Firma analítica Vista Resumen CRM: tipo, flujo, Q; sin mes, rango ni tracking/plataforma/estado. */
 function dashboardCrmResumenAnalyticsSignature(extra = "") {
   return dashboardResumenAnalyticsSignature(extra);
 }
 
-function dashboardCrmResumenRowKey(tipo, intake, programa) {
-  return `${String(tipo ?? "")}|||${String(intake ?? "")}|||${String(programa ?? "").trim()}`;
+/** Clave de agrupación Vista Resumen CRM: Tipo + Flujo + Q (intake). */
+function dashboardCrmResumenRowKey(tipo, intake, flujo) {
+  return `${String(tipo ?? "")}|||${String(intake ?? "")}|||${String(flujo ?? "").trim()}`;
 }
 
-function dashboardCrmResumenSearchHaystack(tipo, intake, programa) {
-  return [tipo, programa, intake].filter(Boolean).join(" ").toLowerCase();
+function dashboardCrmResumenSearchHaystack(tipo, intake, flujo) {
+  return [tipo, flujo, intake].filter(Boolean).join(" ").toLowerCase();
 }
 
-function dashboardCrmResumenRowPassesSegmentFilters(h) {
+/**
+ * Filtros de segmentación Vista Resumen CRM.
+ * @param {object} h dimensiones hidratadas (tipo, intake)
+ * @param {string} [flujoOverride] crmFlujo (o fallback); si falta, usa h.programa solo por compat.
+ */
+function dashboardCrmResumenRowPassesSegmentFilters(h, flujoOverride) {
   const tipo = String(h?.tipo ?? "").trim();
   const intake = String(h?.intake ?? "").trim();
-  const programa = String(h?.programa ?? "").trim();
-  if (!programa) return false;
+  const flujo = String(
+    flujoOverride != null && flujoOverride !== undefined ? flujoOverride : h?.programa ?? ""
+  ).trim();
+  if (!flujo) return false;
   if (estadoFiltrosDashboard.tipo && tipo !== estadoFiltrosDashboard.tipo) return false;
   if (estadoFiltrosDashboard.intake && intake !== estadoFiltrosDashboard.intake) return false;
   const busq = String(estadoFiltrosDashboard.busquedaPrograma ?? "").trim().toLowerCase();
-  if (busq && !dashboardCrmResumenSearchHaystack(tipo, intake, programa).includes(busq)) return false;
+  if (busq && !dashboardCrmResumenSearchHaystack(tipo, intake, flujo).includes(busq)) return false;
   return true;
 }
 
-/** Mapa memoizado resumenKey → estado delivery (un solo recorrido Planning). */
+/** Mapa memoizado resumenKey → estado delivery (Planning: tipo + programa + Q ≈ Tipo + Flujo + Q). */
 function ensureDashboardCrmResumenEstadoLookupMap() {
   const sig = createDashSignature([
     planningDraftRecords().length,
@@ -18584,11 +18615,19 @@ function dashCrmResumenFmtAvg2(n) {
   return Number(n).toFixed(2);
 }
 
+/** % No Perfil: (noPerfil / leads) × 100 con 2 decimales. */
+function dashCrmResumenFmtPctNoPerfil(noPerfil, leads) {
+  const n = Number(noPerfil);
+  const l = Number(leads);
+  if (!Number.isFinite(n) || !Number.isFinite(l) || l <= 0) return "—";
+  return `${((n / l) * 100).toFixed(2)}%`;
+}
+
 function dashCrmResumenPlaceholder() {
   return "--";
 }
 
-/** Filas consolidadas Vista Resumen CRM (1 fila por programa; sin mes/tracking/plataforma/estado). */
+/** Filas consolidadas Vista Resumen CRM (1 fila por Tipo + Flujo + Q). */
 let dashboardCrmResumenRows = [];
 
 function buildDashboardCrmResumenRows() {
@@ -18599,19 +18638,27 @@ function buildDashboardCrmResumenRows() {
   const { agg } = ensureDashboardCrmResumenLeadBundle();
   const estadoMap = ensureDashboardCrmResumenEstadoLookupMap();
 
-  const rows = Array.from(agg.values()).map((slot) => ({
-    tipo: slot.tipo,
-    intake: slot.intake,
-    programa: slot.programa,
-    estado: estadoMap.get(dashboardCrmResumenRowKey(slot.tipo, slot.intake, slot.programa)) || "Sin data",
-    leadsCount: slot.leadsCount,
-    avgToques: slot.toquesCount > 0 ? slot.toquesSum / slot.toquesCount : null,
-    avgDiasSinGestion: slot.diasCount > 0 ? slot.diasSum / slot.diasCount : null,
-    toquesSum: slot.toquesSum,
-    toquesCount: slot.toquesCount,
-    diasSum: slot.diasSum,
-    diasCount: slot.diasCount
-  }));
+  const rows = Array.from(agg.values()).map((slot) => {
+    const flujo = String(slot.programaDisplay ?? slot.programa ?? "").trim() || slot.programa;
+    const leadsCount = slot.leadsCount;
+    const noPerfilCount = Number(slot.noPerfilCount) || 0;
+    return {
+      tipo: slot.tipo,
+      intake: slot.intake,
+      programa: flujo,
+      programaDisplay: flujo,
+      estado: estadoMap.get(dashboardCrmResumenRowKey(slot.tipo, slot.intake, flujo)) || "Sin data",
+      leadsCount,
+      noPerfilCount,
+      pctNoPerfil: leadsCount > 0 ? (noPerfilCount / leadsCount) * 100 : null,
+      avgToques: slot.toquesCount > 0 ? slot.toquesSum / slot.toquesCount : null,
+      avgDiasSinGestion: slot.diasCount > 0 ? slot.diasSum / slot.diasCount : null,
+      toquesSum: slot.toquesSum,
+      toquesCount: slot.toquesCount,
+      diasSum: slot.diasSum,
+      diasCount: slot.diasCount
+    };
+  });
 
   rows.sort((a, b) =>
     [a.tipo, a.programa, a.intake]
@@ -18633,8 +18680,10 @@ function logDashboardCrmResumenRowsValidation(rows) {
   console.log(`[Dashboard CRM Resumen] Filas generadas: ${list.length}`);
   console.table(
     list.map((r) => ({
-      Programa: r.programa,
+      Programa: r.programaDisplay || r.programa,
       "Cantidad Leads": r.leadsCount,
+      "No Perfil": r.noPerfilCount,
+      "% No Perfil": dashCrmResumenFmtPctNoPerfil(r.noPerfilCount, r.leadsCount),
       "Promedio Toques": dashCrmResumenFmtAvg2(r.avgToques),
       "Promedio DiasSinGestion": dashCrmResumenFmtAvg2(r.avgDiasSinGestion)
     }))
@@ -18659,6 +18708,7 @@ function renderDashboardCrmResumenTabla() {
   logDashboardCrmResumenRowsValidation(dashboardCrmResumenRows);
 
   let totalLeads = 0;
+  let totalNoPerfil = 0;
   let totalToquesSum = 0;
   let totalToquesCount = 0;
   let totalDiasSum = 0;
@@ -18666,6 +18716,7 @@ function renderDashboardCrmResumenTabla() {
 
   const rowsHtml = dashboardCrmResumenRows.map((r) => {
     totalLeads += r.leadsCount;
+    totalNoPerfil += Number(r.noPerfilCount) || 0;
     totalToquesSum += r.toquesSum;
     totalToquesCount += r.toquesCount;
     totalDiasSum += r.diasSum;
@@ -18675,9 +18726,11 @@ function renderDashboardCrmResumenTabla() {
     const deliveryDotClass = dashResumenEstadoDotClass(estadoTitle);
     const qLabel = dashboardResumenIntakeQLabel(r.intake);
     const tipo = String(r.tipo ?? "").trim() || "—";
-    const programa = String(r.programa ?? "").trim() || "—";
+    const programa = String(r.programaDisplay ?? r.programa ?? "").trim() || "—";
     const resumenKey = dashboardCrmResumenRowKey(r.tipo, r.intake, r.programa);
     const selClass = dashboardCrmResumenSeleccionado === resumenKey ? " dash-row-selected" : "";
+    const noPerfilTxt = dashFmtLeads(Number(r.noPerfilCount) || 0);
+    const pctNoPerfilTxt = dashCrmResumenFmtPctNoPerfil(r.noPerfilCount, r.leadsCount);
 
     return `<tr data-dash-crm-resumen-row="${escapeHtml(resumenKey)}" class="${selClass.trim()}">
         <td class="dash-estado-col dash-res-col-estado" title="${escapeHtml(estadoTitle)}" role="img" aria-label="${escapeHtml(estadoTitle)}"><span class="dash-delivery-dot ${deliveryDotClass}" aria-hidden="true"></span></td>
@@ -18685,8 +18738,8 @@ function renderDashboardCrmResumenTabla() {
         <td class="dash-int-col dash-res-col-q">${escapeHtml(qLabel)}</td>
         <td class="programa-col dash-td-prog dash-grp-sticky-sep dash-res-col-programa" title="${escapeHtml(programa)}">${escapeHtml(programa)}</td>
         <td class="dash-grp-col dash-grp-col-crm-leads dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num">${escapeHtml(dashFmtLeads(r.leadsCount))}</td>
-        <td class="dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num">${dashCrmResumenPlaceholder()}</td>
-        <td class="dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num">${dashCrmResumenPlaceholder()}</td>
+        <td class="dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num">${escapeHtml(noPerfilTxt)}</td>
+        <td class="dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num">${escapeHtml(pctNoPerfilTxt)}</td>
         <td class="dash-grp-col dash-grp-col-crm-gest dash-grp-col-first dash-res-col-num">${escapeHtml(dashCrmResumenFmtAvg2(r.avgToques))}</td>
         <td class="dash-grp-col dash-grp-col-crm-gest dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num">${escapeHtml(dashCrmResumenFmtAvg2(r.avgDiasSinGestion))}</td>
       </tr>`;
@@ -18705,6 +18758,7 @@ function renderDashboardCrmResumenTabla() {
 
   const footAvgToques = totalToquesCount > 0 ? totalToquesSum / totalToquesCount : null;
   const footAvgDias = totalDiasCount > 0 ? totalDiasSum / totalDiasCount : null;
+  const footPctNoPerfil = dashCrmResumenFmtPctNoPerfil(totalNoPerfil, totalLeads);
 
   tfoot.innerHTML = `
       <td class="dash-estado-col dash-tfoot-empty dash-tfoot-estado dash-res-col-estado">&nbsp;</td>
@@ -18712,8 +18766,8 @@ function renderDashboardCrmResumenTabla() {
       <td class="dash-int-col dash-tfoot-empty dash-res-col-q">&nbsp;</td>
       <td class="programa-col dash-tfoot-label dash-grp-sticky-sep dash-res-col-programa"><strong>TOTAL GENERAL</strong></td>
       <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-leads dash-grp-col-first dash-grp-col-last dash-grp-sep-right grupo-separador dash-res-col-num"><strong>${escapeHtml(dashFmtLeads(totalLeads))}</strong></td>
-      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num"><strong>${dashCrmResumenPlaceholder()}</strong></td>
-      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num"><strong>${dashCrmResumenPlaceholder()}</strong></td>
+      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-first dash-res-col-num"><strong>${escapeHtml(dashFmtLeads(totalNoPerfil))}</strong></td>
+      <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-cal dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num"><strong>${escapeHtml(footPctNoPerfil)}</strong></td>
       <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-gest dash-grp-col-first dash-res-col-num"><strong>${escapeHtml(dashCrmResumenFmtAvg2(footAvgToques))}</strong></td>
       <td class="dash-tfoot-total-metric dash-grp-col dash-grp-col-crm-gest dash-grp-col-last dash-col-separador-right dash-grp-sep-right grupo-separador dash-res-col-num"><strong>${escapeHtml(dashCrmResumenFmtAvg2(footAvgDias))}</strong></td>
     `;

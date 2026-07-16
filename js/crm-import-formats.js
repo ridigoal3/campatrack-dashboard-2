@@ -19,6 +19,7 @@ export const CRM_V2_REQUIRED_COLUMNS = [
 /** Campos extra persistidos en crm_leads (además de los legacy). */
 export const CRM_LEAD_V2_EXTENSION_KEYS = [
   "crmCampania",
+  "crmFlujo",
   "crmImportFormat",
   "crmAnio",
   "crmMes",
@@ -91,6 +92,13 @@ function crmImportV2HeaderScoreCampana(n) {
   if (!n) return 0;
   if (n === "campana" || crmImportHeaderCompact(n) === "campana") return 100;
   if (n.includes("campana")) return 85;
+  return 0;
+}
+
+/** Columna opcional «Flujo» (nombre comercial del programa); exacta para no confundir con legacy. */
+function crmImportV2HeaderScoreFlujo(n) {
+  if (!n) return 0;
+  if (n === "flujo" || crmImportHeaderCompact(n) === "flujo") return 100;
   return 0;
 }
 
@@ -298,6 +306,7 @@ export function crmDetectColumnMapV2(norms) {
   pick("etapa", ["etapa"]);
   pick("estado", ["estado"]);
   pick("tipo", ["tipo"]);
+  pick("flujo", [crmImportV2HeaderScoreFlujo]);
   pick("campana", [crmImportV2HeaderScoreCampana]);
   pick("segmentacion", ["segmentacion"]);
   pick("cantLlamadas", [(n) => (n === "cant llamadas" ? 100 : n.includes("cant") && n.includes("llamadas") ? 90 : 0)]);
@@ -471,6 +480,7 @@ export function crmRowsFromSheetMatrixV2(matrix, options = {}, deps = {}) {
 
     const tipo = cellStr(row, "tipo");
     const campana = cellStr(row, "campana");
+    const crmFlujo = cellStr(row, "flujo");
     const crmCampania = (campana || tipo).trim();
     if (!crmCampania) {
       omitidasSinCampania += 1;
@@ -522,6 +532,7 @@ export function crmRowsFromSheetMatrixV2(matrix, options = {}, deps = {}) {
     const rowObj = {
       _id: generateDataRowId(),
       crmCampania,
+      crmFlujo,
       nombreCampania: "",
       crmTipo,
       crmPrograma,
@@ -589,6 +600,7 @@ export function crmRowsFromSheetMatrixV2(matrix, options = {}, deps = {}) {
         ano: headers[col.ano] ?? "Año",
         mes: headers[col.mes] ?? "Mes",
         dia: headers[col.dia] ?? "Dia",
+        ...(col.flujo >= 0 ? { flujo: headers[col.flujo] ?? "Flujo" } : {}),
         campana: headers[col.campana] ?? "Campaña",
         fuentevf: headers[col.fuentevf] ?? "Fuentevf",
         intake: headers[col.intake] ?? "INTAKE"
@@ -611,7 +623,7 @@ export function crmSerializeV2ExtensionFields(r) {
   for (const k of CRM_LEAD_V2_EXTENSION_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(r || {}, k)) continue;
     const v = r[k];
-    if (k === "crmCampania") {
+    if (k === "crmCampania" || k === "crmFlujo") {
       out[k] = v == null ? "" : String(v);
       continue;
     }
@@ -631,7 +643,7 @@ export function crmHydrateV2ExtensionFields(raw, parseFechaData, normalizeNoon) 
   for (const k of CRM_LEAD_V2_EXTENSION_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(raw || {}, k)) continue;
     let v = raw[k];
-    if (k === "crmCampania") {
+    if (k === "crmCampania" || k === "crmFlujo") {
       out[k] = v == null ? "" : String(v);
       continue;
     }
