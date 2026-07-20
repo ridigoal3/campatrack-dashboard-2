@@ -810,6 +810,20 @@ const LS_PLANNING_DATA = "planning_data";
 const LS_CONSUMO_CAMPANA = "consumo_por_campaña";
 const LS_BITACORA_DATA = "bitacora_data";
 const LS_CATALOGOS_SISTEMA = "catalogos_sistema";
+/** Reglas de detección automática de campañas (Planning → configuración). */
+const LS_PLANNING_DETECCION_AUTO = "planning_deteccion_auto";
+
+/** Acciones extensibles; hoy solo existe sumar gasto sin relación. */
+const PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION = "sumar_gasto_sin_relacion";
+const PLANNING_DETECCION_ACCION_LABELS = Object.freeze({
+  [PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION]: "Sumar solo gasto (sin relación)"
+});
+
+/** @type {Array<{id:string,palabraClave:string,accion:string,activo:boolean,fechaCreacion:string,fechaActualizacion:string}>} */
+let planningDeteccionReglas = [];
+/** Copia de trabajo del modal (se confirma al Guardar). */
+let planningDeteccionReglasDraft = [];
+let planningDeteccionSeq = 1;
 /** Lista de equipos en memoria (catálogo fijo también en `ensureCampatrackTeamsSeed`). */
 const LS_CAMPATRACK_TEAMS = "campatrack_teams_db";
 
@@ -2800,6 +2814,7 @@ function buildMemorySnapshotForPublish() {
     planning_data: { records: planningSnap, recordIdSeq: getPlanningRecordIdSeq() },
     cc_data: { centros: JSON.parse(JSON.stringify(centrosCostos)), seq: centroCostoIdSeq },
     catalogos_sistema: JSON.parse(JSON.stringify(catalogosSistema)),
+    planning_deteccion_auto: getPlanningDeteccionReglasSnapshot(),
     programs: JSON.parse(JSON.stringify(programs)),
     bitacora_data: JSON.parse(JSON.stringify(bitacoraData)),
     data_general: serializeDataReal(ensureDataGeneralDraftShape()),
@@ -2939,6 +2954,9 @@ function applyMemorySnapshotFromBundle(snap) {
   if (snap.catalogos_sistema && typeof snap.catalogos_sistema === "object") {
     catalogosSistema = snap.catalogos_sistema;
     ensureCatalogosSistemaShape();
+  }
+  if (Object.prototype.hasOwnProperty.call(snap, "planning_deteccion_auto")) {
+    applyPlanningDeteccionReglasFromList(snap.planning_deteccion_auto, { seedIfEmpty: false });
   }
   if (Array.isArray(snap.programs)) {
     programs.length = 0;
@@ -3471,6 +3489,344 @@ function saveCatalogosSistema() {
   } else {
     notifyDraftChanged();
   }
+}
+
+function planningDeteccionNowIso() {
+  return new Date().toISOString();
+}
+
+function planningDeteccionAccionLabel(accion) {
+  const key = String(accion || "").trim();
+  return PLANNING_DETECCION_ACCION_LABELS[key] || key || PLANNING_DETECCION_ACCION_LABELS[PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION];
+}
+
+function planningDeteccionNormalizeKeyword(raw) {
+  return String(raw ?? "").trim().replace(/\s+/g, " ");
+}
+
+function planningDeteccionGenerateId() {
+  const id = `pdr_${Date.now().toString(36)}_${planningDeteccionSeq}`;
+  planningDeteccionSeq += 1;
+  return id;
+}
+
+function planningDeteccionNormalizeRule(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const palabraClave = planningDeteccionNormalizeKeyword(raw.palabraClave ?? raw.keyword ?? "");
+  if (!palabraClave) return null;
+  const accionRaw = String(raw.accion ?? PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION).trim();
+  const accion = Object.prototype.hasOwnProperty.call(PLANNING_DETECCION_ACCION_LABELS, accionRaw)
+    ? accionRaw
+    : PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION;
+  const now = planningDeteccionNowIso();
+  return {
+    id: String(raw.id || "").trim() || planningDeteccionGenerateId(),
+    palabraClave,
+    accion,
+    activo: raw.activo !== false && raw.activo !== 0 && String(raw.activo).toLowerCase() !== "false",
+    fechaCreacion: String(raw.fechaCreacion || raw.createdAt || now),
+    fechaActualizacion: String(raw.fechaActualizacion || raw.updatedAt || now)
+  };
+}
+
+function planningDeteccionDefaultSeedRules() {
+  const now = planningDeteccionNowIso();
+  return ["Alcance", "Webinar", "Charla"].map((palabraClave) => ({
+    id: planningDeteccionGenerateId(),
+    palabraClave,
+    accion: PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION,
+    activo: true,
+    fechaCreacion: now,
+    fechaActualizacion: now
+  }));
+}
+
+function planningDeteccionCloneRules(list) {
+  return (Array.isArray(list) ? list : []).map((r) => ({ ...r }));
+}
+
+function applyPlanningDeteccionReglasFromList(list, { seedIfEmpty = false } = {}) {
+  const next = [];
+  (Array.isArray(list) ? list : []).forEach((raw) => {
+    const rule = planningDeteccionNormalizeRule(raw);
+    if (rule) next.push(rule);
+  });
+  if (!next.length && seedIfEmpty) {
+    planningDeteccionReglas = planningDeteccionDefaultSeedRules();
+  } else {
+    planningDeteccionReglas = next;
+  }
+  if (appState.dataDraft && typeof appState.dataDraft === "object") {
+    appState.dataDraft.planning_deteccion_auto = planningDeteccionCloneRules(planningDeteccionReglas);
+  }
+}
+
+function loadPlanningDeteccionReglasFromStorage({ seedIfEmpty = true } = {}) {
+  try {
+    const raw = appMemoryKV.getItem(LS_PLANNING_DETECCION_AUTO);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      applyPlanningDeteccionReglasFromList(Array.isArray(parsed) ? parsed : parsed?.rules, { seedIfEmpty });
+      return;
+    }
+  } catch (err) {
+    console.warn("No se pudo cargar planning_deteccion_auto", err);
+  }
+  applyPlanningDeteccionReglasFromList([], { seedIfEmpty });
+}
+
+function persistPlanningDeteccionReglas({ registerDraft = true } = {}) {
+  const payload = planningDeteccionCloneRules(planningDeteccionReglas);
+  if (appState.dataDraft && typeof appState.dataDraft === "object") {
+    appState.dataDraft.planning_deteccion_auto = payload;
+  }
+  if (!shouldDeferDiskPersistence()) {
+    try {
+      appMemoryKV.setItem(LS_PLANNING_DETECCION_AUTO, JSON.stringify(payload));
+    } catch (err) {
+      console.warn("No se pudo guardar planning_deteccion_auto", err);
+    }
+  }
+  if (registerDraft) registerUnpublishedDraftMutation();
+}
+
+function getPlanningDeteccionReglasSnapshot() {
+  return planningDeteccionCloneRules(planningDeteccionReglas);
+}
+
+function openPlanningConfigModal() {
+  loadPlanningDeteccionReglasFromStorage({ seedIfEmpty: true });
+  planningDeteccionReglasDraft = planningDeteccionCloneRules(planningDeteccionReglas);
+  renderPlanningConfigKeywordsTable();
+  const modal = document.getElementById("planningConfigModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closePlanningConfigModal() {
+  closePlanningKeywordModal();
+  const modal = document.getElementById("planningConfigModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  planningDeteccionReglasDraft = [];
+}
+
+function savePlanningConfigModalChanges() {
+  planningDeteccionReglas = planningDeteccionCloneRules(planningDeteccionReglasDraft);
+  persistPlanningDeteccionReglas({ registerDraft: true });
+  closePlanningConfigModal();
+  if (typeof showCampatrackToast === "function") {
+    showCampatrackToast("Configuración de Planning guardada.", "success");
+  }
+}
+
+function renderPlanningConfigKeywordsTable() {
+  const tbody = document.getElementById("planningConfigKeywordsTbody");
+  if (!tbody) return;
+  const rows = planningDeteccionReglasDraft || [];
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="planning-config-empty">No hay palabras clave registradas.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows
+    .map((r) => {
+      const id = escapeHtml(r.id);
+      const kw = escapeHtml(r.palabraClave);
+      const accion = escapeHtml(planningDeteccionAccionLabel(r.accion));
+      const checked = r.activo ? " checked" : "";
+      const estadoTxt = r.activo ? "Activo" : "Inactivo";
+      return `<tr data-planning-deteccion-id="${id}">
+        <td class="planning-config-col-keyword">${kw}</td>
+        <td class="planning-config-col-accion">${accion}</td>
+        <td class="planning-config-col-estado">
+          <label class="bitacora-saas-switch planning-config-switch">
+            <input type="checkbox" data-planning-deteccion-toggle="${id}"${checked} aria-label="Activar ${kw}" />
+            <span class="bitacora-saas-switch-track" aria-hidden="true"></span>
+            <span class="planning-config-switch-label">${estadoTxt}</span>
+          </label>
+        </td>
+        <td class="planning-config-col-actions">
+          <button type="button" class="planning-config-icon-btn" data-planning-deteccion-edit="${id}" title="Editar" aria-label="Editar ${kw}">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="planning-config-icon-btn planning-config-icon-btn--danger" data-planning-deteccion-delete="${id}" title="Eliminar" aria-label="Eliminar ${kw}">
+            <i class="fa-solid fa-trash" aria-hidden="true"></i>
+          </button>
+        </td>
+      </tr>`;
+    })
+    .join("");
+}
+
+function fillPlanningKeywordAccionSelect(selected) {
+  const sel = document.getElementById("planningKeywordAccionSelect");
+  if (!(sel instanceof HTMLSelectElement)) return;
+  const current = String(selected || PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION);
+  sel.innerHTML = Object.entries(PLANNING_DETECCION_ACCION_LABELS)
+    .map(
+      ([value, label]) =>
+        `<option value="${escapeHtml(value)}"${value === current ? " selected" : ""}>${escapeHtml(label)}</option>`
+    )
+    .join("");
+}
+
+function openPlanningKeywordModal(editId = null) {
+  const modal = document.getElementById("planningKeywordModal");
+  const title = document.getElementById("planningKeywordModalTitle");
+  const idInput = document.getElementById("planningKeywordEditId");
+  const kwInput = document.getElementById("planningKeywordInput");
+  const err = document.getElementById("planningKeywordFormError");
+  if (!modal || !(kwInput instanceof HTMLInputElement)) return;
+  err?.classList.add("hidden");
+  if (err) err.textContent = "";
+  const existing = editId
+    ? planningDeteccionReglasDraft.find((r) => String(r.id) === String(editId))
+    : null;
+  if (idInput instanceof HTMLInputElement) idInput.value = existing ? String(existing.id) : "";
+  kwInput.value = existing ? String(existing.palabraClave) : "";
+  fillPlanningKeywordAccionSelect(existing?.accion);
+  if (title) title.textContent = existing ? "Editar palabra clave" : "Agregar palabra clave";
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  kwInput.focus();
+}
+
+function closePlanningKeywordModal() {
+  const modal = document.getElementById("planningKeywordModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function submitPlanningKeywordForm(ev) {
+  ev?.preventDefault?.();
+  const idInput = document.getElementById("planningKeywordEditId");
+  const kwInput = document.getElementById("planningKeywordInput");
+  const accionSel = document.getElementById("planningKeywordAccionSelect");
+  const err = document.getElementById("planningKeywordFormError");
+  const palabraClave = planningDeteccionNormalizeKeyword(kwInput instanceof HTMLInputElement ? kwInput.value : "");
+  const accion =
+    accionSel instanceof HTMLSelectElement
+      ? String(accionSel.value || PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION)
+      : PLANNING_DETECCION_ACCION_SUMAR_GASTO_SIN_RELACION;
+  const editId = idInput instanceof HTMLInputElement ? String(idInput.value || "").trim() : "";
+
+  const showErr = (msg) => {
+    if (!err) return;
+    err.textContent = msg;
+    err.classList.remove("hidden");
+  };
+
+  if (!palabraClave) {
+    showErr("Indica una palabra clave.");
+    return;
+  }
+  const dup = planningDeteccionReglasDraft.some(
+    (r) =>
+      String(r.id) !== editId &&
+      normalizarTexto(r.palabraClave) === normalizarTexto(palabraClave)
+  );
+  if (dup) {
+    showErr("Ya existe una regla con esa palabra clave.");
+    return;
+  }
+  if (!Object.prototype.hasOwnProperty.call(PLANNING_DETECCION_ACCION_LABELS, accion)) {
+    showErr("Acción no válida.");
+    return;
+  }
+
+  const now = planningDeteccionNowIso();
+  if (editId) {
+    const idx = planningDeteccionReglasDraft.findIndex((r) => String(r.id) === editId);
+    if (idx < 0) {
+      showErr("No se encontró la regla a editar.");
+      return;
+    }
+    planningDeteccionReglasDraft[idx] = {
+      ...planningDeteccionReglasDraft[idx],
+      palabraClave,
+      accion,
+      fechaActualizacion: now
+    };
+  } else {
+    planningDeteccionReglasDraft.push({
+      id: planningDeteccionGenerateId(),
+      palabraClave,
+      accion,
+      activo: true,
+      fechaCreacion: now,
+      fechaActualizacion: now
+    });
+  }
+  closePlanningKeywordModal();
+  renderPlanningConfigKeywordsTable();
+}
+
+function initPlanningConfigModule() {
+  loadPlanningDeteccionReglasFromStorage({ seedIfEmpty: true });
+  if (!planningDeteccionReglas.length) {
+    persistPlanningDeteccionReglas({ registerDraft: false });
+  }
+
+  document.getElementById("planningConfigModalCloseBtn")?.addEventListener("click", () => closePlanningConfigModal());
+  document.getElementById("planningConfigCancelBtn")?.addEventListener("click", () => closePlanningConfigModal());
+  document.getElementById("planningConfigSaveBtn")?.addEventListener("click", () => savePlanningConfigModalChanges());
+  document.getElementById("planningConfigAddKeywordBtn")?.addEventListener("click", () => openPlanningKeywordModal(null));
+  document.getElementById("planningKeywordModalCloseBtn")?.addEventListener("click", () => closePlanningKeywordModal());
+  document.getElementById("planningKeywordCancelBtn")?.addEventListener("click", () => closePlanningKeywordModal());
+  document.getElementById("planningKeywordForm")?.addEventListener("submit", (e) => submitPlanningKeywordForm(e));
+
+  document.getElementById("planningConfigKeywordsTbody")?.addEventListener("click", (e) => {
+    const t = e.target instanceof HTMLElement ? e.target : null;
+    if (!t) return;
+    const editBtn = t.closest("[data-planning-deteccion-edit]");
+    if (editBtn) {
+      openPlanningKeywordModal(editBtn.getAttribute("data-planning-deteccion-edit"));
+      return;
+    }
+    const delBtn = t.closest("[data-planning-deteccion-delete]");
+    if (delBtn) {
+      const id = delBtn.getAttribute("data-planning-deteccion-delete");
+      planningDeteccionReglasDraft = planningDeteccionReglasDraft.filter((r) => String(r.id) !== String(id));
+      renderPlanningConfigKeywordsTable();
+    }
+  });
+
+  document.getElementById("planningConfigKeywordsTbody")?.addEventListener("change", (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) || t.type !== "checkbox") return;
+    const id = t.getAttribute("data-planning-deteccion-toggle");
+    if (!id) return;
+    const rule = planningDeteccionReglasDraft.find((r) => String(r.id) === String(id));
+    if (!rule) return;
+    rule.activo = t.checked;
+    rule.fechaActualizacion = planningDeteccionNowIso();
+    renderPlanningConfigKeywordsTable();
+  });
+
+  document.getElementById("planningConfigModal")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closePlanningConfigModal();
+  });
+  document.getElementById("planningKeywordModal")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closePlanningKeywordModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const kwModal = document.getElementById("planningKeywordModal");
+    if (kwModal && !kwModal.classList.contains("hidden")) {
+      closePlanningKeywordModal();
+      e.preventDefault();
+      return;
+    }
+    const cfgModal = document.getElementById("planningConfigModal");
+    if (cfgModal && !cfgModal.classList.contains("hidden")) {
+      closePlanningConfigModal();
+      e.preventDefault();
+    }
+  });
 }
 
 function ordenarCatalogoInPlace(arr) {
@@ -6733,13 +7089,7 @@ window.addEventListener(
 );
 
 document.getElementById("planningFiltrosAvanzadosBtn")?.addEventListener("click", () => {
-  const panel = document.getElementById("planningAdvFiltersPanel");
-  const btn = document.getElementById("planningFiltrosAvanzadosBtn");
-  if (!panel || !btn) return;
-  panel.classList.toggle("hidden");
-  const nowHidden = panel.classList.contains("hidden");
-  panel.setAttribute("aria-hidden", nowHidden ? "true" : "false");
-  btn.setAttribute("aria-expanded", nowHidden ? "false" : "true");
+  openPlanningConfigModal();
 });
 
 document.getElementById("planningImportTableBtn")?.addEventListener("click", () => {
@@ -6957,6 +7307,7 @@ updateTotalInversion();
 syncCatalogosSistemaDesdeMemoria();
 refreshPlanningCatalogUi();
 initPlanningDateRangePicker();
+initPlanningConfigModule();
 
 // =========================
 // BITÁCORA module
@@ -8765,6 +9116,7 @@ const EXPORT_BUNDLE_KEYS = [
   "cc_data",
   "planning_data",
   "catalogos_sistema",
+  "planning_deteccion_auto",
   "programs",
   "bitacora_data",
   "data_general",
@@ -8822,6 +9174,7 @@ function construirSnapshotDesdeLocalStorageComoExport() {
     cc_data: appState.dataDraft?.cc_data ?? leerJsonLocalStorage(LS_CC_DATA, "centros_costos"),
     planning_data: leerJsonLocalStorage(LS_PLANNING_DATA, "planningData"),
     catalogos_sistema: leerJsonLocalStorage(LS_CATALOGOS_SISTEMA),
+    planning_deteccion_auto: leerJsonLocalStorage(LS_PLANNING_DETECCION_AUTO) ?? getPlanningDeteccionReglasSnapshot(),
     programs: JSON.parse(JSON.stringify(programs)),
     bitacora_data: bitacoraSnap,
     data_general: serializeDataReal(ensureDataGeneralDraftShape()),
@@ -10941,6 +11294,13 @@ function hydratarDesdeLocalStorage(opts = {}) {
   }
   const allRows = dataReal.concat(dataAdsReport, dataAnuncios);
   dataIdSeq = Math.max(1, ...allRows.map((r) => Number(r._id) || 0)) + 1;
+  try {
+    if (typeof loadPlanningDeteccionReglasFromStorage === "function") {
+      loadPlanningDeteccionReglasFromStorage({ seedIfEmpty: false });
+    }
+  } catch (_) {
+    /* ignore */
+  }
 }
 
 function debounce(fn, wait = 300) {
@@ -14181,6 +14541,10 @@ function getCrmUniqueCampaignList() {
     const campaniaCanon = String(r?.crmCampania ?? "").trim();
     let display;
     let intakeVal;
+    let trafficType = String(r?.crmTrafficType ?? "").trim();
+    if (!trafficType) {
+      trafficType = crmNormalizedTrafficFromFuenteVF(String(r?.fuenteCrm ?? ""));
+    }
     if (campaniaCanon) {
       display = String(r.crmCampania ?? "");
       intakeVal = String(r?.crmIntake ?? "").trim();
@@ -14190,16 +14554,20 @@ function getCrmUniqueCampaignList() {
         String(h.nombreCampania || "").trim() ||
         crmComposeDisplayDimensional(h.tipo, h.programa, h.intake, h.crmTrafficType);
       intakeVal = String(h.intake || "").trim();
+      if (!trafficType) trafficType = String(h.crmTrafficType ?? "").trim();
     }
     if (!map.has(k)) {
       map.set(k, {
         crmKey: k,
         nombre: display,
         leads: 0,
-        intake: intakeVal
+        intake: intakeVal,
+        trafficType
       });
     }
-    map.get(k).leads += Number(r.leads) || 1;
+    const slot = map.get(k);
+    slot.leads += Number(r.leads) || 1;
+    if (!slot.trafficType && trafficType) slot.trafficType = trafficType;
   });
   return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
@@ -14248,6 +14616,116 @@ function crmRelMatchesTrackingFilter(trackingVal, filterKey) {
   if (f === "pixel") return t.includes("pixel");
   if (f === "google") return t.includes("google");
   return t.includes(f);
+}
+
+/** Opciones fijas del filtro Plataforma en Relaciones CRM. */
+const CRM_REL_PLATAFORMA_FILTER_OPTIONS = ["Meta", "Google", "Pixel"];
+
+/**
+ * Resuelve el nombre de plataforma efectiva para UI (Leadgen | Pixel | Google | …).
+ * Misma etiqueta visual que Campañas únicas CRM; reutilizable en otros módulos.
+ * No altera claves, IDs ni matching.
+ *
+ * @param {{ plataforma?: string, tracking?: string, trafficType?: string, nombre?: string }} ctx
+ * @returns {string}
+ */
+function resolvePlataformaEfectivaDisplay(ctx = {}) {
+  const tracking = String(ctx.tracking ?? "").trim();
+  const trafficType = String(ctx.trafficType ?? "").trim();
+  const plataforma = String(ctx.plataforma ?? "").trim();
+  const nombre = String(ctx.nombre ?? "").trim();
+
+  const trackNorm = normalizarTexto(tracking || trafficType);
+  if (trackNorm.includes("leadgen")) return "Leadgen";
+  if (trackNorm.includes("pixel")) return "Pixel";
+  if (trackNorm.includes("google")) return "Google";
+  if (trackNorm.includes("tiktok")) return "TikTok";
+  if (trackNorm.includes("linkedin")) return "LinkedIn";
+
+  const platNorm = normalizarTexto(plataforma);
+  if (platNorm.includes("pixel")) return "Pixel";
+  if (platNorm.includes("google")) return "Google";
+  if (platNorm.includes("tiktok")) return "TikTok";
+  if (platNorm.includes("linkedin")) return "LinkedIn";
+  if (platNorm.includes("meta") || platNorm.includes("facebook")) {
+    return tracking || trafficType || "Leadgen";
+  }
+
+  const nameNorm = normalizarTexto(nombre);
+  if (nameNorm.includes("leadgen")) return "Leadgen";
+  if (nameNorm.includes("pixel") || (nameNorm.includes("link") && nameNorm.includes("ads"))) return "Pixel";
+  if (nameNorm.includes("google") || nameNorm.includes("youtube")) return "Google";
+
+  return tracking || trafficType || plataforma || "";
+}
+
+/**
+ * Etiqueta visual Plataforma + Tracking para tarjetas Planning en Relaciones.
+ * Ej.: "Meta Leadgen" | "Meta Pixel" | "Google Leadgen"
+ * Solo representación; no altera claves, IDs ni matching.
+ */
+function formatPlanningPlataformaTrackingDisplay(plataforma, tracking) {
+  const p = String(plataforma ?? "").trim();
+  const t = String(tracking ?? "").trim();
+  if (p && t) return `${p} ${t}`;
+  return p || t || "";
+}
+
+/**
+ * Título visible Planning en Relaciones:
+ * Tipo | Programa | Intake | Meta Leadgen / Meta Pixel / Google Leadgen
+ */
+function formatCrmRelPlanningDisplayName(planningKey) {
+  const parsed = parsePlanningKey(planningKey);
+  const platTrack = formatPlanningPlataformaTrackingDisplay(parsed.plataforma, parsed.tracking);
+  return [parsed.tipo, parsed.programa, parsed.intake, platTrack]
+    .map((x) => String(x ?? "").trim())
+    .filter(Boolean)
+    .join(" | ");
+}
+
+/**
+ * Filtro Plataforma por plataforma efectiva (excluyente).
+ * Meta → Leadgen | Google → Google | Pixel → Pixel
+ * Una campaña Meta+Pixel NO aparece al filtrar Meta.
+ * Uso: campañas CRM (no Planning).
+ */
+function crmRelMatchesPlataformaFilter(filterRaw, ctx = {}) {
+  const f = normalizarTexto(filterRaw);
+  if (!f) return true;
+  const efectiva = normalizarTexto(resolvePlataformaEfectivaDisplay(ctx));
+  if (!efectiva) return false;
+
+  if (f === "pixel" || f.includes("pixel")) return efectiva.includes("pixel");
+  if (f === "google" || f.includes("google")) return efectiva.includes("google");
+  if (f === "meta" || f.includes("meta") || f === "facebook") {
+    return efectiva.includes("leadgen") || (efectiva.includes("meta") && !efectiva.includes("pixel"));
+  }
+  return (
+    efectiva === f ||
+    efectiva.includes(f) ||
+    normalizarTexto(ctx.plataforma).includes(f) ||
+    normalizarTexto(ctx.tracking).includes(f) ||
+    normalizarTexto(ctx.trafficType).includes(f)
+  );
+}
+
+/**
+ * Filtro Plataforma para Planning en Relaciones CRM.
+ * Usa solo el campo original `plataforma` (Meta | Google).
+ * No usa nombre mostrado, labels ni "Meta Leadgen" / "Google Leadgen" / "Meta Pixel".
+ */
+function crmRelPlanningMatchesPlataformaFilter(filterRaw, plataformaRaw) {
+  const f = normalizarTexto(filterRaw);
+  if (!f) return true;
+  const p = normalizarTexto(plataformaRaw);
+  if (!p) return false;
+  if (f === "google" || f.includes("google")) return p.includes("google");
+  if (f === "meta" || f.includes("meta") || f === "facebook") {
+    return p.includes("meta") || p.includes("facebook");
+  }
+  if (f === "pixel" || f.includes("pixel")) return p.includes("pixel");
+  return p === f || p.includes(f);
 }
 
 function crmRelPlanningFiltersSignature() {
@@ -14319,7 +14797,6 @@ function getFilteredCrmRelPlanningKeys() {
   const linked = getCrmRelLinkedPlanningSet();
   const gq = normalizarTexto(crmRelacionesSearchQuery);
   const pq = normalizarTexto(crmRelPlanningListQuery);
-  const plat = normalizarTexto(crmRelFiltroPlataforma);
   const est = crmRelFiltroEstadoRel;
   const intakeF = normalizarTexto(crmRelFiltroIntake);
   const trackingF = String(crmRelFiltroTracking || "").trim();
@@ -14330,8 +14807,9 @@ function getFilteredCrmRelPlanningKeys() {
       if (gq && !normalizarTexto(k).includes(gq)) return false;
       if (pq && !normalizarTexto(k).includes(pq)) return false;
       const parsed = parsePlanningKey(k);
-      if (plat && normalizarTexto(parsed.plataforma) !== plat && !normalizarTexto(parsed.plataforma).includes(plat))
+      if (!crmRelPlanningMatchesPlataformaFilter(crmRelFiltroPlataforma, parsed.plataforma)) {
         return false;
+      }
       if (!crmRelMatchesIntakeFilter(parsed.intake, intakeF)) return false;
       if (!crmRelMatchesTrackingFilter(parsed.tracking, trackingF)) return false;
       if (est === "con" && !linked.has(k)) return false;
@@ -14347,14 +14825,21 @@ function getFilteredCrmRelCampaignList() {
   const linked = getCrmRelLinkedCrmSet();
   const gq = normalizarTexto(crmRelacionesSearchQuery);
   const cq = normalizarTexto(crmRelCrmListQuery);
-  const plat = normalizarTexto(crmRelFiltroPlataforma);
   const est = crmRelFiltroEstadoRel;
   const intakeF = normalizarTexto(crmRelFiltroIntake);
   return getRelacionableCrmUniqueCampaignList().filter((u) => {
     const text = `${u.crmKey} ${u.nombre}`;
     if (gq && !normalizarTexto(text).includes(gq)) return false;
     if (cq && !normalizarTexto(text).includes(cq)) return false;
-    if (plat && !relDataMatchesPlataformaFilter({ nombre: u.nombre, idCampania: u.crmKey }, plat)) return false;
+    if (
+      !crmRelMatchesPlataformaFilter(crmRelFiltroPlataforma, {
+        nombre: u.nombre,
+        trafficType: u.trafficType,
+        tracking: u.trafficType
+      })
+    ) {
+      return false;
+    }
     if (!crmRelMatchesIntakeFilter(u.intake, intakeF)) return false;
     if (est === "con" && !linked.has(String(u.crmKey))) return false;
     if (est === "sin" && linked.has(String(u.crmKey))) return false;
@@ -14366,12 +14851,9 @@ function refreshCrmRelFilterSelects() {
   const selPlat = document.getElementById("crmRelFiltroPlataforma");
   const selIntake = document.getElementById("crmRelFiltroIntake");
   if (!selPlat || !selIntake) return;
-  const plats = new Set();
   const intakes = new Set();
   planningDraftRecords().forEach((r) => {
-    const p = String(r.plataforma || "").trim();
     const i = String(r.intake || "").trim();
-    if (p) plats.add(p);
     if (i) intakes.add(i);
   });
   crmLeads.forEach((r) => {
@@ -14380,11 +14862,12 @@ function refreshCrmRelFilterSelects() {
   });
   const curP = selPlat.value;
   const curI = selIntake.value;
-  const platArr = Array.from(plats).sort((a, b) => a.localeCompare(b, "es"));
   const intakeArr = Array.from(intakes).sort((a, b) => a.localeCompare(b, "es"));
-  selPlat.innerHTML = `<option value="">Todos</option>${platArr.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("")}`;
+  selPlat.innerHTML = `<option value="">Todos</option>${CRM_REL_PLATAFORMA_FILTER_OPTIONS.map(
+    (x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`
+  ).join("")}`;
   selIntake.innerHTML = `<option value="">Todos</option>${intakeArr.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("")}`;
-  if (platArr.includes(curP)) selPlat.value = curP;
+  if (CRM_REL_PLATAFORMA_FILTER_OPTIONS.includes(curP)) selPlat.value = curP;
   if (intakeArr.includes(curI)) selIntake.value = curI;
 }
 
@@ -14411,9 +14894,11 @@ function renderCrmRelPlanningList() {
   host.innerHTML = keys
     .map((k) => {
       const parsed = parsePlanningKey(k);
-      const metaBits = [parsed.tipo, parsed.intake, parsed.tracking].filter(Boolean);
+      const displayName = formatCrmRelPlanningDisplayName(k);
+      const platTrack = formatPlanningPlataformaTrackingDisplay(parsed.plataforma, parsed.tracking);
+      const metaBits = [parsed.tipo, parsed.intake, platTrack].filter(Boolean);
       const meta = metaBits.length ? metaBits.join(" · ") : "—";
-      const platLabel = String(parsed.plataforma || "—").trim() || "—";
+      const platLabel = platTrack || "—";
       const cls = [
         "rel-item",
         selectedCrmRelPlanningKeys.has(k) ? "rel-selected" : "",
@@ -14421,11 +14906,11 @@ function renderCrmRelPlanningList() {
       ]
         .filter(Boolean)
         .join(" ");
-      const badgeClass = relPlataformaBadgeClass(parsed.plataforma);
+      const badgeClass = relPlataformaBadgeClass(parsed.plataforma || platTrack);
       return `<div class="${cls}" data-crm-rel-planning="${escapeHtml(k)}" role="option" aria-selected="${selectedCrmRelPlanningKeys.has(k) ? "true" : "false"}">
       <span class="${badgeClass}">${escapeHtml(platLabel)}</span>
       <div class="rel-item-body">
-        <div class="rel-item-title">${escapeHtml(k)}</div>
+        <div class="rel-item-title">${escapeHtml(displayName)}</div>
         <div class="rel-item-meta">${escapeHtml(meta)}</div>
       </div>
     </div>`;
@@ -14488,7 +14973,6 @@ function renderCrmRelacionesTabla() {
   const count = document.getElementById("crmRelTablaCount");
   if (!tbody) return;
   const q = normalizarTexto(crmRelacionesSearchQuery);
-  const platF = normalizarTexto(crmRelFiltroPlataforma);
   const intakeF = normalizarTexto(crmRelFiltroIntake);
   const estF = crmRelFiltroEstadoRel;
   const trackingF = String(crmRelFiltroTracking || "").trim();
@@ -14507,8 +14991,9 @@ function renderCrmRelacionesTabla() {
         if (!planningTxt.includes(q) && !crmTxt.includes(q) && !keyTxt.includes(q)) return false;
       }
       const parsed = parsePlanningKey(rel.planningKey);
-      if (platF && !normalizarTexto(parsed.plataforma).includes(platF) && normalizarTexto(parsed.plataforma) !== platF)
+      if (!crmRelPlanningMatchesPlataformaFilter(crmRelFiltroPlataforma, parsed.plataforma)) {
         return false;
+      }
       if (!crmRelMatchesIntakeFilter(parsed.intake, intakeF)) return false;
       if (!crmRelMatchesTrackingFilter(parsed.tracking, trackingF)) return false;
       return true;
@@ -14543,7 +15028,7 @@ function renderCrmRelacionesTabla() {
     .join("");
 }
 
-function vincularCrmPlanning() {
+async function vincularCrmPlanning() {
   if (selectedCrmRelPlanningKeys.size !== 1 || selectedCrmRelCrmKeys.size !== 1) return;
   const planningKey = [...selectedCrmRelPlanningKeys][0];
   if (!planningKeyEsCaptacion(planningKey)) {
@@ -14552,6 +15037,22 @@ function vincularCrmPlanning() {
   }
   const crmKey = [...selectedCrmRelCrmKeys][0];
   const crmItem = getCrmUniqueCampaignList().find((u) => u.crmKey === crmKey);
+  const list = ensureRelacionesCrmDraftShape();
+  if (list.some((x) => x.planningKey === planningKey)) {
+    showCampatrackToast("Ese Planning ya tiene relación CRM.", "error");
+    return;
+  }
+
+  const accepted = await confirmRelacionMatch({
+    leftKind: "Planning",
+    rightKind: "CRM",
+    planningKey,
+    leftLabel: buildRelacionCompareLabelFromPlanning(planningKey),
+    rightLabel: crmItem?.nombre || crmKey,
+    crmItem
+  });
+  if (!accepted) return;
+
   const row = {
     planningKey,
     crmKey,
@@ -14559,11 +15060,6 @@ function vincularCrmPlanning() {
     fechaRelacion: new Date().toISOString().slice(0, 10),
     estado: "activa"
   };
-  const list = ensureRelacionesCrmDraftShape();
-  if (list.some((x) => x.planningKey === row.planningKey)) {
-    showCampatrackToast("Ese Planning ya tiene relación CRM.", "error");
-    return;
-  }
   list.push(row);
   syncRelacionesCrmViewFromDraft();
   crmDebugSnapshot("relacion CRM creada", { origen: "vincularCrmPlanning", planningKey, crmKey });
@@ -14776,6 +15272,660 @@ function normalizarTexto(texto) {
     .trim();
 }
 
+/** Tokens técnicos / ruido a ignorar al validar relaciones Planning ↔ Plataforma/CRM. */
+const RELACION_MATCH_NOISE_TOKENS = new Set([
+  "intake",
+  "q",
+  "q1",
+  "q2",
+  "q3",
+  "q4",
+  "meta",
+  "facebook",
+  "instagram",
+  "google",
+  "pixel",
+  "leadgen",
+  "lead",
+  "gen",
+  "aon",
+  "linkedin",
+  "tiktok",
+  "youtube",
+  "ads",
+  "ad",
+  "tracking",
+  "plataforma",
+  "crm",
+  "data",
+  "campania",
+  "campaign",
+  "link",
+  "search",
+  "display",
+  "video",
+  "branding",
+  "conversion",
+  "traffic",
+  "alcance",
+  "awareness"
+]);
+
+const RELACION_MATCH_STOP_WORDS = new Set([
+  "de",
+  "del",
+  "la",
+  "el",
+  "los",
+  "las",
+  "y",
+  "en",
+  "con",
+  "para",
+  "un",
+  "una",
+  "al",
+  "a",
+  "por",
+  "mencion",
+  "mension"
+]);
+
+function isRelacionNoiseToken(n) {
+  if (!n) return true;
+  if (RELACION_MATCH_NOISE_TOKENS.has(n)) return true;
+  if (/^q[1-4]$/.test(n)) return true;
+  if (/^intake\d*$/.test(n)) return true;
+  if (/^(19|20)\d{2}$/.test(n)) return true;
+  return false;
+}
+
+function isRelacionNoiseSegment(n) {
+  if (!n) return true;
+  if (isRelacionNoiseToken(n)) return true;
+  if (/^intake(\s*\d+)?$/.test(n)) return true;
+  if (/^q\s*[1-4]$/.test(n)) return true;
+  const words = n.split(/\s+/).filter(Boolean);
+  return words.length > 0 && words.every((w) => isRelacionNoiseToken(w) || /^\d+$/.test(w));
+}
+
+function isLikelyRelacionTipoToken(n) {
+  if (!n) return false;
+  if (
+    /^(ma|mba|se|see|seo|msc|phd|lic|dip|diplomado|curso|cert|certificacion|especializacion|doctorado|pregrado|posgrado|pg|dc|dt)$/.test(
+      n
+    )
+  ) {
+    return true;
+  }
+  return n.length >= 2 && n.length <= 5 && /^[a-z0-9]+$/.test(n) && !/^\d+$/.test(n);
+}
+
+/**
+ * Extrae Tipo + nombre base del programa, ignorando intake, Q, plataforma, tracking, años, etc.
+ * Reutilizable para Planning, CRM y nombres de campañas de plataforma.
+ */
+function extractRelacionProgramCore(raw) {
+  const original = String(raw ?? "").trim();
+  if (!original) return { tipo: "", programa: "", raw: original };
+
+  if (original.includes("|")) {
+    const parts = original.split("|").map((p) => p.trim()).filter(Boolean);
+    let tipo = "";
+    const programaParts = [];
+    for (const part of parts) {
+      const n = normalizarTexto(part);
+      if (isRelacionNoiseSegment(n)) continue;
+      if (!tipo && isLikelyRelacionTipoToken(n)) {
+        tipo = part.replace(/\s+/g, " ").trim();
+        continue;
+      }
+      programaParts.push(part.replace(/\s+/g, " ").trim());
+    }
+    return {
+      tipo,
+      programa: programaParts.join(" ").replace(/\s+/g, " ").trim(),
+      raw: original
+    };
+  }
+
+  const spaced = original.replace(/[_|/]+/g, " ").replace(/\s+/g, " ").trim();
+  const tokens = spaced.split(" ").filter(Boolean);
+  let tipo = "";
+  const progTokens = [];
+  for (const tok of tokens) {
+    const n = normalizarTexto(tok);
+    if (!n) continue;
+    if (/^(19|20)\d{2}$/.test(n)) continue;
+    if (isRelacionNoiseToken(n)) continue;
+    if (!tipo && isLikelyRelacionTipoToken(n)) {
+      tipo = tok;
+      continue;
+    }
+    if (/^\d+$/.test(n)) continue;
+    progTokens.push(tok);
+  }
+  return {
+    tipo,
+    programa: progTokens.join(" ").trim(),
+    raw: original
+  };
+}
+
+function significantRelacionWords(normalizedProg) {
+  return String(normalizedProg || "")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !RELACION_MATCH_STOP_WORDS.has(w) && !isRelacionNoiseToken(w));
+}
+
+/** Detecta modo de validación: Planning↔CRM o Planning↔Plataforma. */
+function detectRelacionValidationMode(rightKind) {
+  const k = normalizarTexto(rightKind);
+  if (k.includes("crm")) return "crm";
+  return "plataforma";
+}
+
+/** Código numérico de Intake / Q (1–4). */
+function extractIntakeOrQuarterCode(texto) {
+  const t = normalizarTexto(texto);
+  if (!t) return null;
+  const m =
+    t.match(/intake\s*(\d)/) ||
+    t.match(/intake(\d)/) ||
+    t.match(/\bq\s*(\d)\b/) ||
+    t.match(/\bq(\d)\b/);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Equivalencia Planning (Meta Leadgen / Meta Pixel / Google Leadgen) → plataforma CRM.
+ * Meta Leadgen → Meta | Meta Pixel → Pixel | Google Leadgen → Google
+ */
+function resolvePlanningCrmPlatformEquiv(plataforma, tracking) {
+  const label = normalizarTexto(formatPlanningPlataformaTrackingDisplay(plataforma, tracking));
+  if (!label) return "";
+  if (label.includes("pixel")) return "Pixel";
+  if (label.includes("google")) return "Google";
+  if (label.includes("meta") || label.includes("facebook") || label.includes("leadgen")) return "Meta";
+  return "";
+}
+
+/** Misma etiqueta visual que las tarjetas Planning (sin “+”). */
+function formatPlanningPlataformaPair(plataforma, tracking) {
+  return formatPlanningPlataformaTrackingDisplay(plataforma, tracking) || "—";
+}
+
+function resolveCrmSidePlatformLabel(crmItem, rightLabel) {
+  const traffic = String(crmItem?.trafficType ?? "").trim();
+  const blob = normalizarTexto(`${traffic} ${crmItem?.nombre || ""} ${rightLabel || ""}`);
+  if (blob.includes("pixel")) return "Pixel";
+  if (blob.includes("google") || blob.includes("youtube")) return "Google";
+  if (
+    blob.includes("meta") ||
+    blob.includes("facebook") ||
+    blob.includes("leadgen") ||
+    blob.includes("instagram")
+  ) {
+    return "Meta";
+  }
+  if (traffic) return traffic;
+  return "";
+}
+
+function resolveDataCampaignPlatformTracking(nombre, dataRow) {
+  const blob = normalizarTexto(`${nombre || ""} ${dataRow?.nombre || ""} ${dataRow?.idCampania || ""}`);
+  let plataforma = "";
+  let tracking = "";
+  if (blob.includes("pixel")) tracking = "Pixel";
+  else if (blob.includes("leadgen")) tracking = "Leadgen";
+  else if (blob.includes("google") && !blob.includes("pixel")) tracking = "Leadgen";
+
+  if (blob.includes("google") || blob.includes("youtube")) plataforma = "Google";
+  else if (blob.includes("pixel")) plataforma = "Meta";
+  else if (blob.includes("meta") || blob.includes("facebook") || blob.includes("leadgen") || blob.includes("instagram")) {
+    plataforma = "Meta";
+  } else if (blob.includes("tiktok")) plataforma = "TikTok";
+  else if (blob.includes("linkedin")) plataforma = "LinkedIn";
+
+  return { plataforma, tracking };
+}
+
+function scoreProgramaRelacion(progL, progR) {
+  if (!progL || !progR) return { ok: false, partial: false, points: 0, max: 40 };
+  if (progL === progR) return { ok: true, partial: false, points: 40, max: 40 };
+  if (progL.includes(progR) || progR.includes(progL)) {
+    return { ok: true, partial: true, points: 36, max: 40 };
+  }
+  const wordsL = significantRelacionWords(progL);
+  const wordsR = significantRelacionWords(progR);
+  if (!wordsL.length || !wordsR.length) return { ok: false, partial: false, points: 0, max: 40 };
+  const matched = wordsL.filter((w) =>
+    wordsR.some((r) => r === w || (w.length > 4 && r.includes(w)) || (r.length > 4 && w.includes(r)))
+  );
+  const recall = matched.length / Math.min(wordsL.length, wordsR.length);
+  const points = Math.round(recall * 40);
+  return {
+    ok: recall >= 0.75,
+    partial: recall >= 0.4 && recall < 0.75,
+    points,
+    max: 40
+  };
+}
+
+function buildPlanningValidationContext(planningKey, leftLabel) {
+  const rec = getPlanningRecordByKey(planningKey);
+  const parsed = parsePlanningKey(planningKey || "");
+  const fromLabel = extractRelacionProgramCore(leftLabel || "");
+  const tipo = String(rec?.tipo ?? parsed.tipo ?? fromLabel.tipo ?? "").trim();
+  const programa = String(rec?.programa ?? parsed.programa ?? fromLabel.programa ?? "").trim();
+  const intake = String(rec?.intake ?? parsed.intake ?? "").trim();
+  const plataforma = String(rec?.plataforma ?? parsed.plataforma ?? "").trim();
+  const tracking = String(rec?.tracking ?? parsed.tracking ?? "").trim();
+  return {
+    tipo,
+    programa,
+    intake,
+    plataforma,
+    tracking,
+    crmPlatformEquiv: resolvePlanningCrmPlatformEquiv(plataforma, tracking),
+    platformPairLabel: formatPlanningPlataformaPair(plataforma, tracking),
+    efectiva: resolvePlataformaEfectivaDisplay({ plataforma, tracking })
+  };
+}
+
+function buildRightValidationContext(mode, opts) {
+  const rightLabel = String(opts.rightLabel ?? "").trim();
+  const core = extractRelacionProgramCore(rightLabel);
+  if (mode === "crm") {
+    const crmItem = opts.crmItem || null;
+    const intakeRaw = String(crmItem?.intake ?? "").trim() || rightLabel;
+    const intakeCode = extractIntakeOrQuarterCode(intakeRaw) ?? extractIntakeOrQuarterCode(rightLabel);
+    return {
+      tipo: core.tipo,
+      programa: core.programa,
+      intakeRaw,
+      intakeCode,
+      platformLabel: resolveCrmSidePlatformLabel(crmItem, rightLabel),
+      raw: rightLabel
+    };
+  }
+  const dataRow = opts.dataRow || null;
+  const pt = resolveDataCampaignPlatformTracking(rightLabel, dataRow);
+  return {
+    tipo: core.tipo,
+    programa: core.programa,
+    plataforma: pt.plataforma,
+    tracking: pt.tracking,
+    raw: rightLabel
+  };
+}
+
+/**
+ * Motor único de validación Planning ↔ CRM / Planning ↔ Plataforma.
+ * Acepta (leftRaw, rightRaw) legacy o un objeto de opciones enriquecido.
+ * @returns {{ level, score, left, right, mode, checks, message }}
+ */
+function evaluateRelacionMatch(leftRawOrOpts, rightRaw) {
+  const isLegacy = typeof leftRawOrOpts === "string" || rightRaw !== undefined;
+  const opts = isLegacy
+    ? {
+        leftLabel: leftRawOrOpts,
+        rightLabel: rightRaw,
+        rightKind: "Plataforma"
+      }
+    : leftRawOrOpts || {};
+
+  const mode = detectRelacionValidationMode(opts.rightKind || opts.mode || "Plataforma");
+  const planning = buildPlanningValidationContext(opts.planningKey, opts.leftLabel);
+  const right = buildRightValidationContext(mode, opts);
+
+  const tipoL = normalizarTexto(planning.tipo);
+  const tipoR = normalizarTexto(right.tipo);
+  const progL = normalizarTexto(planning.programa);
+  const progR = normalizarTexto(right.programa);
+
+  const checks = [];
+  let score = 0;
+  let maxScore = 0;
+
+  // Tipo
+  maxScore += 25;
+  let tipoStatus = "fail";
+  if (tipoL && tipoR && tipoL === tipoR) {
+    score += 25;
+    tipoStatus = "ok";
+  } else if (!tipoL || !tipoR) {
+    score += 8;
+    tipoStatus = "warn";
+  }
+  checks.push({
+    key: "tipo",
+    label: "Tipo",
+    status: tipoStatus,
+    summary: planning.tipo || right.tipo || "—",
+    detail: tipoStatus === "ok" ? null : { left: planning.tipo || "—", right: right.tipo || "—" }
+  });
+
+  // Programa
+  maxScore += 40;
+  const progScore = scoreProgramaRelacion(progL, progR);
+  score += progScore.points;
+  const progStatus = progScore.ok ? "ok" : progScore.partial ? "warn" : "fail";
+  checks.push({
+    key: "programa",
+    label: "Programa",
+    status: progStatus,
+    summary:
+      progStatus === "ok"
+        ? planning.programa || right.programa || "—"
+        : `${planning.programa || "—"} ↔ ${right.programa || "—"}`,
+    detail:
+      progStatus === "ok"
+        ? null
+        : { left: planning.programa || "—", right: right.programa || "—" }
+  });
+
+  if (mode === "crm") {
+    // Intake (Planning) ↔ Q (CRM)
+    maxScore += 15;
+    const intakeL = extractIntakeOrQuarterCode(planning.intake);
+    const intakeR = right.intakeCode;
+    let intakeStatus = "fail";
+    if (intakeL != null && intakeR != null && intakeL === intakeR) {
+      score += 15;
+      intakeStatus = "ok";
+    } else if (intakeL == null || intakeR == null) {
+      score += 5;
+      intakeStatus = "warn";
+    }
+    const intakeLeftLabel = intakeL != null ? `Intake ${intakeL}` : planning.intake || "—";
+    const intakeRightLabel = intakeR != null ? `Q${intakeR}` : "—";
+    checks.push({
+      key: "intake",
+      label: "Intake / Q",
+      status: intakeStatus,
+      summary:
+        intakeStatus === "ok"
+          ? `${intakeLeftLabel} ↔ ${intakeRightLabel}`
+          : `${intakeLeftLabel} ↔ ${intakeRightLabel}`,
+      detail: intakeStatus === "ok" ? null : { left: intakeLeftLabel, right: intakeRightLabel }
+    });
+
+    // Plataforma con equivalencias
+    maxScore += 20;
+    const platL = normalizarTexto(planning.crmPlatformEquiv);
+    const platR = normalizarTexto(right.platformLabel);
+    let platStatus = "fail";
+    if (platL && platR && platL === platR) {
+      score += 20;
+      platStatus = "ok";
+    } else if (!platL || !platR) {
+      score += 6;
+      platStatus = "warn";
+    } else {
+      platStatus = "warn";
+    }
+    checks.push({
+      key: "plataforma",
+      label: "Plataforma",
+      status: platStatus,
+      summary: platStatus === "ok" ? planning.crmPlatformEquiv || right.platformLabel : "Plataforma diferente",
+      detail: {
+        leftKind: "Planning",
+        left: planning.platformPairLabel,
+        rightKind: "CRM",
+        right: right.platformLabel || "—"
+      },
+      showSidesAlways: platStatus !== "ok"
+    });
+  } else {
+    // Planning ↔ Plataforma: Plataforma + Tracking (sin Intake/Q)
+    maxScore += 20;
+    const platL = normalizarTexto(planning.plataforma) || normalizarTexto(planning.efectiva);
+    const platR = normalizarTexto(right.plataforma);
+    let platStatus = "fail";
+    if (platL && platR && (platL === platR || platL.includes(platR) || platR.includes(platL))) {
+      score += 20;
+      platStatus = "ok";
+    } else if (!platL || !platR) {
+      score += 6;
+      platStatus = "warn";
+    } else {
+      platStatus = "warn";
+    }
+    const platLeftDisp = planning.plataforma || planning.efectiva || "—";
+    const platRightDisp = right.plataforma || "—";
+    checks.push({
+      key: "plataforma",
+      label: "Plataforma",
+      status: platStatus,
+      summary: platStatus === "ok" ? `${platLeftDisp} ↔ ${platRightDisp}` : "Plataforma diferente",
+      detail: { left: platLeftDisp, right: platRightDisp },
+      showSidesAlways: platStatus !== "ok"
+    });
+
+    maxScore += 15;
+    const trackL = normalizarTexto(planning.tracking) || normalizarTexto(planning.efectiva);
+    const trackR = normalizarTexto(right.tracking);
+    let trackStatus = "fail";
+    if (trackL && trackR && (trackL === trackR || trackL.includes(trackR) || trackR.includes(trackL))) {
+      score += 15;
+      trackStatus = "ok";
+    } else if (!trackL || !trackR) {
+      score += 5;
+      trackStatus = "warn";
+    } else {
+      trackStatus = "warn";
+    }
+    const trackLeftDisp = planning.tracking || planning.efectiva || "—";
+    const trackRightDisp = right.tracking || "—";
+    checks.push({
+      key: "tracking",
+      label: "Tracking",
+      status: trackStatus,
+      summary: trackStatus === "ok" ? `${trackLeftDisp} ↔ ${trackRightDisp}` : "Tracking diferente",
+      detail: { left: trackLeftDisp, right: trackRightDisp },
+      showSidesAlways: trackStatus !== "ok"
+    });
+  }
+
+  const pct = maxScore ? (score / maxScore) * 100 : 0;
+  let level = "baja";
+  if (pct >= 85) level = "alta";
+  else if (pct >= 55) level = "media";
+
+  // Reglas de tope: tipo distinto → baja; plataforma CRM distinta con resto ok → como máximo media
+  if (tipoL && tipoR && tipoL !== tipoR) level = "baja";
+  if (mode === "crm") {
+    const platCheck = checks.find((c) => c.key === "plataforma");
+    if (platCheck && platCheck.status !== "ok" && level === "alta") level = "media";
+  }
+  if (progStatus === "fail" && level === "alta") level = "media";
+
+  const messages = {
+    alta: "La relación parece correcta.",
+    media: "Las campañas tienen diferencias que deben revisarse antes de continuar.",
+    baja: "Las campañas parecen diferentes. Confirme solo si está seguro."
+  };
+
+  return {
+    level,
+    score: Math.round(pct),
+    mode,
+    left: {
+      tipo: planning.tipo,
+      programa: planning.programa,
+      intake: planning.intake,
+      plataforma: planning.plataforma,
+      tracking: planning.tracking,
+      platformPairLabel: planning.platformPairLabel,
+      crmPlatformEquiv: planning.crmPlatformEquiv
+    },
+    right: {
+      tipo: right.tipo,
+      programa: right.programa,
+      platformLabel: right.platformLabel || right.plataforma || "",
+      tracking: right.tracking || "",
+      intakeCode: right.intakeCode ?? null
+    },
+    checks,
+    message: messages[level]
+  };
+}
+
+/** Etiqueta limpia (Tipo | Programa) para comparar desde una clave Planning. */
+function buildRelacionCompareLabelFromPlanning(planningKey) {
+  const rec = getPlanningRecordByKey(planningKey);
+  if (rec) {
+    const tipo = String(rec.tipo ?? "").trim();
+    const programa = String(rec.programa ?? "").trim();
+    if (tipo || programa) return [tipo, programa].filter(Boolean).join(" | ");
+  }
+  const parsed = parsePlanningKey(planningKey);
+  const fromKey = [parsed.tipo, parsed.programa].map((x) => String(x ?? "").trim()).filter(Boolean);
+  if (fromKey.length) return fromKey.join(" | ");
+  return String(planningKey || "");
+}
+
+function renderRelacionValidationChecks(checks) {
+  const box = document.getElementById("relacionValidationChecks");
+  if (!box) return;
+  const list = Array.isArray(checks) ? checks : [];
+  box.innerHTML = list
+    .map((c) => {
+      const icon = c.status === "ok" ? "✔" : c.status === "warn" ? "⚠" : "✖";
+      const statusClass = `relacion-validation-check--${c.status || "fail"}`;
+      let body = `<div class="relacion-validation-check-summary">${escapeHtml(c.summary || "—")}</div>`;
+      if (c.showSidesAlways && c.detail) {
+        const leftKind = c.detail.leftKind ? `<span class="relacion-validation-check-side-kind">${escapeHtml(c.detail.leftKind)}</span>` : "";
+        const rightKind = c.detail.rightKind
+          ? `<span class="relacion-validation-check-side-kind">${escapeHtml(c.detail.rightKind)}</span>`
+          : "";
+        body = `
+          <div class="relacion-validation-check-sides">
+            <div class="relacion-validation-check-side">
+              ${leftKind}
+              <span>${escapeHtml(c.detail.left || "—")}</span>
+            </div>
+            <div class="relacion-validation-check-side">
+              ${rightKind}
+              <span>${escapeHtml(c.detail.right || "—")}</span>
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="relacion-validation-check ${statusClass}">
+          <div class="relacion-validation-check-head">
+            <span class="relacion-validation-check-icon" aria-hidden="true">${icon}</span>
+            <span class="relacion-validation-check-label">${escapeHtml(c.label || "")}</span>
+          </div>
+          ${body}
+        </div>`;
+    })
+    .join("");
+}
+
+/**
+ * Modal de validación reutilizable (Planning ↔ Plataforma / Planning ↔ CRM).
+ * Nunca crea la relación: solo pide confirmación del usuario.
+ * @returns {Promise<boolean>} true si el usuario acepta.
+ */
+function showRelacionValidationModal(opts) {
+  const overlay = document.getElementById("relacionValidationModalOverlay");
+  const leftKindEl = document.getElementById("relacionValidationLeftKind");
+  const leftTipoEl = document.getElementById("relacionValidationLeftTipo");
+  const leftProgEl = document.getElementById("relacionValidationLeftPrograma");
+  const rightKindEl = document.getElementById("relacionValidationRightKind");
+  const rightTipoEl = document.getElementById("relacionValidationRightTipo");
+  const rightProgEl = document.getElementById("relacionValidationRightPrograma");
+  const badgeEl = document.getElementById("relacionValidationBadge");
+  const messageEl = document.getElementById("relacionValidationMessage");
+  const acceptBtn = document.getElementById("relacionValidationAcceptBtn");
+  const cancelBtn = document.getElementById("relacionValidationCancelBtn");
+  const closeBtn = document.getElementById("relacionValidationCloseBtn");
+
+  if (!overlay || !acceptBtn || !cancelBtn || !badgeEl || !messageEl) {
+    console.warn("[CampaTrack] Modal de validación de relación no disponible.");
+    return Promise.resolve(false);
+  }
+
+  const {
+    leftKind = "Planning",
+    rightKind = "CRM",
+    evaluation = null
+  } = opts || {};
+
+  const result = evaluation || evaluateRelacionMatch(opts);
+  const level = result.level || "baja";
+
+  if (leftKindEl) leftKindEl.textContent = leftKind;
+  if (rightKindEl) rightKindEl.textContent = rightKind;
+  if (leftTipoEl) leftTipoEl.textContent = result.left?.tipo || "—";
+  if (leftProgEl) leftProgEl.textContent = result.left?.programa || "—";
+  if (rightTipoEl) rightTipoEl.textContent = result.right?.tipo || "—";
+  if (rightProgEl) rightProgEl.textContent = result.right?.programa || "—";
+
+  renderRelacionValidationChecks(result.checks);
+
+  const levelLabels = { alta: "Alta", media: "Media", baja: "Baja" };
+  badgeEl.textContent = levelLabels[level] || level;
+  badgeEl.className = `relacion-validation-badge relacion-validation-badge--${level}`;
+  messageEl.textContent = result.message || "";
+  messageEl.className = `relacion-validation-message relacion-validation-message--${level}`;
+
+  overlay.dataset.matchLevel = level;
+  overlay.dataset.matchMode = result.mode || "";
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      overlay.classList.add("hidden");
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.removeEventListener("click", onOverlayClick);
+      document.removeEventListener("keydown", onKeydown);
+      acceptBtn.onclick = null;
+      cancelBtn.onclick = null;
+      if (closeBtn) closeBtn.onclick = null;
+      resolve(value);
+    };
+
+    const onOverlayClick = (e) => {
+      if (e.target === overlay) finish(false);
+    };
+    const onKeydown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        finish(false);
+      }
+    };
+
+    acceptBtn.onclick = () => finish(true);
+    cancelBtn.onclick = () => finish(false);
+    if (closeBtn) closeBtn.onclick = () => finish(false);
+    overlay.addEventListener("click", onOverlayClick);
+    document.addEventListener("keydown", onKeydown);
+    overlay.classList.remove("hidden");
+    overlay.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => acceptBtn.focus());
+  });
+}
+
+/**
+ * Valida una posible relación y muestra el modal. Reutilizar en Plataforma y CRM.
+ * El motor detecta automáticamente el modo según rightKind.
+ * @returns {Promise<boolean>}
+ */
+function confirmRelacionMatch(opts = {}) {
+  const evaluation = evaluateRelacionMatch(opts);
+  return showRelacionValidationModal({
+    ...opts,
+    evaluation
+  });
+}
+
 function extractIntakeCode(texto) {
   const t = normalizarTexto(texto);
   const m = t.match(/intake\s*(\d)/) || t.match(/intake(\d)/) || t.match(/\b(\d)\b/);
@@ -14838,7 +15988,6 @@ function getFilteredPlanningKeys() {
   const linked = getRelLinkedPlanningSet();
   const gq = normalizarTexto(relacionesSearchQuery);
   const pq = normalizarTexto(relacionesPlanningListQuery);
-  const plat = normalizarTexto(relFiltroPlataforma);
   const est = relFiltroEstadoRel;
   const tipoF = normalizarTexto(relFiltroTipo);
   return getCaptacionPlanningGroups()
@@ -14848,7 +15997,14 @@ function getFilteredPlanningKeys() {
       if (gq && !normalizarTexto(k).includes(gq)) return false;
       if (pq && !normalizarTexto(k).includes(pq)) return false;
       const parsed = parsePlanningKey(k);
-      if (plat && normalizarTexto(parsed.plataforma) !== plat && !normalizarTexto(parsed.plataforma).includes(plat)) return false;
+      if (
+        !crmRelMatchesPlataformaFilter(relFiltroPlataforma, {
+          plataforma: parsed.plataforma,
+          tracking: parsed.tracking
+        })
+      ) {
+        return false;
+      }
       if (tipoF && normalizarTexto(parsed.tipo) !== tipoF) return false;
       if (est === "con" && !linked.has(k)) return false;
       if (est === "sin" && linked.has(k)) return false;
@@ -14861,14 +16017,22 @@ function getFilteredDataUniqueList() {
   const linked = getRelLinkedDataSet();
   const gq = normalizarTexto(relacionesSearchQuery);
   const dq = normalizarTexto(relacionesDataListQuery);
-  const plat = normalizarTexto(relFiltroPlataforma);
   const est = relFiltroEstadoRel;
   const tipoF = normalizarTexto(relFiltroTipo);
   return getRelacionableDataUniqueList().filter((u) => {
     const text = `${u.idCampania} ${u.nombre}`;
     if (gq && !normalizarTexto(text).includes(gq)) return false;
     if (dq && !normalizarTexto(text).includes(dq)) return false;
-    if (plat && !relDataMatchesPlataformaFilter(u, plat)) return false;
+    if (
+      !crmRelMatchesPlataformaFilter(relFiltroPlataforma, {
+        nombre: u.nombre,
+        trafficType: u.trafficType || "",
+        tracking: u.tracking || "",
+        plataforma: u.plataforma || ""
+      })
+    ) {
+      return false;
+    }
     if (tipoF && !relDataMatchesTipoFilter(u, tipoF)) return false;
     if (est === "con" && !linked.has(String(u.idCampania))) return false;
     if (est === "sin" && linked.has(String(u.idCampania))) return false;
@@ -14880,27 +16044,27 @@ function refreshRelacionesFilterSelects() {
   const selPlat = document.getElementById("relFiltroPlataforma");
   const selTipo = document.getElementById("relFiltroTipo");
   if (!selPlat || !selTipo) return;
-  const plats = new Set();
   const tipos = new Set();
   planningDraftRecords().forEach((r) => {
-    const p = String(r.plataforma || "").trim();
     const t = String(r.tipo || "").trim();
-    if (p) plats.add(p);
     if (t) tipos.add(t);
   });
   const curP = selPlat.value;
   const curT = selTipo.value;
-  const platArr = Array.from(plats).sort((a, b) => a.localeCompare(b, "es"));
   const tipoArr = Array.from(tipos).sort((a, b) => a.localeCompare(b, "es"));
-  selPlat.innerHTML = `<option value="">Todos</option>${platArr.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("")}`;
+  selPlat.innerHTML = `<option value="">Todos</option>${CRM_REL_PLATAFORMA_FILTER_OPTIONS.map(
+    (x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`
+  ).join("")}`;
   selTipo.innerHTML = `<option value="">Todos</option>${tipoArr.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("")}`;
-  if (platArr.includes(curP)) selPlat.value = curP;
+  if (CRM_REL_PLATAFORMA_FILTER_OPTIONS.includes(curP)) selPlat.value = curP;
   if (tipoArr.includes(curT)) selTipo.value = curT;
 }
 
 function relPlataformaBadgeClass(plat) {
   const p = normalizarTexto(String(plat || ""));
-  if (p.includes("meta") || p.includes("facebook") || p.includes("instagram")) return "rel-plat-badge rel-plat-badge--meta";
+  if (p.includes("meta") || p.includes("facebook") || p.includes("instagram") || p.includes("leadgen"))
+    return "rel-plat-badge rel-plat-badge--meta";
+  if (p.includes("pixel")) return "rel-plat-badge rel-plat-badge--meta";
   if (p.includes("google")) return "rel-plat-badge rel-plat-badge--google";
   if (p.includes("tiktok")) return "rel-plat-badge rel-plat-badge--tiktok";
   if (p.includes("linkedin")) return "rel-plat-badge rel-plat-badge--linkedin";
@@ -15036,19 +16200,21 @@ function renderRelacionesPlanningList() {
   if (selCount) selCount.textContent = String(selectedPlanningKeys.size);
   container.innerHTML = keys.map((k) => {
     const parsed = parsePlanningKey(k);
-    const metaBits = [parsed.tipo, parsed.intake, parsed.tracking].filter(Boolean);
+    const displayName = formatCrmRelPlanningDisplayName(k);
+    const platTrack = formatPlanningPlataformaTrackingDisplay(parsed.plataforma, parsed.tracking);
+    const metaBits = [parsed.tipo, parsed.intake, platTrack].filter(Boolean);
     const meta = metaBits.length ? metaBits.join(" · ") : "—";
-    const platLabel = String(parsed.plataforma || "—").trim() || "—";
+    const platLabel = platTrack || "—";
     const cls = [
       "rel-item",
       selectedPlanningKeys.has(k) ? "rel-selected" : "",
       linked.has(k) ? "rel-linked-planning" : ""
     ].filter(Boolean).join(" ");
-    const badgeClass = relPlataformaBadgeClass(parsed.plataforma);
+    const badgeClass = relPlataformaBadgeClass(parsed.plataforma || platTrack);
     return `<div class="${cls}" data-rel-planning="${escapeHtml(k)}" role="option" aria-selected="${selectedPlanningKeys.has(k) ? "true" : "false"}">
       <span class="${badgeClass}">${escapeHtml(platLabel)}</span>
       <div class="rel-item-body">
-        <div class="rel-item-title">${escapeHtml(k)}</div>
+        <div class="rel-item-title">${escapeHtml(displayName)}</div>
         <div class="rel-item-meta">${escapeHtml(meta)}</div>
       </div>
     </div>`;
@@ -15086,7 +16252,6 @@ function renderRelacionesTabla() {
   const tbody = document.getElementById("relacionesTbody");
   if (!tbody) return;
   const q = normalizarTexto(relacionesSearchQuery);
-  const platF = normalizarTexto(relFiltroPlataforma);
   const tipoF = normalizarTexto(relFiltroTipo);
   const estF = relFiltroEstadoRel;
   const rows = relaciones
@@ -15105,7 +16270,14 @@ function renderRelacionesTabla() {
         if (!planningTxt.includes(q) && !dataTxt.includes(q) && !idTxt.includes(q)) return false;
       }
       const parsed = parsePlanningKey(rel.planningKey);
-      if (platF && !normalizarTexto(parsed.plataforma).includes(platF) && normalizarTexto(parsed.plataforma) !== platF) return false;
+      if (
+        !crmRelMatchesPlataformaFilter(relFiltroPlataforma, {
+          plataforma: parsed.plataforma,
+          tracking: parsed.tracking
+        })
+      ) {
+        return false;
+      }
       if (tipoF && normalizarTexto(parsed.tipo) !== tipoF) return false;
       return true;
     });
@@ -16495,33 +17667,58 @@ function initMedidasModule() {
   });
 }
 
-function vincularCampanias() {
+async function vincularCampanias() {
   if (!selectedPlanningKeys.size || !selectedDataCampaignKeys.size) return;
   const latestNameById = getLatestCampaignNameMap(getAllCampaignRows());
   const fechaRelacion = formatDateInputFromDate(new Date());
-  selectedPlanningKeys.forEach((planningKey) => {
-    if (!planningKeyEsCaptacion(planningKey)) return;
-    selectedDataCampaignKeys.forEach((key) => {
+
+  const pairs = [];
+  for (const planningKey of selectedPlanningKeys) {
+    if (!planningKeyEsCaptacion(planningKey)) continue;
+    for (const key of selectedDataCampaignKeys) {
       const idCampania = String(key || "").trim();
-      if (!idCampania) return;
-      const nombre = latestNameById.get(idCampania) || "";
+      if (!idCampania) continue;
       const exists = ensureRelacionesDraftShape().some(
         (r) =>
           r.planningKey === planningKey &&
           String(r.idCampania || "").trim() === idCampania
       );
-      if (exists) return;
-      const planningRec = getPlanningRecordByKey(planningKey);
-      const dataRow = getDataUniqueList().find((d) => String(d.idCampania) === idCampania);
-      const coincidencia = planningRec && dataRow ? calcularScorePlanningRec(planningRec, dataRow) : null;
-      ensureRelacionesDraftShape().push({
+      if (exists) continue;
+      pairs.push({
         planningKey,
         idCampania,
-        nombre,
-        fechaRelacion,
-        estado: "activo",
-        ...(coincidencia != null ? { coincidencia } : {}),
+        nombre: latestNameById.get(idCampania) || ""
       });
+    }
+  }
+  if (!pairs.length) return;
+
+  // Validación previa (reutilizable): normalmente 1 Planning + 1 Data desde la UI.
+  for (const pair of pairs) {
+    const dataRow = getDataUniqueList().find((d) => String(d.idCampania) === pair.idCampania);
+    const accepted = await confirmRelacionMatch({
+      leftKind: "Planning",
+      rightKind: "Plataforma",
+      planningKey: pair.planningKey,
+      leftLabel: buildRelacionCompareLabelFromPlanning(pair.planningKey),
+      rightLabel: pair.nombre || pair.idCampania,
+      idCampania: pair.idCampania,
+      dataRow
+    });
+    if (!accepted) return;
+  }
+
+  pairs.forEach(({ planningKey, idCampania, nombre }) => {
+    const planningRec = getPlanningRecordByKey(planningKey);
+    const dataRow = getDataUniqueList().find((d) => String(d.idCampania) === idCampania);
+    const coincidencia = planningRec && dataRow ? calcularScorePlanningRec(planningRec, dataRow) : null;
+    ensureRelacionesDraftShape().push({
+      planningKey,
+      idCampania,
+      nombre,
+      fechaRelacion,
+      estado: "activo",
+      ...(coincidencia != null ? { coincidencia } : {}),
     });
   });
   selectedDataCampaignKeys = new Set();

@@ -5207,6 +5207,278 @@ body.dark-mode #mainAppShell #dashEndingSoonModal .dash-ending-soon-footer {
   border-color: #cbd5e1;
 }
 
+/* Modal validación de relaciones (Planning ↔ Plataforma / CRM) */
+.relacion-validation-overlay {
+  z-index: 100110;
+}
+
+.relacion-validation-dialog {
+  width: min(500px, 100%);
+  padding: 20px 22px 18px;
+}
+
+.relacion-validation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.relacion-validation-header .app-dialog-heading {
+  margin: 0;
+}
+
+.relacion-validation-close {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 8px;
+}
+
+.relacion-validation-close:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.relacion-validation-body {
+  display: grid;
+  gap: 14px;
+  margin: 8px 0 18px;
+}
+
+.relacion-validation-side {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.relacion-validation-kind {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.relacion-validation-tipo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.relacion-validation-programa {
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: #334155;
+}
+
+.relacion-validation-arrow {
+  text-align: center;
+  font-size: 1.15rem;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.relacion-validation-checks {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.relacion-validation-check {
+  display: grid;
+  gap: 4px;
+}
+
+.relacion-validation-check-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.relacion-validation-check-icon {
+  flex: 0 0 auto;
+  width: 1.1em;
+  text-align: center;
+}
+
+.relacion-validation-check--ok .relacion-validation-check-icon {
+  color: #16a34a;
+}
+
+.relacion-validation-check--warn .relacion-validation-check-icon {
+  color: #ca8a04;
+}
+
+.relacion-validation-check--fail .relacion-validation-check-icon {
+  color: #dc2626;
+}
+
+.relacion-validation-check-summary {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: #334155;
+  padding-left: calc(1.1em + 8px);
+}
+
+.relacion-validation-check-sides {
+  display: grid;
+  gap: 6px;
+  padding-left: calc(1.1em + 8px);
+}
+
+.relacion-validation-check-side {
+  display: grid;
+  gap: 1px;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.relacion-validation-check-side-kind {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.relacion-validation-match-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.relacion-validation-match-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.relacion-validation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.relacion-validation-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.relacion-validation-badge--alta {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.relacion-validation-badge--media {
+  color: #854d0e;
+  background: #fef9c3;
+}
+
+.relacion-validation-badge--baja {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.relacion-validation-message {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.4;
+  color: #334155;
+}
+
+.relacion-validation-message--alta {
+  color: #166534;
+}
+
+.relacion-validation-message--media {
+  color: #854d0e;
+}
+
+.relacion-validation-message--baja {
+  color: #991b1b;
+}
+
+.relacion-validation-actions {
+  margin-top: 0;
+}
+
+body.dark-mode .relacion-validation-dialog {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+body.dark-mode .relacion-validation-header .app-dialog-heading {
+  color: #f1f5f9;
+}
+
+body.dark-mode .relacion-validation-close {
+  color: #94a3b8;
+}
+
+body.dark-mode .relacion-validation-close:hover {
+  color: #f1f5f9;
+  background: #334155;
+}
+
+body.dark-mode .relacion-validation-side {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+body.dark-mode .relacion-validation-tipo {
+  color: #f8fafc;
+}
+
+body.dark-mode .relacion-validation-programa {
+  color: #cbd5e1;
+}
+
+body.dark-mode .relacion-validation-match-label {
+  color: #94a3b8;
+}
+
+body.dark-mode .relacion-validation-checks {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+body.dark-mode .relacion-validation-check-head {
+  color: #94a3b8;
+}
+
+body.dark-mode .relacion-validation-check-summary,
+body.dark-mode .relacion-validation-check-side {
+  color: #cbd5e1;
+}
+
+body.dark-mode .relacion-validation-check-side-kind {
+  color: #64748b;
+}
+
 .app-dialog-btn-secondary:hover {
   background: #e2e8f0;
 }
@@ -10217,6 +10489,422 @@ body.dark-mode .campatrack-login-select {
   flex-wrap: wrap;
   gap: 12px 16px;
   align-items: flex-end;
+}
+
+/* —— Configuración de Planning (detección automática) —— */
+.planning-config-modal .planning-config-modal-content {
+  width: min(720px, 96vw);
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 860px);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+.planning-config-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.planning-config-modal-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.planning-config-modal-title i {
+  color: #7c3aed;
+}
+
+.planning-config-modal-close {
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.planning-config-modal-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.planning-config-intro,
+.planning-config-table-card,
+.planning-config-help-card {
+  padding: 14px 22px;
+}
+
+.planning-config-intro {
+  overflow: auto;
+}
+
+.planning-config-section-title {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.planning-config-intro-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.planning-config-table-card {
+  padding-top: 4px;
+  padding-bottom: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.planning-config-table-heading {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.planning-config-table-scroll {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: auto;
+  background: #fff;
+  max-height: 240px;
+}
+
+.planning-config-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.planning-config-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.planning-config-table tbody td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+  vertical-align: middle;
+}
+
+.planning-config-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.planning-config-col-keyword {
+  font-weight: 700;
+}
+
+.planning-config-col-accion {
+  color: #475569;
+}
+
+.planning-config-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 20px 12px !important;
+}
+
+.planning-config-switch .bitacora-saas-switch-track {
+  background: #cbd5e1;
+}
+
+.planning-config-switch input:checked + .bitacora-saas-switch-track {
+  background: #22c55e;
+}
+
+.planning-config-switch-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.planning-config-col-actions {
+  white-space: nowrap;
+}
+
+.planning-config-icon-btn {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  margin-right: 4px;
+}
+
+.planning-config-icon-btn:hover {
+  background: #f8fafc;
+  color: #7c3aed;
+  border-color: #ddd6fe;
+}
+
+.planning-config-icon-btn--danger:hover {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.planning-config-add-btn {
+  margin-top: 10px;
+  width: 100%;
+  border: 1.5px dashed #a78bfa;
+  background: #faf5ff;
+  color: #6d28d9;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.planning-config-add-btn:hover {
+  background: #f3e8ff;
+  border-color: #8b5cf6;
+}
+
+.planning-config-help-card {
+  margin: 4px 22px 0;
+  padding: 14px 16px;
+  border: 1px solid #ddd6fe;
+  background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.planning-config-help-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.planning-config-help-header i {
+  color: #7c3aed;
+}
+
+.planning-config-help-header h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #4c1d95;
+}
+
+.planning-config-help-text {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.planning-config-help-examples {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.planning-config-help-example {
+  background: #fff;
+  border: 1px solid #ede9fe;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.planning-config-help-example-label {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7c3aed;
+}
+
+.planning-config-help-campaign {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.planning-config-help-arrow {
+  margin: 4px 0;
+  color: #94a3b8;
+  font-weight: 700;
+  text-align: center;
+}
+
+.planning-config-help-step {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #475569;
+  text-align: center;
+}
+
+.planning-config-help-result {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #16a34a;
+  text-align: center;
+}
+
+.planning-config-modal-actions {
+  padding: 14px 22px 18px;
+  margin: 0;
+  border-top: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.planning-config-modal-actions .app-dialog-btn-primary {
+  background: #7c3aed;
+}
+
+.planning-config-modal-actions .app-dialog-btn-primary:hover {
+  background: #6d28d9;
+}
+
+.planning-keyword-modal {
+  z-index: calc(var(--z-modal) + 5);
+}
+
+.planning-keyword-modal-content {
+  width: min(420px, 94vw);
+  padding: 0;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.planning-keyword-form {
+  padding: 16px 22px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.planning-keyword-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planning-keyword-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.planning-keyword-form-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .planning-config-help-examples {
+    grid-template-columns: 1fr;
+  }
+}
+
+body.dark-mode .planning-config-modal .planning-config-modal-content,
+body.dark-mode .planning-keyword-modal-content {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+body.dark-mode .planning-config-modal-header,
+body.dark-mode .planning-config-modal-actions {
+  border-color: #334155;
+}
+
+body.dark-mode .planning-config-modal-title,
+body.dark-mode .planning-config-col-keyword,
+body.dark-mode .planning-config-table tbody td {
+  color: #f1f5f9;
+}
+
+body.dark-mode .planning-config-intro-text,
+body.dark-mode .planning-config-col-accion,
+body.dark-mode .planning-config-help-text,
+body.dark-mode .planning-config-help-step {
+  color: #94a3b8;
+}
+
+body.dark-mode .planning-config-table-scroll,
+body.dark-mode .planning-config-help-example {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+body.dark-mode .planning-config-table thead th {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+body.dark-mode .planning-config-help-card {
+  background: linear-gradient(180deg, #312e81 0%, #1e293b 100%);
+  border-color: #4c1d95;
+}
+
+body.dark-mode .planning-config-add-btn {
+  background: #312e81;
+  border-color: #7c3aed;
+  color: #e9d5ff;
+}
+
+body.dark-mode .planning-config-modal-close,
+body.dark-mode .planning-config-icon-btn {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
 }
 
 #planningModule .btn-saas-outline-danger {

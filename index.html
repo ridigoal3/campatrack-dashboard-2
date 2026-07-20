@@ -345,8 +345,8 @@
           <span class="planning-filter-label">Rango de fechas</span>
           <input id="planningFechaRango" type="text" readonly class="planning-filter-control planning-range-input" placeholder="Todas las fechas" aria-label="Rango de fechas de campaña" />
         </label>
-        <button type="button" id="planningFiltrosAvanzadosBtn" class="btn-toolbar planning-adv-trigger" aria-expanded="false" aria-controls="planningAdvFiltersPanel">
-          <i class="fa-solid fa-sliders" aria-hidden="true"></i> Filtros avanzados
+        <button type="button" id="planningFiltrosAvanzadosBtn" class="btn-toolbar planning-adv-trigger" aria-haspopup="dialog" aria-controls="planningConfigModal">
+          <i class="fa-solid fa-gear" aria-hidden="true"></i> Configuración
         </button>
       </div>
       <div class="toolbar-actions planning-toolbar-actions-saas">
@@ -361,7 +361,8 @@
       </div>
     </div>
 
-    <div id="planningAdvFiltersPanel" class="planning-adv-filters-panel hidden" role="region" aria-hidden="true" aria-labelledby="planningAdvFiltersHeading">
+    <!-- Filtros legacy (Programa / Intake) ocultos: se conservan en DOM para no romper listeners existentes -->
+    <div id="planningAdvFiltersPanel" class="planning-adv-filters-panel hidden" hidden aria-hidden="true">
       <p id="planningAdvFiltersHeading" class="planning-adv-filters-heading">Filtros avanzados</p>
       <div class="planning-adv-filters-inner">
         <label class="planning-filter-field planning-filter-field--grow">
@@ -2693,6 +2694,38 @@
     </div>
   </div>
 
+  <div id="relacionValidationModalOverlay" class="app-dialog-overlay relacion-validation-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="relacionValidationTitle" aria-hidden="true">
+    <div class="app-dialog app-dialog--wide relacion-validation-dialog" role="document">
+      <div class="relacion-validation-header">
+        <h3 id="relacionValidationTitle" class="app-dialog-heading">Validación de relación</h3>
+        <button type="button" id="relacionValidationCloseBtn" class="relacion-validation-close" aria-label="Cerrar">×</button>
+      </div>
+      <div class="relacion-validation-body">
+        <div class="relacion-validation-side">
+          <span id="relacionValidationLeftKind" class="relacion-validation-kind">Planning</span>
+          <span id="relacionValidationLeftTipo" class="relacion-validation-tipo">—</span>
+          <span id="relacionValidationLeftPrograma" class="relacion-validation-programa">—</span>
+        </div>
+        <div class="relacion-validation-arrow" aria-hidden="true">↓</div>
+        <div class="relacion-validation-side">
+          <span id="relacionValidationRightKind" class="relacion-validation-kind">CRM</span>
+          <span id="relacionValidationRightTipo" class="relacion-validation-tipo">—</span>
+          <span id="relacionValidationRightPrograma" class="relacion-validation-programa">—</span>
+        </div>
+        <div id="relacionValidationChecks" class="relacion-validation-checks" aria-label="Detalle de validación"></div>
+        <div class="relacion-validation-match-block">
+          <span class="relacion-validation-match-label">Coincidencia estimada</span>
+          <span id="relacionValidationBadge" class="relacion-validation-badge relacion-validation-badge--alta">Alta</span>
+        </div>
+        <p id="relacionValidationMessage" class="relacion-validation-message">La relación parece correcta.</p>
+      </div>
+      <div class="app-dialog-actions relacion-validation-actions">
+        <button type="button" id="relacionValidationCancelBtn" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+        <button type="button" id="relacionValidationAcceptBtn" class="app-dialog-btn app-dialog-btn-primary">Aceptar relación</button>
+      </div>
+    </div>
+  </div>
+
   <div id="medidaModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="medidaModalTitle">
     <div class="modal-content">
       <h2 id="medidaModalTitle">Crear medida</h2>
@@ -2832,6 +2865,112 @@
       </div>
     </div>
   </div>
+
+  <div id="planningConfigModal" class="modal planning-config-modal hidden" role="dialog" aria-modal="true" aria-labelledby="planningConfigModalTitle" aria-hidden="true">
+      <div class="modal-content planning-config-modal-content">
+        <header class="planning-config-modal-header">
+          <div class="planning-config-modal-header-main">
+            <h2 id="planningConfigModalTitle" class="planning-config-modal-title">
+              <i class="fa-solid fa-gear" aria-hidden="true"></i>
+              Configuración de Planning
+            </h2>
+          </div>
+          <button type="button" id="planningConfigModalCloseBtn" class="planning-config-modal-close" aria-label="Cerrar">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+        </header>
+
+        <section class="planning-config-intro" aria-labelledby="planningConfigRulesHeading">
+          <h3 id="planningConfigRulesHeading" class="planning-config-section-title">Reglas de detección automática</h3>
+          <p class="planning-config-intro-text">
+            El sistema buscará estas palabras dentro del nombre de las campañas importadas desde Meta, Google, LinkedIn u otras plataformas.
+            Cuando encuentre una coincidencia, podrá ejecutar automáticamente una acción sin necesidad de que exista una relación CRM.
+          </p>
+        </section>
+
+        <section class="planning-config-table-card" aria-labelledby="planningConfigKeywordsHeading">
+          <h4 id="planningConfigKeywordsHeading" class="planning-config-table-heading">Palabras clave registradas</h4>
+          <div class="planning-config-table-scroll">
+            <table class="planning-config-table">
+              <thead>
+                <tr>
+                  <th scope="col">Palabra clave</th>
+                  <th scope="col">Acción</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="planningConfigKeywordsTbody"></tbody>
+            </table>
+          </div>
+          <button type="button" id="planningConfigAddKeywordBtn" class="planning-config-add-btn">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i> Agregar palabra clave
+          </button>
+        </section>
+
+        <aside class="planning-config-help-card" aria-labelledby="planningConfigHelpTitle">
+          <div class="planning-config-help-header">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            <h4 id="planningConfigHelpTitle">¿Cómo funciona?</h4>
+          </div>
+          <p class="planning-config-help-text">
+            El sistema realizará una búsqueda de estas palabras dentro del nombre de la campaña importada.
+          </p>
+          <div class="planning-config-help-examples">
+            <div class="planning-config-help-example">
+              <p class="planning-config-help-example-label">Ejemplo 1</p>
+              <p class="planning-config-help-campaign">MBA_Salud_<strong>Alcance</strong>_2026</p>
+              <p class="planning-config-help-arrow" aria-hidden="true">↓</p>
+              <p class="planning-config-help-step">Contiene &quot;Alcance&quot;</p>
+              <p class="planning-config-help-arrow" aria-hidden="true">↓</p>
+              <p class="planning-config-help-result">Se suma automáticamente al Dashboard.</p>
+            </div>
+            <div class="planning-config-help-example">
+              <p class="planning-config-help-example-label">Ejemplo 2</p>
+              <p class="planning-config-help-campaign">Evento_<strong>OpenDay</strong>_Medicina</p>
+              <p class="planning-config-help-arrow" aria-hidden="true">↓</p>
+              <p class="planning-config-help-step">Contiene &quot;OpenDay&quot;</p>
+              <p class="planning-config-help-arrow" aria-hidden="true">↓</p>
+              <p class="planning-config-help-result">Se suma automáticamente al Dashboard.</p>
+            </div>
+          </div>
+        </aside>
+
+        <div class="planning-config-modal-actions modal-actions">
+          <button type="button" id="planningConfigCancelBtn" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+          <button type="button" id="planningConfigSaveBtn" class="app-dialog-btn app-dialog-btn-primary">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="planningKeywordModal" class="modal planning-keyword-modal hidden" role="dialog" aria-modal="true" aria-labelledby="planningKeywordModalTitle" aria-hidden="true">
+      <div class="modal-content planning-keyword-modal-content">
+        <header class="planning-config-modal-header">
+          <div class="planning-config-modal-header-main">
+            <h2 id="planningKeywordModalTitle" class="planning-config-modal-title">Agregar palabra clave</h2>
+          </div>
+          <button type="button" id="planningKeywordModalCloseBtn" class="planning-config-modal-close" aria-label="Cerrar">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+        </header>
+        <form id="planningKeywordForm" class="planning-keyword-form" autocomplete="off">
+          <input type="hidden" id="planningKeywordEditId" value="" />
+          <label class="planning-keyword-field">
+            <span class="planning-keyword-label">Palabra clave</span>
+            <input id="planningKeywordInput" type="text" class="planning-filter-control" maxlength="80" required placeholder="Ej. Alcance" />
+          </label>
+          <label class="planning-keyword-field">
+            <span class="planning-keyword-label">Acción</span>
+            <select id="planningKeywordAccionSelect" class="planning-filter-control" required></select>
+          </label>
+          <p id="planningKeywordFormError" class="planning-keyword-form-error hidden" role="alert"></p>
+          <div class="planning-config-modal-actions modal-actions">
+            <button type="button" id="planningKeywordCancelBtn" class="app-dialog-btn app-dialog-btn-secondary">Cancelar</button>
+            <button type="submit" id="planningKeywordSubmitBtn" class="app-dialog-btn app-dialog-btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
   <div id="campaignModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-content campaign-modal-surface">
